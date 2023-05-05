@@ -180,7 +180,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
 
     sampler: ISampler
     control_model: Optional[Union[ControlNet, nn.ModuleDict]]
-    control_scales: Optional[Union[List[float], Dict[str, List[float]]]]
+    control_scales: Optional[Union[List[float], List[List[float]]]]
 
     def __init__(
         self,
@@ -515,41 +515,41 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
                     if self.control_scales is None:
                         scales = [1.0] * self.num_control_scales
                     else:
-                        if isinstance(self.control_scales, dict):
-                            raise ValueError("`control_scales` should not be dict")
+                        if isinstance(self.control_scales[0], list):
+                            raise ValueError("`control_scales` should be list of float")
                         scales = self.control_scales
                     ctrl = [c * scale for c, scale in zip(ctrl, scales)]
             else:
-                if not isinstance(hint, dict):
-                    raise ValueError("`hint` should be a dict for multi control")
+                if not isinstance(hint, list):
+                    raise ValueError("`hint` should be a list for control settings")
+                if not isinstance(hint_start, list):
+                    raise ValueError("`hint_start` should be a list of Optional[float]")
                 target_keys = set(self.control_model.keys())
-                if set(hint) - target_keys:
-                    msg = f"`hint` should not exceed following keys: {', '.join(sorted(target_keys))}"
+                hint_types = set(pair[0] for pair in hint)
+                if hint_types - target_keys:
+                    msg = f"`hint` ({hint_types}) should not exceed following keys: {', '.join(sorted(target_keys))}"
                     raise ValueError(msg)
-                if hint_start is not None and not isinstance(hint_start, dict):
-                    hint_start = {k: hint_start for k in hint}
                 ctrl = [0.0] * self.num_control_scales
                 any_activated = False
-                for k, k_hint in hint.items():
-                    k_hint_start = None if hint_start is None else hint_start.get(k)
-                    if not check_hint_start(k_hint_start):
+                for i, ((i_type, i_hint), i_start) in enumerate(zip(hint, hint_start)):
+                    if not check_hint_start(i_start):
                         continue
                     any_activated = True
-                    k_cmodel = self.control_model[k]
+                    i_cmodel = self.control_model[i_type]
                     # inpainting workaround
-                    if k_cmodel.in_channels == net.shape[1]:
+                    if i_cmodel.in_channels == net.shape[1]:
                         cnet = net
                     else:
-                        cnet = net[:, : k_cmodel.in_channels]
-                    k_control = k_cmodel(cnet, k_hint, timesteps=timesteps, **cond_kw)
-                    if self.control_scales is not None:
-                        if not isinstance(self.control_scales, dict):
-                            raise ValueError("`control_scales` should be a dict")
-                        k_scales = self.control_scales[k]
+                        cnet = net[:, : i_cmodel.in_channels]
+                    i_control = i_cmodel(cnet, i_hint, timesteps=timesteps, **cond_kw)
+                    if self.control_scales is None:
+                        i_scales = [1.0] * self.num_control_scales
                     else:
-                        k_scales = [1.0] * self.num_control_scales
-                    for i, (k_c, k_scale) in enumerate(zip(k_control, k_scales)):
-                        ctrl[i] += k_c * k_scale
+                        if not isinstance(self.control_scales[i], list):
+                            raise ValueError("`control_scales` should be list of list")
+                        i_scales = self.control_scales[i]
+                    for j, (j_c, j_scale) in enumerate(zip(i_control, i_scales)):
+                        ctrl[j] += j_c * j_scale
                 if not any_activated:
                     ctrl = None
             cond_kw["control"] = ctrl
