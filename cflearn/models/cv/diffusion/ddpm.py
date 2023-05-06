@@ -517,7 +517,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
                     else:
                         if isinstance(self.control_scales[0], list):
                             raise ValueError("`control_scales` should be list of float")
-                        scales = self.control_scales
+                        scales = self.control_scales  # type: ignore
                     ctrl = [c * scale for c, scale in zip(ctrl, scales)]
             else:
                 if not isinstance(hint, list):
@@ -547,7 +547,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
                     else:
                         if not isinstance(self.control_scales[i], list):
                             raise ValueError("`control_scales` should be list of list")
-                        i_scales = self.control_scales[i]
+                        i_scales = self.control_scales[i]  # type: ignore
                     for j, (j_c, j_scale) in enumerate(zip(i_control, i_scales)):
                         ctrl[j] += j_c * j_scale
                 if not any_activated:
