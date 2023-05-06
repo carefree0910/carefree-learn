@@ -167,10 +167,6 @@ class DDPMStep(CustomTrainStep):
             m.unet_ema()
 
 
-TControlScales = Union[float, List[float]]
-TTControlScales = Union[TControlScales, Dict[str, TControlScales]]
-
-
 @ModelWithCustomSteps.register("ddpm")
 class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
     cond_key = "cond"
@@ -616,32 +612,6 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
         if name not in self.control_model:
             raise ValueError(f"cannot find '{name}' in current models")
         self.control_model[name].load_state_dict(d)
-
-    def set_control_scales(self, scales: TTControlScales) -> None:
-        def _parse(ss: TControlScales) -> List[float]:
-            if isinstance(ss, float):
-                ss = [ss] * self.num_control_scales
-            return ss
-
-        if not isinstance(scales, dict):
-            scales = _parse(scales)
-        else:
-            scales = {k: _parse(v) for k, v in scales.items()}
-        if isinstance(self.control_model, ControlNet):
-            if isinstance(scales, dict):
-                msg = "`scales` should not be dict when only one `ControlNet` is used"
-                raise ValueError(msg)
-            self.control_scales = scales
-        else:
-            if not isinstance(scales, dict):
-                msg = "`scales` should be dict when multiple `ControlNet` are used"
-                raise ValueError(msg)
-            if self.control_model is not None:
-                target_keys = set(self.control_model.keys())
-                if set(scales) != target_keys:
-                    msg = f"`scales` should (exactly) have following keys: {', '.join(sorted(target_keys))}"
-                    raise ValueError(msg)
-            self.control_scales = {k: _parse(v) for k, v in scales.items()}
 
     def detach_control_net(self) -> None:
         if self.control_model is not None:
