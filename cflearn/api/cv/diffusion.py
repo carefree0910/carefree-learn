@@ -538,6 +538,12 @@ class DiffusionAPI(APIMixin):
                             i_kw_backup["decode_callback"] = self.empty_cuda_cache
                             self.empty_cuda_cache()
                             i_sampled = self._img2img(i_z, export_path, **i_kw_backup)
+                            if original_size is not None:
+                                upscale_factor = highres_info["upscale_factor"]
+                                original_size = (
+                                    round(original_size[0] * upscale_factor),
+                                    round(original_size[1] * upscale_factor),
+                                )
                     sampled.append(i_sampled.cpu().float())
         if uncond_backup is not None:
             self.sampler.uncond = uncond_backup
