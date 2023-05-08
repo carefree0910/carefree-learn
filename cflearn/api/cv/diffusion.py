@@ -531,6 +531,7 @@ class DiffusionAPI(APIMixin):
                             i_z = self._get_highres_latent(i_sampled, highres_info)
                             fidelity = highres_info["fidelity"]
                             i_num_steps = int(num_steps / min(1.0 - fidelity, 0.999))
+                            i_kw_backup.pop("highres_info", None)
                             i_kw_backup.update(o_kw_backup)
                             i_kw_backup["fidelity"] = fidelity
                             i_kw_backup["num_steps"] = i_num_steps
