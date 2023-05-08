@@ -551,23 +551,9 @@ class CrossAttention(Module):
         k = self.transpose(k)
         v = self.transpose(v)
 
-        if self.attn_split_chunk is None:
-            if mask is not None:
-                mask = mask.view(b, -1)
-                mask = mask[:, None, :].repeat(self.num_heads, 1, 1)
-                mask = ~mask
-            net = sdp_attn(q, k, v, self.training, mask)
-        else:
-            if mask is not None:
-                msg = "`mask` is not supported yet when `attn_split_chunk` is enabled"
-                raise ValueError(msg)
-            size = b * self.num_heads
-            # (B * head, Tq, dim)
-            net = torch.zeros(size, tq, v.shape[2], dtype=q.dtype, device=q.device)
-            for i in range(0, size, self.attn_split_chunk):
-                end = i + self.attn_split_chunk
-                net[i:end] = sdp_attn(q[i:end], k[i:end], v[i:end], self.training)
-
+        if mask is not None:
+            mask = ~mask
+        net = sdp_attn(q, k, v, self.training, mask, split_chunk=self.attn_split_chunk)
         # (B, head, Tq, dim)
         net = net.reshape(b, self.num_heads, tq, dq // self.num_heads)
         # (B, Tq, head, dim)

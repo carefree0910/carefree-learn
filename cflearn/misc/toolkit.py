@@ -375,7 +375,7 @@ class WeightsStrategy:
 pt2_sdp_attn = getattr(F, "scaled_dot_product_attention", None)
 
 
-def sdp_attn(
+def _sdp_attn(
     q: Tensor,
     k: Tensor,
     v: Tensor,
@@ -394,6 +394,33 @@ def sdp_attn(
     if training and dropout is not None and 0.0 < dropout < 1.0:
         weights = F.dropout(weights, dropout)
     return weights @ v
+
+
+def sdp_attn(
+    q: Tensor,
+    k: Tensor,
+    v: Tensor,
+    training: bool,
+    mask: Optional[Tensor] = None,
+    dropout: Optional[float] = None,
+    split_chunk: Optional[int] = None,
+) -> Tensor:
+    size = q.shape[0]
+    if split_chunk is None:
+        if mask is not None and len(mask.shape) == 3:
+            b = mask.shape[0]
+            mask = mask.view(b, -1)
+            mask = mask[:, None, :].repeat(size // b, 1, 1)
+        return _sdp_attn(q, k, v, training, mask)
+    if mask is not None:
+        msg = "`mask` is not supported yet when `attn_split_chunk` is enabled"
+        raise ValueError(msg)
+    tq = q.shape[1]
+    net = torch.zeros(size, tq, v.shape[2], dtype=q.dtype, device=q.device)
+    for i in range(0, size, split_chunk):
+        end = i + split_chunk
+        net[i:end] = _sdp_attn(q[i:end], k[i:end], v[i:end], training, dropout=dropout)
+    return net
 
 
 def get_tensors(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
