@@ -350,6 +350,21 @@ class DiffusionAPI(APIMixin):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
+        o_kw_backup = dict(
+            seed=seed,
+            variations=variations,
+            alpha=alpha,
+            cond=cond,
+            cond_concat=cond_concat,
+            unconditional_cond=unconditional_cond,
+            hint=hint,
+            hint_start=hint_start,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            callback=callback,
+            batch_size=batch_size,
+            verbose=verbose,
+        )
         if batch_size is None:
             batch_size = num_samples
         registered_custom = False
@@ -412,6 +427,7 @@ class DiffusionAPI(APIMixin):
             uncond = self.get_cond(unconditional_cond).to(self.device)
             self.sampler.uncond = uncond.clone()
             self.sampler.unconditional_cond = uncond.clone()
+        highres_info = kwargs.get("highres_info")
         with eval_context(self.m):
             with self.amp_context:
                 for i, batch in enumerate(iterator):
@@ -419,6 +435,7 @@ class DiffusionAPI(APIMixin):
                     if i >= 1:
                         seed = new_seed()
                     i_kw = shallow_copy_dict(kw)
+                    i_kw_backup = shallow_copy_dict(i_kw)
                     i_cond = batch[INPUT_KEY].to(self.device)
                     i_n = len(i_cond)
                     repeat = (
@@ -506,7 +523,19 @@ class DiffusionAPI(APIMixin):
                                 CONTROL_HINT_START_KEY: hint_start,
                             }
                     with switch_sampler_context(self, i_kw.get("sampler")):
+                        if highres_info is not None:
+                            # highres workaround
+                            i_kw["return_latent"] = True
                         i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
+                        if highres_info is not None:
+                            i_z = self._get_highres_latent(i_sampled, highres_info)
+                            fidelity = highres_info["fidelity"]
+                            i_num_steps = int(num_steps / min(1.0 - fidelity, 0.999))
+                            i_kw_backup.update(o_kw_backup)
+                            i_kw_backup["fidelity"] = fidelity
+                            i_kw_backup["num_steps"] = i_num_steps
+                            self.empty_cuda_cache()
+                            i_sampled = self._img2img(i_z, export_path, **i_kw_backup)
                     sampled.append(i_sampled.cpu().float())
         if uncond_backup is not None:
             self.sampler.uncond = uncond_backup
@@ -756,6 +785,9 @@ class DiffusionAPI(APIMixin):
             if alpha is None:
                 alpha = res.alpha
         z = self._get_z(image)
+        highres_info = kwargs.pop("highres_info", None)
+        if highres_info is not None:
+            z = self._get_highres_latent(z, highres_info)
         return self._img2img(
             z,
             export_path,
@@ -1260,6 +1292,14 @@ class DiffusionAPI(APIMixin):
                 verbose=verbose,
                 **kwargs,
             )
+
+    def _get_highres_latent(self, z: Tensor, highres_info: Dict[str, Any]) -> Tensor:
+        upscale_factor = highres_info["upscale_factor"]
+        max_wh = round(highres_info["max_wh"] * self.size_info.factor)
+        h, w = z.shape[-2:]
+        w = min(round(w * upscale_factor), max_wh)
+        h = min(round(h * upscale_factor), max_wh)
+        return F.interpolate(z, size=(h, w), mode="bilinear", antialias=False)
 
 
 def offset_cnet_weights(

@@ -181,6 +181,8 @@ class LDM(DDPM):
             verbose=verbose,
             **kwargs,
         )
+        if kwargs.get("return_latent", False):
+            return latent
         net = self._from_latent(latent)
         return net
 
