@@ -373,6 +373,33 @@ class WeightsStrategy:
 
 
 pt2_sdp_attn = getattr(F, "scaled_dot_product_attention", None)
+warnings = set()
+
+
+def warn_once(message: str, *, key: Optional[str] = None) -> None:
+    key = key or message
+    if key not in warnings:
+        print_warning(message)
+        warnings.add(key)
+
+
+def try_run_xformers_sdp_attn(
+    q: Tensor,
+    k: Tensor,
+    v: Tensor,
+    training: bool,
+    mask: Optional[Tensor] = None,
+    p: Optional[float] = None,
+) -> Optional[Tensor]:
+    try:
+        import xformers.ops
+
+        if p is None:
+            p = 0.0
+        return xformers.ops.memory_efficient_attention(q, k, v, mask, p)
+    except Exception as err:
+        warn_once(f"failed to run `xformers` sdp attn: {err}")
+        return None
 
 
 def _sdp_attn(
@@ -411,6 +438,9 @@ def sdp_attn(
     q = q.contiguous()
     k = k.contiguous()
     v = v.contiguous()
+    try_xformers = try_run_xformers_sdp_attn(q, k, v, training, mask, dropout)
+    if try_xformers is not None:
+        return try_xformers
     size = q.shape[0]
     if split_chunk is None:
         if mask is not None and len(mask.shape) == 3:

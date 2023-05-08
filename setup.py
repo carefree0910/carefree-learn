@@ -21,6 +21,7 @@ cv_requires = [
 cv_full_requires = cv_requires + [
     "timm",
     "salesforce-lavis",
+    "xformers>=0.0.19",
 ]
 onnx_requires = [
     "onnx",
