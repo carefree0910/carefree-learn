@@ -535,6 +535,7 @@ class DiffusionAPI(APIMixin):
                             i_kw_backup.update(o_kw_backup)
                             i_kw_backup["fidelity"] = fidelity
                             i_kw_backup["num_steps"] = i_num_steps
+                            i_kw_backup["decode_callback"] = self.empty_cuda_cache
                             self.empty_cuda_cache()
                             i_sampled = self._img2img(i_z, export_path, **i_kw_backup)
                     sampled.append(i_sampled.cpu().float())

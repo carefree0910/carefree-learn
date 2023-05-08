@@ -183,6 +183,9 @@ class LDM(DDPM):
         )
         if kwargs.get("return_latent", False):
             return latent
+        callback = kwargs.get("decode_callback")
+        if callback is not None:
+            callback()
         net = self._from_latent(latent)
         return net
 
