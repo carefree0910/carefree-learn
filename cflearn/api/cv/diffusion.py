@@ -1299,8 +1299,7 @@ class DiffusionAPI(APIMixin):
         upscale_factor = highres_info["upscale_factor"]
         max_wh = round(highres_info["max_wh"] * self.size_info.factor)
         h, w = z.shape[-2:]
-        w = min(round(w * upscale_factor), max_wh)
-        h = min(round(h * upscale_factor), max_wh)
+        w, h = restrict_wh(round(w * upscale_factor), round(h * upscale_factor), max_wh)
         return F.interpolate(z, size=(h, w), mode="bilinear", antialias=False)
 
 
