@@ -383,6 +383,9 @@ def _sdp_attn(
     mask: Optional[Tensor] = None,
     dropout: Optional[float] = None,
 ) -> Tensor:
+    q = q.contiguous()
+    k = k.contiguous()
+    v = v.contiguous()
     if pt2_sdp_attn is not None:
         dropout = dropout if training else None
         dropout = 0.0 if dropout is None else dropout
@@ -405,6 +408,9 @@ def sdp_attn(
     dropout: Optional[float] = None,
     split_chunk: Optional[int] = None,
 ) -> Tensor:
+    q = q.contiguous()
+    k = k.contiguous()
+    v = v.contiguous()
     size = q.shape[0]
     if split_chunk is None:
         if mask is not None and len(mask.shape) == 3:
