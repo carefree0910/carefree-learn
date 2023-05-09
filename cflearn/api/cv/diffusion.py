@@ -177,6 +177,10 @@ def get_size(
     return tuple(map(get_suitable_size, new_size, (anchor, anchor)))  # type: ignore
 
 
+def get_highres_steps(num_steps: int, fidelity: float) -> int:
+    return int(num_steps / min(1.0 - fidelity, 0.999))
+
+
 class DiffusionAPI(APIMixin):
     m: DDPM
     sampler: ISampler
@@ -530,7 +534,9 @@ class DiffusionAPI(APIMixin):
                         if highres_info is not None:
                             i_z = self._get_highres_latent(i_sampled, highres_info)
                             fidelity = highres_info["fidelity"]
-                            i_num_steps = int(num_steps / min(1.0 - fidelity, 0.999))
+                            if num_steps is None:
+                                num_steps = self.sampler.default_steps
+                            i_num_steps = get_highres_steps(num_steps, fidelity)
                             i_kw_backup.pop("highres_info", None)
                             i_kw_backup.update(o_kw_backup)
                             i_kw_backup["fidelity"] = fidelity
