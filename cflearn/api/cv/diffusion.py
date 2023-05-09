@@ -802,6 +802,9 @@ class DiffusionAPI(APIMixin):
         highres_info = kwargs.pop("highres_info", None)
         if highres_info is not None:
             z = self._get_highres_latent(z, highres_info)
+            if num_steps is None:
+                num_steps = self.sampler.default_steps
+            num_steps = get_highres_steps(num_steps, fidelity)
             upscale_factor = highres_info["upscale_factor"]
             original_size = (
                 round(original_size[0] * upscale_factor),
