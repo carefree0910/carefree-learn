@@ -801,6 +801,13 @@ class DiffusionAPI(APIMixin):
                 round(original_size[0] * upscale_factor),
                 round(original_size[1] * upscale_factor),
             )
+            if alpha is not None:
+                with torch.no_grad():
+                    alpha = F.interpolate(
+                        torch.from_numpy(alpha),
+                        original_size[::-1],
+                        mode="nearest",
+                    ).numpy()
         return self._img2img(
             z,
             export_path,
