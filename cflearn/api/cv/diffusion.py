@@ -796,6 +796,11 @@ class DiffusionAPI(APIMixin):
         highres_info = kwargs.pop("highres_info", None)
         if highres_info is not None:
             z = self._get_highres_latent(z, highres_info)
+            upscale_factor = highres_info["upscale_factor"]
+            original_size = (
+                round(original_size[0] * upscale_factor),
+                round(original_size[1] * upscale_factor),
+            )
         return self._img2img(
             z,
             export_path,
