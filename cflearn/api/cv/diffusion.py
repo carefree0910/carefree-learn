@@ -1324,9 +1324,11 @@ class DiffusionAPI(APIMixin):
 
     def _get_highres_latent(self, z: Tensor, highres_info: Dict[str, Any]) -> Tensor:
         upscale_factor = highres_info["upscale_factor"]
-        max_wh = round(highres_info["max_wh"] / self.size_info.factor)
+        shrink_factor = self.size_info.factor
+        max_wh = round(highres_info["max_wh"] / shrink_factor)
         h, w = z.shape[-2:]
-        w, h = restrict_wh(round(w * upscale_factor), round(h * upscale_factor), max_wh)
+        upscaled = round(w * upscale_factor), round(h * upscale_factor)
+        w, h = get_size(upscaled, 64 // shrink_factor, max_wh)  # type: ignore
         return F.interpolate(z, size=(h, w), mode="bilinear", antialias=False)
 
 
