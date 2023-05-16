@@ -691,6 +691,7 @@ class DiffusionAPI(APIMixin):
             pasted = np.where(remained_mask_, rgb_normalized, sampled_.numpy())
             return torch.from_numpy(pasted)
 
+        txt_list, num_samples = get_txt_cond(txt, num_samples)
         if use_raw_inpainting:
             image_res = read_image(image, max_wh, anchor=anchor)
             mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
@@ -711,18 +712,17 @@ class DiffusionAPI(APIMixin):
                     z_ref_noise=z_ref_noise,
                     original_size=image_res.original_size,
                     alpha=None,
-                    cond=[txt],
+                    cond=txt_list,
                     num_steps=num_steps,
                     clip_output=clip_output,
                     verbose=verbose,
                 )
             )
-            sampled = self.sample(1, **kw)
+            sampled = self.sample(num_samples, **kw)
             if keep_original:
                 original = image_res.original
                 sampled = paste_original(original, mask_res.original, sampled)
             return sampled
-        txt_list, num_samples = get_txt_cond(txt, num_samples)
         res = self._get_masked_cond(
             image,
             mask,
