@@ -24,6 +24,7 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from typing import ContextManager
+from cftool.cv import to_rgb
 from cftool.cv import read_image
 from cftool.cv import save_images
 from cftool.cv import restrict_wh
@@ -633,36 +634,97 @@ class DiffusionAPI(APIMixin):
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         keep_original: bool = False,
+        ref_mask_smooth: int = 0,
         use_raw_inpainting: bool = False,
+        raw_inpainting_use_ref: bool = False,
         raw_inpainting_fidelity: float = 0.2,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
         use_latent_guidance: bool = False,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        if use_raw_inpainting:
-            image_res = read_image(image, max_wh, anchor=anchor)
-            mask = read_image(mask, max_wh, anchor=anchor, to_mask=True).image
-            z = z_ref = self._get_z(image_res.image)
-            z_ref_mask = F.interpolate(
-                torch.from_numpy(mask).to(z_ref),
+        def get_z_ref_pack(
+            res_: ReadImageResponse,
+            mask_: np.ndarray,
+        ) -> Tuple[Tensor, Tensor, Tensor]:
+            z_ref = self._get_z(res_.image)
+            if ref_mask_smooth > 0:
+                mask_ = cv2.blur(mask_[0][0], (ref_mask_smooth, ref_mask_smooth))
+                mask_ = mask_[None, None]
+            z_ref_mask = 1.0 - F.interpolate(
+                torch.from_numpy(mask_).to(z_ref),
                 z_ref.shape[-2:],
                 mode="bicubic",
             )
-            return self._img2img(
-                z,
-                export_path,
-                z_ref=z_ref,
-                z_ref_mask=z_ref_mask,
-                fidelity=raw_inpainting_fidelity,
-                original_size=image_res.original_size,
-                alpha=None,
-                cond=[txt],
-                num_steps=num_steps,
-                clip_output=clip_output,
-                verbose=verbose,
-                **kwargs,
+            if seed is not None:
+                seed_everything(seed)
+            z_ref_noise = torch.randn_like(z_ref)
+            return z_ref, z_ref_mask, z_ref_noise
+
+        def get_z_info_from(
+            reference_: Optional[Union[str, Image.Image]],
+            fidelity_: float,
+            shape_: Tuple[int, int],
+        ) -> Tuple[Optional[Tensor], Optional[Tuple[int, int]], Dict[str, Any]]:
+            if reference_ is None:
+                z = None
+                new_kw = kwargs
+                size = tuple(map(lambda n: n * self.size_info.factor, shape_))
+            else:
+                size = None
+                z = self._get_z(read_image(reference_, max_wh, anchor=anchor).image)
+                if z_ref_mask is not None and z_ref_noise is not None:
+                    z = z * z_ref_mask + z_ref_noise * (1.0 - z_ref_mask)
+                z, _, new_kw = self._q_sample(z, num_steps, fidelity_, seed, **kwargs)
+            return z, size, new_kw  # type: ignore
+
+        def paste_original(
+            original_: Image.Image,
+            mask_: Image.Image,
+            sampled_: Tensor,
+        ) -> Tensor:
+            rgb = to_rgb(original_)
+            rgb_normalized = np.array(rgb).astype(np.float32) / 127.5 - 1.0
+            rgb_normalized = rgb_normalized.transpose([2, 0, 1])[None]
+            mask_res_ = read_image(mask_, None, anchor=None, to_mask=True)
+            remained_mask_ = ~(mask_res_.image >= 0.5)
+            pasted = np.where(remained_mask_, rgb_normalized, sampled_.numpy())
+            return torch.from_numpy(pasted)
+
+        if use_raw_inpainting:
+            image_res = read_image(image, max_wh, anchor=anchor)
+            mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
+            z_ref, z_ref_mask, z_ref_noise = get_z_ref_pack(image_res, mask_res.image)
+            Image.fromarray(
+                (z_ref_mask[0][0].cpu().numpy() * 255).astype(np.uint8)
+            ).save("debug.png")
+            z, size, kwargs = get_z_info_from(
+                image_res.image if raw_inpainting_use_ref else None,
+                raw_inpainting_fidelity,
+                z_ref.shape[-2:][::-1],
             )
+            kw = shallow_copy_dict(kwargs)
+            kw.update(
+                dict(
+                    z=z,
+                    size=size,
+                    export_path=export_path,
+                    z_ref=z_ref,
+                    z_ref_mask=z_ref_mask,
+                    z_ref_noise=z_ref_noise,
+                    original_size=image_res.original_size,
+                    alpha=None,
+                    cond=[txt],
+                    num_steps=num_steps,
+                    clip_output=clip_output,
+                    verbose=verbose,
+                )
+            )
+            sampled = self.sample(1, **kw)
+            if keep_original:
+                original = image_res.original
+                sampled = paste_original(original, mask_res.original, sampled)
+            return sampled
         txt_list, num_samples = get_txt_cond(txt, num_samples)
         res = self._get_masked_cond(
             image,
@@ -678,37 +740,11 @@ class DiffusionAPI(APIMixin):
             if not use_latent_guidance:
                 z_ref = z_ref_mask = z_ref_noise = None
             else:
-                z_ref = self._get_z(res.image_res.image)
-                z_ref_mask = 1.0 - F.interpolate(
-                    torch.from_numpy(res.mask).to(z_ref),
-                    z_ref.shape[-2:],
-                    mode="bicubic",
-                )
-                if seed is not None:
-                    seed_everything(seed)
-                z_ref_noise = torch.randn_like(z_ref)
+                z_ref, z_ref_mask, z_ref_noise = get_z_ref_pack(res.image_res, res.mask)
                 reference = res.image_res.original
             # calculate `z` based on `reference`
-            if reference is None:
-                z = None
-                size = tuple(
-                    map(
-                        lambda n: n * self.size_info.factor,
-                        res.remained_image_cond.shape[-2:][::-1],
-                    )
-                )
-            else:
-                size = None
-                z = self._get_z(read_image(reference, max_wh, anchor=anchor).image)
-                if z_ref_mask is not None and z_ref_noise is not None:
-                    z = z * z_ref_mask + z_ref_noise * (1.0 - z_ref_mask)
-                z, _, kwargs = self._q_sample(
-                    z,
-                    num_steps,
-                    reference_fidelity,
-                    seed,
-                    **kwargs,
-                )
+            z_shape = res.remained_image_cond.shape[-2:][::-1]
+            z, size, kwargs = get_z_info_from(reference, reference_fidelity, z_shape)
             # core
             sampled = self.sample(
                 num_samples,
@@ -720,7 +756,7 @@ class DiffusionAPI(APIMixin):
                 z_ref_noise=z_ref_noise,
                 size=size,  # type: ignore
                 original_size=res.image_res.original_size,
-                alpha=res.image_res.alpha,
+                alpha=None,
                 cond=txt_list,
                 cond_concat=torch.cat([res.mask_cond, res.remained_image_cond], dim=1),
                 num_steps=num_steps,
@@ -730,12 +766,8 @@ class DiffusionAPI(APIMixin):
                 **kwargs,
             )
         if keep_original:
-            original = np.array(res.image_res.original).astype(np.float32) / 127.5 - 1.0
-            original = original.transpose([2, 0, 1])[None]
-            mask_ = read_image(res.mask_res.original, None, anchor=None, to_mask=True)
-            remained_mask = ~(mask_.image >= 0.5)
-            sampled = np.where(remained_mask, original, sampled.numpy())
-            sampled = torch.from_numpy(sampled)
+            original = res.image_res.original
+            sampled = paste_original(original, res.mask_res.original, sampled)
         return sampled
 
     def outpainting(
