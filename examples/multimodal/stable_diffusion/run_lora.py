@@ -11,9 +11,9 @@ from cflearn.api.cv.diffusion import SDVersions
 key = "line_art"
 key2 = "arknights"
 # https://civitai.com/api/download/models/28907
-path = "animeLineartMangaLike_v30MangaLike.safetensors"
+path = "animeoutlineV4_16.safetensors"
 # "https://civitai.com/api/download/models/7974"
-path2 = "arknightsTexasThe_v10.safetensors"
+path2 = "Arknights-Texas the Omertosa.safetensors"
 
 # here we prepared two base models: anything_v3 and an anime_hybrid_model
 versions = [SDVersions.ANIME_ANYTHING, SDVersions.ANIME_ORANGE]
@@ -26,7 +26,7 @@ kw = dict(
     txt="1girl, monochrome, line art (realistic:0.2), anime illustration of (misty:1.2), yellow shrit, jean shorts, suspenders, simple background, small breasts, cute girl, young girl, sunny day, with shadows, clouds ((masterpiece)), (SFW)",
     # negative prompt
     unconditional_cond=[
-        "(painting by bad-artist-anime:0.9), (painting by bad-artist:0.9), watermark, text, error, blurry, jpeg artifacts, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, artist name, (worst quality, low quality:1.4), bad anatomy, 2girl, 2boy, nude, breasts, (NSFW)"
+        "(painting by bad-artist-anime:0.9), (painting by bad-artist:0.9), watermark, text, error, blurry, jpeg artifacts, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, artist name, (worst quality, low quality:1.4), bad anatomy, multiple arms, 2girl, 2boy, nude, breasts, (NSFW)"
     ],
     # CFG scale
     unconditional_guidance_scale=6.5,
