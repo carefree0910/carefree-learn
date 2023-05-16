@@ -695,9 +695,6 @@ class DiffusionAPI(APIMixin):
             image_res = read_image(image, max_wh, anchor=anchor)
             mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
             z_ref, z_ref_mask, z_ref_noise = get_z_ref_pack(image_res, mask_res.image)
-            Image.fromarray(
-                (z_ref_mask[0][0].cpu().numpy() * 255).astype(np.uint8)
-            ).save("debug.png")
             z, size, kwargs = get_z_info_from(
                 image_res.image if raw_inpainting_use_ref else None,
                 raw_inpainting_fidelity,
