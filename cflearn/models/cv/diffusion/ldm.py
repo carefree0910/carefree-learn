@@ -279,6 +279,9 @@ class StableDiffusion(LDM):
     def restore_lora_from(self, hooks: Dict[str, Optional[IHook]]) -> None:
         return self.lora_manager.restore(self, hooks)
 
+    def check_lora_exists(self, key: str) -> bool:
+        return self.lora_manager.has(key)
+
 
 __all__ = [
     "LDM",

@@ -283,6 +283,9 @@ class LoRAManager:
 
     # api
 
+    def has(self, key: str) -> bool:
+        return key in self.lora_packs
+
     def build_pack(self, *keys: str) -> Optional[LoRAPack]:
         if not keys:
             return None
