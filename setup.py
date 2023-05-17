@@ -36,7 +36,7 @@ setup(
     install_requires=[
         "accelerate",
         "safetensors",
-        "carefree-toolkit>=0.3.4",
+        "carefree-toolkit>=0.3.5",
     ],
     extras_require={
         "onnx": onnx_requires,
