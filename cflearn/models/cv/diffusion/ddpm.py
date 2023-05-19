@@ -12,6 +12,7 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from typing import ContextManager
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.array import to_torch
@@ -408,14 +409,15 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        return self.sampler.sample(
-            z,
-            cond=cond,
-            num_steps=num_steps,
-            start_step=start_step,
-            verbose=verbose,
-            **kwargs,
-        )
+        with self._control_model_context():
+            return self.sampler.sample(
+                z,
+                cond=cond,
+                num_steps=num_steps,
+                start_step=start_step,
+                verbose=verbose,
+                **kwargs,
+            )
 
     def sample(
         self,
@@ -493,8 +495,6 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
             else:
                 raise ValueError(f"unrecognized condition type {cond_type} occurred")
         if self.control_model is not None:
-            if self.control_model_lazy:
-                self._control_model_to()
             if not isinstance(cond, dict):
                 raise ValueError("`cond` should be a dict when `control_model` is used")
             hint = cond.get(CONTROL_HINT_KEY)
@@ -553,8 +553,6 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
                     ctrl = None
             cond_kw["control"] = ctrl
             cond_kw["only_mid_control"] = self.only_mid_control
-            if self.control_model_lazy:
-                self._control_model_to("cpu")
         return self.unet(net, timesteps=timesteps, **cond_kw)
 
     def predict_eps_from_z_and_v(
@@ -632,10 +630,28 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
 
     def _control_model_to(self, device: Optional[str] = None) -> None:
         if self.control_model is not None:
+            p = list(self.unet.parameters())[0]
             if device is None:
-                device = get_device(self)
-            dtype = list(self.unet.parameters())[0].dtype
+                device = p.device
+            dtype = p.dtype
             self.control_model.to(device, dtype=dtype)
+
+    def _control_model_context(self) -> ContextManager:
+        class _:
+            def __init__(self, m: DDPM):
+                self.m = m.control_model
+                self.lazy = m.control_model_lazy
+                self.to = m._control_model_to
+
+            def __enter__(self) -> None:
+                if self.m is not None and self.lazy:
+                    self.to()
+
+            def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+                if self.m is not None and self.lazy:
+                    self.to("cpu")
+
+        return _(self)
 
     def _q_sample(
         self,
