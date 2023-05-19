@@ -1569,6 +1569,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         clip_skip: int = 0,
         hint_channels: int = 3,
         num_pool: int = 4,
+        lazy: bool = False,
     ):
         super().__init__(
             m,
@@ -1579,7 +1580,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
         )
         pool = sorted(self.control_defaults)
         selected_pool = pool[: min(num_pool, len(pool))]
-        self.m.make_control_net({k: hint_channels for k in selected_pool})
+        self.lazy = lazy
+        self.m.make_control_net({k: hint_channels for k in selected_pool}, lazy)
         self.loaded = {k: False for k in selected_pool}
         self.annotators = {}
         self.num_pool = num_pool
@@ -1596,7 +1598,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         no_annotator: bool = False,
     ) -> None:
         super().to(device, use_amp=use_amp, use_half=use_half)
-        if not no_annotator:
+        if not no_annotator and not self.lazy:
             for annotator in self.annotators.values():
                 annotator = annotator.to(device, use_half=use_half)
 
@@ -1688,8 +1690,11 @@ class ControlledDiffusionAPI(DiffusionAPI):
             annotator_class = self.annotator_classes.get(hint)
             if annotator_class is None:
                 raise ValueError(f"annotator for '{hint}' is not implemented")
-            annotator = annotator_class(self.device)
-            annotator = annotator.to(self.device, use_half=self.use_half)
+            if self.lazy:
+                annotator = annotator_class("cpu")
+            else:
+                annotator = annotator_class(self.device)
+                self._annotator_to(annotator)
             self.annotators[hint] = annotator
 
     def prepare_annotators(self) -> None:
@@ -1710,12 +1715,16 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 f"annotator for '{hint}' is not prepared yet, "
                 "please call `prepare_annotator`/`prepare_annotators` first."
             )
+        if self.lazy:
+            self._annotator_to(annotator)
         kwargs["uint8_rgb"] = uint8_rgb
         out = safe_execute(annotator.annotate, kwargs)
         if len(out.shape) == 2:
             out = out[..., None]
         if out.shape[-1] == 1:
             out = np.repeat(out, 3, axis=2)
+        if self.lazy:
+            self._annotator_to(annotator, "cpu")
         return out
 
     def enable_control(self) -> None:
@@ -1723,6 +1732,13 @@ class ControlledDiffusionAPI(DiffusionAPI):
 
     def disable_control(self) -> None:
         self.m.control_model = None
+
+    # internal
+
+    def _annotator_to(self, annotator: Annotator, device: Optional[str] = None) -> None:
+        if device is None:
+            device = self.device
+        annotator.to(device, use_half=self.use_half)
 
 
 __all__ = [
