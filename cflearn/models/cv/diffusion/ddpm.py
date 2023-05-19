@@ -266,6 +266,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
         self.unet = UNetDiffuser(out_channels=out_channels, **self.unet_kw)  # type: ignore
         # ControlNet
         self.control_model = None
+        self.control_model_lazy = False
         self.only_mid_control = only_mid_control
         self.num_control_scales = len(self.unet.output_blocks) + 1
         self.control_scales = None
