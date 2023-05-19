@@ -185,8 +185,10 @@ def get_highres_steps(num_steps: int, fidelity: float) -> int:
     return int(num_steps / min(1.0 - fidelity, 0.999))
 
 
-def _convert_external(m: "DiffusionAPI", tag: str) -> str:
+def _convert_external(m: "DiffusionAPI", tag: str, sub_folder: Optional[str]) -> str:
     external_root = OPT.external_dir
+    if sub_folder is not None:
+        external_root = os.path.join(external_root, sub_folder)
     lock_path = os.path.join(external_root, "load_external.lock")
     lock = FileLock(lock_path)
     with lock:
@@ -309,14 +311,14 @@ class DiffusionAPI(APIMixin):
         for k, v in self._uncond_cache.items():
             self._uncond_cache[k] = v.to(device)
 
-    def prepare_sd(self, versions: List[str]) -> None:
+    def prepare_sd(self, versions: List[str], sub_folder: Optional[str] = None) -> None:
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
         for tag in map(get_sd_tag, versions):
             if tag not in self.sd_weights:
                 try:
                     model_path = download_model(f"ldm_sd_{tag}", root=root)
                 except:
-                    model_path = _convert_external(self, tag)
+                    model_path = _convert_external(self, tag, sub_folder)
                 self.sd_weights.register(tag, model_path)
 
     def switch_sd(self, version: str) -> None:
