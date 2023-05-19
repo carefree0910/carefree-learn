@@ -34,6 +34,7 @@ setup(
     version=VERSION,
     packages=find_packages(exclude=("tests",)),
     install_requires=[
+        "filelock",
         "accelerate",
         "safetensors",
         "carefree-toolkit>=0.3.5",

@@ -24,6 +24,7 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from typing import ContextManager
+from filelock import FileLock
 from cftool.cv import to_rgb
 from cftool.cv import read_image
 from cftool.cv import save_images
@@ -35,6 +36,8 @@ from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.types import arr_type
 from cftool.types import tensor_dict_type
+from safetensors.torch import load_file
+from cflearn.misc.toolkit import _get_file_size
 
 from ..zoo import ldm_sd
 from ..zoo import ldm_sd_v2
@@ -138,7 +141,7 @@ class SDVersions(str, Enum):
     DREAMLIKE = "dreamlike_v1"
 
 
-def get_sd_tag(version: SDVersions) -> str:
+def get_sd_tag(version: str) -> str:
     if version == SDVersions.v1_5_BC:
         return "v1.5"
     if version == SDVersions.ANIME:
@@ -182,6 +185,43 @@ def get_highres_steps(num_steps: int, fidelity: float) -> int:
     return int(num_steps / min(1.0 - fidelity, 0.999))
 
 
+def _convert_external(m: "DiffusionAPI", tag: str) -> str:
+    external_root = OPT.external_dir
+    lock_path = os.path.join(external_root, "load_external.lock")
+    lock = FileLock(lock_path)
+    with lock:
+        converted_sizes_path = os.path.join(external_root, "sizes.json")
+        sizes: Dict[str, int]
+        if not os.path.isfile(converted_sizes_path):
+            sizes = {}
+        else:
+            with open(converted_sizes_path, "r") as f:
+                sizes = json.load(f)
+        converted_path = os.path.join(external_root, f"{tag}_converted.pt")
+        v_size = sizes.get(tag)
+        f_size = (
+            None
+            if not os.path.isfile(converted_path)
+            else _get_file_size(converted_path)
+        )
+        if f_size is None or v_size != f_size:
+            if f_size is not None:
+                print(f"> '{tag}' has been converted but size mismatch")
+            print(f"> converting external weights '{tag}'")
+            model_path = os.path.join(external_root, f"{tag}.ckpt")
+            if not os.path.isfile(model_path):
+                st_path = os.path.join(external_root, f"{tag}.safetensors")
+                if not os.path.isfile(st_path):
+                    raise FileNotFoundError(f"cannot find '{tag}'")
+                torch.save(load_file(st_path), model_path)
+            d = cflearn.scripts.sd.convert(model_path, m, load=False)
+            torch.save(d, converted_path)
+            sizes[tag] = _get_file_size(converted_path)
+        with open(converted_sizes_path, "w") as f:
+            json.dump(sizes, f)
+        return converted_path
+
+
 class DiffusionAPI(APIMixin):
     m: DDPM
     sampler: ISampler
@@ -190,7 +230,7 @@ class DiffusionAPI(APIMixin):
     latest_seed: int
     latest_variation_seed: Optional[int]
     sd_weights: WeightsPool
-    current_sd_version: Optional[SDVersions]
+    current_sd_version: Optional[str]
 
     def __init__(
         self,
@@ -269,14 +309,17 @@ class DiffusionAPI(APIMixin):
         for k, v in self._uncond_cache.items():
             self._uncond_cache[k] = v.to(device)
 
-    def prepare_sd(self, versions: List[SDVersions]) -> None:
+    def prepare_sd(self, versions: List[str]) -> None:
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
         for tag in map(get_sd_tag, versions):
             if tag not in self.sd_weights:
-                model_path = download_model(f"ldm_sd_{tag}", root=root)
+                try:
+                    model_path = download_model(f"ldm_sd_{tag}", root=root)
+                except:
+                    model_path = _convert_external(self, tag)
                 self.sd_weights.register(tag, model_path)
 
-    def switch_sd(self, version: SDVersions) -> None:
+    def switch_sd(self, version: str) -> None:
         tag = get_sd_tag(version)
         if self.current_sd_version is not None:
             if tag == get_sd_tag(self.current_sd_version):
@@ -1083,7 +1126,7 @@ class DiffusionAPI(APIMixin):
     @classmethod
     def from_sd_version(
         cls: Type[T],
-        version: SDVersions,
+        version: str,
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
@@ -1478,7 +1521,7 @@ class MLSDAnnotator(Annotator):
 class ControlledDiffusionAPI(DiffusionAPI):
     loaded: Dict[ControlNetHints, bool]
     annotators: Dict[ControlNetHints, Annotator]
-    base_sd_versions: Dict[ControlNetHints, SDVersions]
+    base_sd_versions: Dict[ControlNetHints, str]
     controlnet_weights: Dict[ControlNetHints, tensor_dict_type]
 
     control_defaults = {
