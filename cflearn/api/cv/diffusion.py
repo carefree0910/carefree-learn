@@ -62,6 +62,7 @@ from ...parameters import OPT
 from ...data.utils import predict_array_data
 from ...data.utils import TensorBatcher
 from ...misc.toolkit import slerp
+from ...misc.toolkit import freeze
 from ...misc.toolkit import new_seed
 from ...misc.toolkit import download_model
 from ...misc.toolkit import download_static
@@ -1582,6 +1583,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
         selected_pool = pool[: min(num_pool, len(pool))]
         self.lazy = lazy
         self.m.make_control_net({k: hint_channels for k in selected_pool}, lazy)
+        assert self.m.control_model is not None
+        freeze(self.m.control_model)
         self.loaded = {k: False for k in selected_pool}
         self.annotators = {}
         self.num_pool = num_pool
