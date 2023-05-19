@@ -494,7 +494,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
                 raise ValueError(f"unrecognized condition type {cond_type} occurred")
         if self.control_model is not None:
             if self.control_model_lazy:
-                self._control_model_to_device()
+                self._control_model_to()
             if not isinstance(cond, dict):
                 raise ValueError("`cond` should be a dict when `control_model` is used")
             hint = cond.get(CONTROL_HINT_KEY)
@@ -554,7 +554,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
             cond_kw["control"] = ctrl
             cond_kw["only_mid_control"] = self.only_mid_control
             if self.control_model_lazy:
-                self._control_model_to_device("cpu")
+                self._control_model_to("cpu")
         return self.unet(net, timesteps=timesteps, **cond_kw)
 
     def predict_eps_from_z_and_v(
@@ -603,7 +603,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
                 }
             )
         if not lazy:
-            self._control_model_to_device()
+            self._control_model_to()
 
     def rename_control_net(self, old: str, new: str) -> None:
         if not isinstance(self.control_model, nn.ModuleDict):
@@ -630,7 +630,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
 
     # internal
 
-    def _control_model_to_device(self, device: Optional[str] = None) -> None:
+    def _control_model_to(self, device: Optional[str] = None) -> None:
         if self.control_model is not None:
             if device is None:
                 device = get_device(self)
