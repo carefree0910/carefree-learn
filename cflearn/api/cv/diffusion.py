@@ -1149,9 +1149,10 @@ class DiffusionAPI(APIMixin):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        **kw: Any,
     ) -> T:
         m = ldm_sd_tag(get_sd_tag(version))
-        return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
+        return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half, **kw)
 
     @classmethod
     def from_sd_anime(
@@ -1171,9 +1172,10 @@ class DiffusionAPI(APIMixin):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        **kw: Any,
     ) -> T:
         m = ldm_sd_inpainting()
-        return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
+        return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half, **kw)
 
     @classmethod
     def from_sd_v2(
