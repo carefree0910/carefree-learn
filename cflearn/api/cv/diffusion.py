@@ -315,14 +315,26 @@ class DiffusionAPI(APIMixin):
         for k, v in self._uncond_cache.items():
             self._uncond_cache[k] = v.to(device)
 
-    def prepare_sd(self, versions: List[str], sub_folder: Optional[str] = None) -> None:
+    def prepare_sd(
+        self,
+        versions: List[str],
+        *,
+        # inpainting workarounds
+        # should set `force_external` to `True` to prepare inpainting with this method
+        sub_folder: Optional[str] = None,
+        force_external: bool = False,
+    ) -> None:
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
         for tag in map(get_sd_tag, versions):
             if tag not in self.sd_weights:
-                try:
-                    model_path = download_model(f"ldm_sd_{tag}", root=root)
-                except:
-                    model_path = _convert_external(self, tag, sub_folder)
+                _load_external = lambda: _convert_external(self, tag, sub_folder)
+                if force_external:
+                    model_path = _load_external()
+                else:
+                    try:
+                        model_path = download_model(f"ldm_sd_{tag}", root=root)
+                    except:
+                        model_path = _load_external()
                 self.sd_weights.register(tag, model_path)
 
     def switch_sd(self, version: str) -> None:
