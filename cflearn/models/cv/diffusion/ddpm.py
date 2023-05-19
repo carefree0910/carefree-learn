@@ -176,6 +176,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
 
     sampler: ISampler
     control_model: Optional[Union[ControlNet, nn.ModuleDict]]
+    control_model_lazy: bool
     control_scales: Optional[Union[List[float], List[List[float]]]]
 
     def __init__(
@@ -492,6 +493,8 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
             else:
                 raise ValueError(f"unrecognized condition type {cond_type} occurred")
         if self.control_model is not None:
+            if self.control_model_lazy:
+                self._control_model_to_device()
             if not isinstance(cond, dict):
                 raise ValueError("`cond` should be a dict when `control_model` is used")
             hint = cond.get(CONTROL_HINT_KEY)
@@ -550,6 +553,8 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
                     ctrl = None
             cond_kw["control"] = ctrl
             cond_kw["only_mid_control"] = self.only_mid_control
+            if self.control_model_lazy:
+                self._control_model_to_device("cpu")
         return self.unet(net, timesteps=timesteps, **cond_kw)
 
     def predict_eps_from_z_and_v(
@@ -576,16 +581,18 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
             - extract_to(self.sqrt_one_minus_alphas_cumprod, ts, num_dim) * v
         )
 
-    def make_control_net(self, hint_channels: Union[int, Dict[str, int]]) -> None:
+    def make_control_net(
+        self,
+        hint_channels: Union[int, Dict[str, int]],
+        lazy: bool = False,
+    ) -> None:
         def _make(n: int) -> ControlNet:
             # temporarily make inpainting compatible
             kw = shallow_copy_dict(self.unet_kw)
             kw["in_channels"] = 4
-            dtype = list(self.unet.parameters())[0].dtype
-            control_model = ControlNet(hint_channels=n, **kw)  # type: ignore
-            control_model = control_model.to(get_device(self), dtype=dtype)
-            return control_model
+            return ControlNet(hint_channels=n, **kw)  # type: ignore
 
+        self.control_model_lazy = lazy
         if isinstance(hint_channels, int):
             self.control_model = _make(hint_channels)
         else:
@@ -595,6 +602,8 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
                     for key, key_channels in hint_channels.items()
                 }
             )
+        if not lazy:
+            self._control_model_to_device()
 
     def rename_control_net(self, old: str, new: str) -> None:
         if not isinstance(self.control_model, nn.ModuleDict):
@@ -620,6 +629,13 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
             self.control_model = None
 
     # internal
+
+    def _control_model_to_device(self, device: Optional[str] = None) -> None:
+        if self.control_model is not None:
+            if device is None:
+                device = get_device(self)
+            dtype = list(self.unet.parameters())[0].dtype
+            self.control_model.to(device, dtype=dtype)
 
     def _q_sample(
         self,
