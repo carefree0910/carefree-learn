@@ -1454,6 +1454,8 @@ def offset_cnet_weights(
         if k == "input_blocks.0.0.weight" and mv.shape[1] == 9:
             mv = mv[:, :4]
         nd[k] = v + mv
+    nd = {k: v.cpu() for k, v in nd.items()}
+    torch.cuda.empty_cache()
     return nd
 
 
