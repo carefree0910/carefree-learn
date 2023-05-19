@@ -216,7 +216,11 @@ def _convert_external(m: "DiffusionAPI", tag: str, sub_folder: Optional[str]) ->
                 if not os.path.isfile(st_path):
                     raise FileNotFoundError(f"cannot find '{tag}'")
                 torch.save(load_file(st_path), model_path)
+
+            import cflearn
+
             d = cflearn.scripts.sd.convert(model_path, m, load=False)
+
             torch.save(d, converted_path)
             sizes[tag] = _get_file_size(converted_path)
         with open(converted_sizes_path, "w") as f:
