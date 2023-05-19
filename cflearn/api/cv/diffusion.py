@@ -1600,7 +1600,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         super().to(device, use_amp=use_amp, use_half=use_half)
         if not no_annotator and not self.lazy:
             for annotator in self.annotators.values():
-                annotator = annotator.to(device, use_half=use_half)
+                self._annotator_to(annotator)
 
     @property
     def available_control_hints(self) -> List[ControlNetHints]:
