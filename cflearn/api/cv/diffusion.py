@@ -240,6 +240,10 @@ class InpaintingSettings:
     mode: InpaintingMode = InpaintingMode.NORMAL
     mask_blur: Optional[Union[int, Tuple[int, int]]] = None
     mask_padding: Optional[Union[int, Tuple[int, int]]] = None
+def normalize_image_to_diffusion(image: Image.Image) -> np.ndarray:
+    return np.array(image).astype(np.float32) / 127.5 - 1.0
+
+
 
 
 class DiffusionAPI(APIMixin):
@@ -760,7 +764,7 @@ class DiffusionAPI(APIMixin):
             sampled_: Tensor,
         ) -> Tensor:
             rgb = to_rgb(original_)
-            rgb_normalized = np.array(rgb).astype(np.float32) / 127.5 - 1.0
+            rgb_normalized = normalize_image_to_diffusion(rgb)
             rgb_normalized = rgb_normalized.transpose([2, 0, 1])[None]
             mask_res_ = read_image(mask_, None, anchor=None, to_mask=True)
             remained_mask_ = ~(mask_res_.image >= 0.5)
