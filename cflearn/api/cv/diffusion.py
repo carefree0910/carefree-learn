@@ -25,6 +25,7 @@ from typing import Optional
 from typing import NamedTuple
 from typing import ContextManager
 from filelock import FileLock
+from dataclasses import dataclass
 from cftool.cv import to_rgb
 from cftool.cv import read_image
 from cftool.cv import save_images
@@ -227,6 +228,18 @@ def _convert_external(m: "DiffusionAPI", tag: str, sub_folder: Optional[str]) ->
         with open(converted_sizes_path, "w") as f:
             json.dump(sizes, f)
         return converted_path
+
+
+class InpaintingMode(str, Enum):
+    NORMAL = "normal"
+    MASKED = "masked"
+
+
+@dataclass
+class InpaintingSettings:
+    mode: InpaintingMode = InpaintingMode.NORMAL
+    mask_blur: Optional[Union[int, Tuple[int, int]]] = None
+    mask_padding: Optional[Union[int, Tuple[int, int]]] = None
 
 
 class DiffusionAPI(APIMixin):
@@ -700,6 +713,7 @@ class DiffusionAPI(APIMixin):
         use_raw_inpainting: bool = False,
         raw_inpainting_use_ref: bool = False,
         raw_inpainting_fidelity: float = 0.2,
+        inpainting_settings: Optional[InpaintingSettings] = None,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
         use_latent_guidance: bool = False,
         verbose: bool = True,
@@ -753,6 +767,8 @@ class DiffusionAPI(APIMixin):
             pasted = np.where(remained_mask_, rgb_normalized, sampled_.numpy())
             return torch.from_numpy(pasted)
 
+        if inpainting_settings is None:
+            inpainting_settings = InpaintingSettings()
         txt_list, num_samples = get_txt_cond(txt, num_samples)
         if use_raw_inpainting:
             image_res = read_image(image, max_wh, anchor=anchor)
@@ -1746,6 +1762,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
 
 __all__ = [
     "SDVersions",
+    "InpaintingMode",
+    "InpaintingSettings",
     "DiffusionAPI",
     "ControlNetHints",
     "ControlledDiffusionAPI",
