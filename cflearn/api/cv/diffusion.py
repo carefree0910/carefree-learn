@@ -27,6 +27,7 @@ from typing import ContextManager
 from filelock import FileLock
 from dataclasses import dataclass
 from cftool.cv import to_rgb
+from cftool.cv import to_uint8
 from cftool.cv import read_image
 from cftool.cv import save_images
 from cftool.cv import restrict_wh
@@ -119,13 +120,17 @@ class SizeInfo(NamedTuple):
 
 
 class MaskedCond(NamedTuple):
-    image_res: ReadImageResponse
-    mask_res: ReadImageResponse
+    image: np.ndarray
     mask: np.ndarray
-    remained_image: np.ndarray
-    remained_mask: np.ndarray
     mask_cond: Tensor
     remained_image_cond: Tensor
+    remained_image: np.ndarray
+    remained_mask: np.ndarray
+    image_alpha: Optional[np.ndarray]
+    original_size: Tuple[int, int]
+    original_image: Image.Image
+    original_mask: Image.Image
+    crop_res: Optional["CropResponse"]
 
 
 T = TypeVar("T", bound="DiffusionAPI")
@@ -235,15 +240,166 @@ class InpaintingMode(str, Enum):
     MASKED = "masked"
 
 
+TLtRb = Tuple[int, int, int, int]
+
+
 @dataclass
 class InpaintingSettings:
     mode: InpaintingMode = InpaintingMode.NORMAL
     mask_blur: Optional[Union[int, Tuple[int, int]]] = None
-    mask_padding: Optional[Union[int, Tuple[int, int]]] = None
+    mask_padding: Optional[Union[int, Tuple[int, int]]] = 32
+    mask_binary_threshold: Optional[int] = 32
+
+
+class CropResponse(NamedTuple):
+    lt_rb: TLtRb
+    cropped_mask: np.ndarray
+    resized_image_tensor: np.ndarray
+    resized_mask_tensor: np.ndarray
+
+
+def get_mask_lt_rb(uint8_mask: np.ndarray, threshold: Optional[int]) -> TLtRb:
+    ys, xs = np.where(uint8_mask > (threshold or 0))
+    lt = xs.min().item(), ys.min().item()
+    rb = xs.max().item(), ys.max().item()
+    return *lt, *rb
+
+
+def crop_with(inp: np.ndarray, lt_rb: TLtRb) -> np.ndarray:
+    return inp[lt_rb[1] : lt_rb[3], lt_rb[0] : lt_rb[2]]
+
+
+def resize(
+    inp: np.ndarray,
+    wh: Tuple[int, int],
+    interpolation: int = cv2.INTER_LANCZOS4,
+) -> np.ndarray:
+    return cv2.resize(inp, wh, interpolation=interpolation)
+
+
+def crop_masked_area(
+    image_tensor: np.ndarray,
+    mask_tensor: np.ndarray,
+    settings: InpaintingSettings,
+) -> CropResponse:
+    image = image_tensor[0].transpose(1, 2, 0)
+    mask = mask_tensor[0, 0]
+    h, w = image.shape[:2]
+    l, t, r, b = get_mask_lt_rb(to_uint8(mask), settings.mask_binary_threshold)
+    if settings.mask_padding is not None:
+        padding = settings.mask_padding
+        if isinstance(padding, int):
+            padding = padding, padding
+        l = max(0, l - padding[0])
+        t = max(0, t - padding[1])
+        r = min(w, r + padding[0])
+        b = min(h, b + padding[1])
+    cropped_h, cropped_w = b - t, r - l
+    # adjust lt_rb to make the cropped aspect ratio equals to the original one
+    if cropped_h / cropped_w > h / w:
+        dw = (int(cropped_h * w / h) - cropped_w) // 2
+        dh = 0
+    else:
+        dw = 0
+        dh = (int(cropped_w * h / w) - cropped_h) // 2
+    if dw > 0:
+        if l < dw:
+            l = 0
+            r = min(w, cropped_w + dw * 2)
+        elif r + dw > w:
+            r = w
+            l = max(0, w - cropped_w - dw * 2)
+        else:
+            l -= dw
+            r += dw
+    if dh > 0:
+        if t < dh:
+            t = 0
+            b = min(h, cropped_h + dh * 2)
+        elif b + dh > h:
+            b = h
+            t = max(0, h - cropped_h - dh * 2)
+        else:
+            t -= dh
+            b += dh
+    # finalize
+    lt_rb = l, t, r, b
+    cropped_image = crop_with(image, lt_rb)
+    cropped_mask = crop_with(mask, lt_rb)
+    resized_image = resize(cropped_image, (w, h))
+    resized_mask = resize(cropped_mask, (w, h), cv2.INTER_NEAREST)
+    resized_image = resized_image.transpose(2, 0, 1)[None]
+    resized_mask = resized_mask[None, None]
+    return CropResponse(lt_rb, cropped_mask, resized_image, resized_mask)
+
+
 def normalize_image_to_diffusion(image: Image.Image) -> np.ndarray:
     return np.array(image).astype(np.float32) / 127.5 - 1.0
 
 
+def recover_with(
+    original: Image.Image,
+    sampled: Tensor,
+    crop: CropResponse,
+    settings: InpaintingSettings,
+) -> Tensor:
+    l, t, r, b = crop.lt_rb
+    ch, cw = b - t, r - l
+    c_mask = crop.cropped_mask
+    if settings.mask_padding is None:
+        c_blurred_mask = c_mask
+    else:
+        blur = settings.mask_padding
+        if isinstance(blur, int):
+            blur = blur, blur
+        c_blurred_mask = cv2.blur(c_mask, blur)
+    c_blurred_mask = c_blurred_mask[..., None]
+    sampled_array = sampled.numpy().transpose([0, 2, 3, 1])
+    o_array = normalize_image_to_diffusion(to_rgb(original))
+    c_o_array = crop_with(o_array, crop.lt_rb)
+    mixed: List[np.ndarray] = []
+    for i_sampled in sampled_array:
+        i_sampled = resize(i_sampled, (cw, ch))
+        i_sampled = i_sampled * c_blurred_mask + c_o_array * (1.0 - c_blurred_mask)
+        i_pasted = o_array.copy()
+        i_pasted[t:b, l:r] = i_sampled
+        mixed.append(i_pasted.transpose([2, 0, 1]))
+    return torch.from_numpy(np.stack(mixed, axis=0))
+
+
+class CroppedResponse(NamedTuple):
+    image: np.ndarray
+    mask: np.ndarray
+    crop_res: Optional[CropResponse]
+
+
+def get_cropped(
+    image_res: ReadImageResponse,
+    mask_res: ReadImageResponse,
+    inpainting_settings: Optional[InpaintingSettings],
+) -> CroppedResponse:
+    if inpainting_settings is None or inpainting_settings.mode == InpaintingMode.NORMAL:
+        crop_res = None
+        cropped_image = image_res.image
+        cropped_mask = mask_res.image
+    elif inpainting_settings.mode == InpaintingMode.MASKED:
+        crop_res = crop_masked_area(
+            image_res.image,
+            mask_res.image,
+            inpainting_settings,
+        )
+        cropped_image = crop_res.resized_image_tensor
+        cropped_mask = crop_res.resized_mask_tensor
+    else:
+        raise ValueError(f"Unknown inpainting mode: {inpainting_settings.mode}")
+    if inpainting_settings is not None:
+        if inpainting_settings.mask_blur is not None:
+            cropped_mask = cv2.blur(
+                cropped_mask[0][0],
+                (inpainting_settings.mask_blur, inpainting_settings.mask_blur),
+            )
+            cropped_mask = cropped_mask[None, None]
+    return CroppedResponse(cropped_image, cropped_mask, crop_res)
 
 
 class DiffusionAPI(APIMixin):
@@ -705,34 +861,28 @@ class DiffusionAPI(APIMixin):
         export_path: Optional[str] = None,
         *,
         seed: Optional[int] = None,
-        reference: Optional[Union[str, Image.Image]] = None,
-        reference_fidelity: float = 0.2,
         anchor: int = 64,
         max_wh: int = 512,
         num_samples: Optional[int] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         keep_original: bool = False,
-        ref_mask_smooth: int = 0,
         use_raw_inpainting: bool = False,
-        raw_inpainting_use_ref: bool = False,
-        raw_inpainting_fidelity: float = 0.2,
         inpainting_settings: Optional[InpaintingSettings] = None,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
-        use_latent_guidance: bool = False,
+        use_background_guidance: bool = False,
+        use_reference: bool = False,
+        reference_fidelity: float = 0.2,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
         def get_z_ref_pack(
-            res_: ReadImageResponse,
-            mask_: np.ndarray,
+            normalized_image_: np.ndarray,
+            normalized_mask_: np.ndarray,
         ) -> Tuple[Tensor, Tensor, Tensor]:
-            z_ref = self._get_z(res_.image)
-            if ref_mask_smooth > 0:
-                mask_ = cv2.blur(mask_[0][0], (ref_mask_smooth, ref_mask_smooth))
-                mask_ = mask_[None, None]
+            z_ref = self._get_z(normalized_image_)
             z_ref_mask = 1.0 - F.interpolate(
-                torch.from_numpy(mask_).to(z_ref),
+                torch.from_numpy(normalized_mask_).to(z_ref),
                 z_ref.shape[-2:],
                 mode="bicubic",
             )
@@ -742,21 +892,19 @@ class DiffusionAPI(APIMixin):
             return z_ref, z_ref_mask, z_ref_noise
 
         def get_z_info_from(
-            reference_: Optional[Union[str, Image.Image]],
+            z_ref_: Optional[Tensor],
             fidelity_: float,
             shape_: Tuple[int, int],
-        ) -> Tuple[Optional[Tensor], Optional[Tuple[int, int]], Dict[str, Any]]:
-            if reference_ is None:
+        ) -> Tuple[Optional[Tensor], Optional[Tuple[int, int]]]:
+            if z_ref_ is None:
                 z = None
-                new_kw = kwargs
                 size = tuple(map(lambda n: n * self.size_info.factor, shape_))
             else:
                 size = None
-                z = self._get_z(read_image(reference_, max_wh, anchor=anchor).image)
-                if z_ref_mask is not None and z_ref_noise is not None:
-                    z = z * z_ref_mask + z_ref_noise * (1.0 - z_ref_mask)
-                z, _, new_kw = self._q_sample(z, num_steps, fidelity_, seed, **kwargs)
-            return z, size, new_kw  # type: ignore
+                args = z_ref_, num_steps, fidelity_, seed
+                z, _, start_step = self._q_sample(*args, **kwargs)
+                kwargs["start_step"] = start_step
+            return z, size  # type: ignore
 
         def paste_original(
             original_: Image.Image,
@@ -774,13 +922,17 @@ class DiffusionAPI(APIMixin):
         if inpainting_settings is None:
             inpainting_settings = InpaintingSettings()
         txt_list, num_samples = get_txt_cond(txt, num_samples)
+
+        # raw inpainting
         if use_raw_inpainting:
             image_res = read_image(image, max_wh, anchor=anchor)
             mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
-            z_ref, z_ref_mask, z_ref_noise = get_z_ref_pack(image_res, mask_res.image)
-            z, size, kwargs = get_z_info_from(
-                image_res.image if raw_inpainting_use_ref else None,
-                raw_inpainting_fidelity,
+            cropped_res = get_cropped(image_res, mask_res, inpainting_settings)
+            z_ref_pack = get_z_ref_pack(cropped_res.image, cropped_res.mask)
+            z_ref, z_ref_mask, z_ref_noise = z_ref_pack
+            z, size = get_z_info_from(
+                z_ref if use_reference else None,
+                reference_fidelity,
                 z_ref.shape[-2:][::-1],
             )
             kw = shallow_copy_dict(kwargs)
@@ -801,10 +953,16 @@ class DiffusionAPI(APIMixin):
                 )
             )
             sampled = self.sample(num_samples, **kw)
+            crop_res = cropped_res.crop_res
+            if crop_res is not None:
+                c_args = image_res.original, sampled, crop_res, inpainting_settings
+                sampled = recover_with(*c_args)
             if keep_original:
                 original = image_res.original
                 sampled = paste_original(original, mask_res.original, sampled)
             return sampled
+
+        # 'real' inpainting
         res = self._get_masked_cond(
             image,
             mask,
@@ -812,18 +970,24 @@ class DiffusionAPI(APIMixin):
             anchor,
             lambda remained_mask, img: np.where(remained_mask, img, 0.5),
             lambda bool_mask: torch.from_numpy(bool_mask),
+            inpainting_settings,
         )
         # sampling
         with switch_sampler_context(self, kwargs.get("sampler")):
             # calculate `z_ref` stuffs based on `use_image_guidance`
-            if not use_latent_guidance:
+            if not use_background_guidance:
                 z_ref = z_ref_mask = z_ref_noise = None
             else:
-                z_ref, z_ref_mask, z_ref_noise = get_z_ref_pack(res.image_res, res.mask)
-                reference = res.image_res.original
-            # calculate `z` based on `reference`
+                z_ref, z_ref_mask, z_ref_noise = get_z_ref_pack(res.image, res.mask)
+            # calculate `z` based on `z_ref`, if needed
             z_shape = res.remained_image_cond.shape[-2:][::-1]
-            z, size, kwargs = get_z_info_from(reference, reference_fidelity, z_shape)
+            if not use_reference:
+                args = None, reference_fidelity, z_shape
+            elif z_ref is not None:
+                args = z_ref, reference_fidelity, z_shape
+            else:
+                args = self._get_z(res.image), reference_fidelity, z_shape
+            z, size = get_z_info_from(*args)
             # core
             sampled = self.sample(
                 num_samples,
@@ -834,7 +998,7 @@ class DiffusionAPI(APIMixin):
                 z_ref_mask=z_ref_mask,
                 z_ref_noise=z_ref_noise,
                 size=size,  # type: ignore
-                original_size=res.image_res.original_size,
+                original_size=res.original_size,
                 alpha=None,
                 cond=txt_list,
                 cond_concat=torch.cat([res.mask_cond, res.remained_image_cond], dim=1),
@@ -844,9 +1008,11 @@ class DiffusionAPI(APIMixin):
                 verbose=verbose,
                 **kwargs,
             )
+            if res.crop_res is not None:
+                c_args = res.original_image, sampled, res.crop_res, inpainting_settings
+                sampled = recover_with(*c_args)
         if keep_original:
-            original = res.image_res.original
-            sampled = paste_original(original, res.mask_res.original, sampled)
+            sampled = paste_original(res.original_image, res.original_mask, sampled)
         return sampled
 
     def outpainting(
@@ -974,13 +1140,13 @@ class DiffusionAPI(APIMixin):
         size = self._get_identical_size_with(res.remained_image_cond)
         # refine with img2img
         if refine_fidelity is not None:
-            z = self._get_z(res.image_res.image)
+            z = self._get_z(res.image)
             return self._img2img(
                 z,
                 export_path,
                 fidelity=refine_fidelity,
-                original_size=res.image_res.original_size,
-                alpha=res.image_res.alpha if alpha is None else alpha,
+                original_size=res.original_size,
+                alpha=res.image_alpha if alpha is None else alpha,
                 cond=cond,
                 num_steps=num_steps,
                 clip_output=clip_output,
@@ -992,8 +1158,8 @@ class DiffusionAPI(APIMixin):
             1,
             export_path,
             size=size,  # type: ignore
-            original_size=res.image_res.original_size,
-            alpha=res.image_res.alpha if alpha is None else alpha,
+            original_size=res.original_size,
+            alpha=res.image_alpha if alpha is None else alpha,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -1346,14 +1512,17 @@ class DiffusionAPI(APIMixin):
         anchor: int,
         mask_image_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
         mask_cond_fn: Callable[[np.ndarray], Tensor],
+        inpainting_settings: Optional[InpaintingSettings] = None,
     ) -> MaskedCond:
         # handle mask stuffs
         image_res = read_image(image, max_wh, anchor=anchor)
         mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
-        mask = mask_res.image
-        bool_mask = np.round(mask) >= 0.5
+        cropped_res = get_cropped(image_res, mask_res, inpainting_settings)
+        c_image = cropped_res.image
+        c_mask = cropped_res.mask
+        bool_mask = np.round(c_mask) >= 0.5
         remained_mask = (~bool_mask).astype(np.float16 if self.use_half else np.float32)
-        remained_image = mask_image_fn(remained_mask, image_res.image)
+        remained_image = mask_image_fn(remained_mask, c_image)
         # construct condition tensor
         remained_cond = self._get_z(remained_image)
         latent_shape = remained_cond.shape[-2:]
@@ -1363,13 +1532,17 @@ class DiffusionAPI(APIMixin):
             mask_cond = mask_cond.half()
         mask_cond = mask_cond.to(self.device)
         return MaskedCond(
-            image_res,
-            mask_res,
-            mask,
-            remained_image,
-            remained_mask,
+            c_image,
+            c_mask,
             mask_cond,
             remained_cond,
+            remained_image,
+            remained_mask,
+            image_res.alpha,
+            image_res.original_size,
+            image_res.original,
+            mask_res.original,
+            cropped_res.crop_res,
         )
 
     def _q_sample(
@@ -1382,7 +1555,7 @@ class DiffusionAPI(APIMixin):
         variation_seed: Optional[int] = None,
         variation_strength: Optional[float] = None,
         **kwargs: Any,
-    ) -> Tuple[Tensor, Tensor, Dict[str, Any]]:
+    ) -> Tuple[Tensor, Tensor, int]:
         if num_steps is None:
             num_steps = self.sampler.default_steps
         t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1)))
@@ -1399,8 +1572,8 @@ class DiffusionAPI(APIMixin):
             variation_seed,
             variation_strength,
         )
-        kwargs["start_step"] = num_steps - t
-        return z, noise, kwargs
+        start_step = num_steps - t
+        return z, noise, start_step
 
     def _img2img(
         self,
@@ -1418,7 +1591,8 @@ class DiffusionAPI(APIMixin):
         **kwargs: Any,
     ) -> Tensor:
         with switch_sampler_context(self, kwargs.get("sampler")):
-            z, noise, kwargs = self._q_sample(z, num_steps, **kwargs)
+            z, noise, start_step = self._q_sample(z, num_steps, **kwargs)
+            kwargs["start_step"] = start_step
             return self.sample(
                 z.shape[0],
                 export_path,
