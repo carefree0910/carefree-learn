@@ -130,6 +130,7 @@ class MaskedCond(NamedTuple):
     original_size: Tuple[int, int]
     original_image: Image.Image
     original_mask: Image.Image
+    wh_ratio: Tuple[float, float]
     crop_res: Optional["CropResponse"]
 
 
@@ -341,10 +342,15 @@ def recover_with(
     original: Image.Image,
     sampled: Tensor,
     crop: CropResponse,
+    wh_ratio: Tuple[float, float],
     settings: InpaintingSettings,
 ) -> Tensor:
     l, t, r, b = crop.lt_rb
-    ch, cw = b - t, r - l
+    w_ratio, h_ratio = wh_ratio
+    l = round(l * w_ratio)
+    t = round(t * h_ratio)
+    r = round(r * w_ratio)
+    b = round(b * h_ratio)
     c_mask = crop.cropped_mask
     if settings.mask_padding is None:
         c_blurred_mask = c_mask
@@ -353,10 +359,13 @@ def recover_with(
         if isinstance(blur, int):
             blur = blur, blur
         c_blurred_mask = cv2.blur(c_mask, blur)
-    c_blurred_mask = c_blurred_mask[..., None]
     sampled_array = sampled.numpy().transpose([0, 2, 3, 1])
     o_array = normalize_image_to_diffusion(to_rgb(original))
-    c_o_array = crop_with(o_array, crop.lt_rb)
+    c_o_array = crop_with(o_array, (l, t, r, b))
+    ch, cw = c_o_array.shape[:2]
+    if ch != c_blurred_mask.shape[0] or cw != c_blurred_mask.shape[1]:
+        c_blurred_mask = resize(c_blurred_mask, (cw, ch))
+    c_blurred_mask = c_blurred_mask[..., None]
     mixed: List[np.ndarray] = []
     for i_sampled in sampled_array:
         i_sampled = resize(i_sampled, (cw, ch))
@@ -370,6 +379,7 @@ def recover_with(
 class CroppedResponse(NamedTuple):
     image: np.ndarray
     mask: np.ndarray
+    wh_ratio: Tuple[float, float]
     crop_res: Optional[CropResponse]
 
 
@@ -378,6 +388,9 @@ def get_cropped(
     mask_res: ReadImageResponse,
     inpainting_settings: Optional[InpaintingSettings],
 ) -> CroppedResponse:
+    ow, oh = image_res.original_size
+    ih, iw = image_res.image.shape[-2:]
+    wh_ratio = ow / iw, oh / ih
     if inpainting_settings is None or inpainting_settings.mode == InpaintingMode.NORMAL:
         crop_res = None
         cropped_image = image_res.image
@@ -399,7 +412,7 @@ def get_cropped(
                 (inpainting_settings.mask_blur, inpainting_settings.mask_blur),
             )
             cropped_mask = cropped_mask[None, None]
-    return CroppedResponse(cropped_image, cropped_mask, crop_res)
+    return CroppedResponse(cropped_image, cropped_mask, wh_ratio, crop_res)
 
 
 class DiffusionAPI(APIMixin):
@@ -955,8 +968,13 @@ class DiffusionAPI(APIMixin):
             sampled = self.sample(num_samples, **kw)
             crop_res = cropped_res.crop_res
             if crop_res is not None:
-                c_args = image_res.original, sampled, crop_res, inpainting_settings
-                sampled = recover_with(*c_args)
+                sampled = recover_with(
+                    image_res.original,
+                    sampled,
+                    crop_res,
+                    cropped_res.wh_ratio,
+                    inpainting_settings,
+                )
             if keep_original:
                 original = image_res.original
                 sampled = paste_original(original, mask_res.original, sampled)
@@ -1009,8 +1027,13 @@ class DiffusionAPI(APIMixin):
                 **kwargs,
             )
             if res.crop_res is not None:
-                c_args = res.original_image, sampled, res.crop_res, inpainting_settings
-                sampled = recover_with(*c_args)
+                sampled = recover_with(
+                    res.original_image,
+                    sampled,
+                    res.crop_res,
+                    res.wh_ratio,
+                    inpainting_settings,
+                )
         if keep_original:
             sampled = paste_original(res.original_image, res.original_mask, sampled)
         return sampled
@@ -1542,6 +1565,7 @@ class DiffusionAPI(APIMixin):
             image_res.original_size,
             image_res.original,
             mask_res.original,
+            cropped_res.wh_ratio,
             cropped_res.crop_res,
         )
 
