@@ -270,6 +270,10 @@ def crop_with(inp: np.ndarray, lt_rb: TLtRb) -> np.ndarray:
     return inp[lt_rb[1] : lt_rb[3], lt_rb[0] : lt_rb[2]]
 
 
+def crop_tensor_with(inp: Tensor, lt_rb: TLtRb) -> Tensor:
+    return inp[..., lt_rb[1] : lt_rb[3], lt_rb[0] : lt_rb[2]]
+
+
 def resize(
     inp: np.ndarray,
     wh: Tuple[int, int],
@@ -374,6 +378,19 @@ def recover_with(
         i_pasted[t:b, l:r] = i_sampled
         mixed.append(i_pasted.transpose([2, 0, 1]))
     return torch.from_numpy(np.stack(mixed, axis=0))
+
+
+def crop_controlnet(kwargs: Dict[str, Any], crop_res: Optional[CropResponse]) -> None:
+    if crop_res is None:
+        return
+    hint: Optional[List[Tuple[str, Tensor]]] = kwargs.get(CONTROL_HINT_KEY, None)
+    if hint is None:
+        return
+    for i, h in enumerate(hint):
+        h_h, h_w = h[1].shape[-2:]
+        h_tensor = crop_tensor_with(h[1], crop_res.lt_rb)
+        h_tensor = F.interpolate(h_tensor, (h_h, h_w), mode="bilinear")
+        hint[i] = h[0], h_tensor
 
 
 class CroppedResponse(NamedTuple):
@@ -965,6 +982,7 @@ class DiffusionAPI(APIMixin):
                     verbose=verbose,
                 )
             )
+            crop_controlnet(kw, cropped_res.crop_res)
             sampled = self.sample(num_samples, **kw)
             crop_res = cropped_res.crop_res
             if crop_res is not None:
@@ -1006,6 +1024,8 @@ class DiffusionAPI(APIMixin):
             else:
                 args = self._get_z(res.image), reference_fidelity, z_shape
             z, size = get_z_info_from(*args)
+            # adjust ControlNet parameters
+            crop_controlnet(kwargs, res.crop_res)
             # core
             sampled = self.sample(
                 num_samples,
