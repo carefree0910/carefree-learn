@@ -906,21 +906,6 @@ class DiffusionAPI(APIMixin):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        def get_z_ref_pack(
-            normalized_image_: np.ndarray,
-            normalized_mask_: np.ndarray,
-        ) -> Tuple[Tensor, Tensor, Tensor]:
-            z_ref = self._get_z(normalized_image_)
-            z_ref_mask = 1.0 - F.interpolate(
-                torch.from_numpy(normalized_mask_).to(z_ref),
-                z_ref.shape[-2:],
-                mode="bicubic",
-            )
-            if seed is not None:
-                seed_everything(seed)
-            z_ref_noise = torch.randn_like(z_ref)
-            return z_ref, z_ref_mask, z_ref_noise
-
         def get_z_info_from(
             z_ref_: Optional[Tensor],
             fidelity_: float,
@@ -958,7 +943,7 @@ class DiffusionAPI(APIMixin):
             image_res = read_image(image, max_wh, anchor=anchor)
             mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
             cropped_res = get_cropped(image_res, mask_res, inpainting_settings)
-            z_ref_pack = get_z_ref_pack(cropped_res.image, cropped_res.mask)
+            z_ref_pack = self._get_z_ref_pack(cropped_res.image, cropped_res.mask, seed)
             z_ref, z_ref_mask, z_ref_noise = z_ref_pack
             z, size = get_z_info_from(
                 z_ref if use_reference else None,
@@ -1014,7 +999,8 @@ class DiffusionAPI(APIMixin):
             if not use_background_guidance:
                 z_ref = z_ref_mask = z_ref_noise = None
             else:
-                z_ref, z_ref_mask, z_ref_noise = get_z_ref_pack(res.image, res.mask)
+                z_ref_pack = self._get_z_ref_pack(res.image, res.mask, seed)
+                z_ref, z_ref_mask, z_ref_noise = z_ref_pack
             # calculate `z` based on `z_ref`, if needed
             z_shape = res.remained_image_cond.shape[-2:][::-1]
             if not use_reference:
@@ -1492,6 +1478,23 @@ class DiffusionAPI(APIMixin):
         z = z.to(self.device)
         z = self.m._preprocess(z, deterministic=True)
         return z
+
+    def _get_z_ref_pack(
+        self,
+        image_tensor: np.ndarray,
+        mask_tensor: np.ndarray,
+        seed: Optional[int],
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        z_ref = self._get_z(image_tensor)
+        z_ref_mask = 1.0 - F.interpolate(
+            torch.from_numpy(mask_tensor).to(z_ref),
+            z_ref.shape[-2:],
+            mode="bicubic",
+        )
+        if seed is not None:
+            seed_everything(seed)
+        z_ref_noise = torch.randn_like(z_ref)
+        return z_ref, z_ref_mask, z_ref_noise
 
     def _get_identical_size_with(self, pivot: Tensor) -> Tuple[int, int]:
         return tuple(  # type: ignore
