@@ -907,19 +907,11 @@ class DiffusionAPI(APIMixin):
         **kwargs: Any,
     ) -> Tensor:
         def get_z_info_from(
-            z_ref_: Optional[Tensor],
-            fidelity_: float,
-            shape_: Tuple[int, int],
+            z_ref_: Optional[Tensor], fidelity_: float, shape_: Tuple[int, int]
         ) -> Tuple[Optional[Tensor], Optional[Tuple[int, int]]]:
-            if z_ref_ is None:
-                z = None
-                size = tuple(map(lambda n: n * self.size_info.factor, shape_))
-            else:
-                size = None
-                args = z_ref_, num_steps, fidelity_, seed
-                z, _, start_step = self._q_sample(*args, **kwargs)
-                kwargs["start_step"] = start_step
-            return z, size  # type: ignore
+            return self._get_z_info_from(
+                z_ref_, fidelity_, shape_, seed, num_steps, kwargs
+            )
 
         def paste_original(
             original_: Image.Image,
@@ -1495,6 +1487,25 @@ class DiffusionAPI(APIMixin):
             seed_everything(seed)
         z_ref_noise = torch.randn_like(z_ref)
         return z_ref, z_ref_mask, z_ref_noise
+
+    def _get_z_info_from(
+        self,
+        z_ref: Optional[Tensor],
+        fidelity: float,
+        shape: Tuple[int, int],
+        seed: Optional[int],
+        num_steps: Optional[int],
+        kwargs: Dict[str, Any],
+    ) -> Tuple[Optional[Tensor], Optional[Tuple[int, int]]]:
+        if z_ref is None:
+            z = None
+            size = tuple(map(lambda n: n * self.size_info.factor, shape))
+        else:
+            size = None
+            args = z_ref, num_steps, fidelity, seed
+            z, _, start_step = self._q_sample(*args, **kwargs)
+            kwargs["start_step"] = start_step
+        return z, size  # type: ignore
 
     def _get_identical_size_with(self, pivot: Tensor) -> Tuple[int, int]:
         return tuple(  # type: ignore
