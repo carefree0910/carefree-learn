@@ -91,8 +91,10 @@ from ...models.cv.diffusion.samplers.k_samplers import KSamplerMixin
 
 try:
     import cv2
+
+    INTER_LANCZOS4 = cv2.INTER_LANCZOS4
 except:
-    cv2 = None
+    cv2 = INTER_LANCZOS4 = None
 
 
 class switch_sampler_context:
@@ -277,7 +279,7 @@ def crop_tensor_with(inp: Tensor, lt_rb: TLtRb) -> Tensor:
 def resize(
     inp: np.ndarray,
     wh: Tuple[int, int],
-    interpolation: int = cv2.INTER_LANCZOS4,
+    interpolation: int = INTER_LANCZOS4,
 ) -> np.ndarray:
     return cv2.resize(inp, wh, interpolation=interpolation)
 
