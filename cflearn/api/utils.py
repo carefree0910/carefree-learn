@@ -98,10 +98,23 @@ class APIMixin:
 
 
 class Weights(ILoadableItem[tensor_dict_type]):
-    def __init__(self, path: str, *, init: bool = False):
-        super().__init__(lambda: torch.load(path), init=init)
+    def __init__(
+        self,
+        path: str,
+        *,
+        init: bool = False,
+        force_keep: bool = False,
+    ):
+        super().__init__(lambda: torch.load(path), init=init, force_keep=force_keep)
 
 
 class WeightsPool(ILoadablePool[tensor_dict_type]):
-    def register(self, key: str, path: str) -> None:  # type: ignore
-        super().register(key, lambda init: Weights(path, init=init))
+    def register(
+        self,
+        key: str,
+        path: str,
+        *,
+        force_keep: bool = False,
+    ) -> None:  # type: ignore
+        init_fn = lambda init: Weights(path, init=init, force_keep=force_keep)
+        super().register(key, init_fn)
