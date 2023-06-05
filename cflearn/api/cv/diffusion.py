@@ -443,6 +443,7 @@ class DiffusionAPI(APIMixin):
     latest_variation_seed: Optional[int]
     sd_weights: WeightsPool
     current_sd_version: Optional[str]
+    _random_state: Optional[tuple] = None
 
     def __init__(
         self,
@@ -622,6 +623,8 @@ class DiffusionAPI(APIMixin):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
+        if self._random_state is None:
+            self._random_state = random.getstate()
         o_kw_backup = dict(
             seed=seed,
             variations=variations,
@@ -851,6 +854,9 @@ class DiffusionAPI(APIMixin):
         self.empty_cuda_cache()
         if registered_custom:
             self.cond_model.clear_custom()
+        if self._random_state is not None:
+            random.setstate(self._random_state)
+            self._random_state = None
         return concat
 
     def txt2img(
@@ -1616,6 +1622,8 @@ class DiffusionAPI(APIMixin):
         variation_strength: Optional[float] = None,
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor, int]:
+        if self._random_state is None:
+            self._random_state = random.getstate()
         if num_steps is None:
             num_steps = self.sampler.default_steps
         t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1)))
