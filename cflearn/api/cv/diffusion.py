@@ -1838,6 +1838,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         use_half: bool = False,
         clip_skip: int = 0,
         hint_channels: int = 3,
+        num_pool: Optional[Union[str, int]] = "all",
         lazy: bool = False,
     ):
         super().__init__(
@@ -1849,6 +1850,12 @@ class ControlledDiffusionAPI(DiffusionAPI):
         )
         default_cnet = sorted(self.control_mappings)[0]
         self.lazy = lazy
+        if num_pool is None:
+            self.num_pool = None
+        else:
+            if num_pool == "all":
+                num_pool = len(self.control_mappings)
+            self.num_pool = num_pool if isinstance(num_pool, int) else None
         self.hint_channels = hint_channels
         self.m.make_control_net({default_cnet: hint_channels}, lazy)
         assert isinstance(self.m.control_model, nn.ModuleDict)
@@ -1938,9 +1945,15 @@ class ControlledDiffusionAPI(DiffusionAPI):
         self.prepare_control(target_mapping)
 
         current = set(self.control_model.keys())
-        to_remove = current - target
-        if to_remove:
-            self.remove_control(list(to_remove))
+        if self.num_pool is None or len(current) > self.num_pool:
+            to_remove = list(current - target)
+            if to_remove:
+                if self.num_pool is None:
+                    self.remove_control(to_remove)
+                else:
+                    random.shuffle(to_remove)
+                    diff = len(current) - self.num_pool
+                    self.remove_control(to_remove[:diff])
 
         sorted_target = sorted(target)
         loaded_list = [self.loaded[hint] for hint in sorted_target]
