@@ -1888,8 +1888,10 @@ class ControlledDiffusionAPI(DiffusionAPI):
 
     def prepare_control(self, hints2tags: Dict[ControlNetHints, str]) -> None:
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
+        any_new = False
         for hint, tag in hints2tags.items():
             if hint not in self.control_model:
+                any_new = True
                 self.m.make_control_net(self.hint_channels, self.lazy, target_key=hint)
             if hint not in self.controlnet_weights:
                 try:
@@ -1906,6 +1908,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 self.controlnet_weights[hint] = d
             elif hint not in self.loaded:
                 self.loaded[hint] = False
+        if any_new:
+            freeze(self.m.control_model)
 
     def prepare_all_controls(self) -> None:
         self.prepare_control(self.control_mappings)
