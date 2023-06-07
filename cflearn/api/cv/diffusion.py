@@ -1816,7 +1816,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
     base_sd_versions: Dict[ControlNetHints, str]
     controlnet_weights: Dict[ControlNetHints, tensor_dict_type]
 
-    control_defaults = {
+    control_mappings = {
         ControlNetHints.DEPTH: "ldm.sd_v1.5.control.diff.depth",
         ControlNetHints.CANNY: "ldm.sd_v1.5.control.diff.canny",
         ControlNetHints.POSE: "ldm.sd_v1.5.control.diff.pose",
@@ -1838,7 +1838,6 @@ class ControlledDiffusionAPI(DiffusionAPI):
         use_half: bool = False,
         clip_skip: int = 0,
         hint_channels: int = 3,
-        num_pool: int = 4,
         lazy: bool = False,
     ):
         super().__init__(
@@ -1848,15 +1847,15 @@ class ControlledDiffusionAPI(DiffusionAPI):
             use_half=use_half,
             clip_skip=clip_skip,
         )
-        pool = sorted(self.control_defaults)
-        selected_pool = pool[: min(num_pool, len(pool))]
+        default_cnet = sorted(self.control_mappings)[0]
         self.lazy = lazy
-        self.m.make_control_net({k: hint_channels for k in selected_pool}, lazy)
-        assert self.m.control_model is not None
+        self.hint_channels = hint_channels
+        self.m.make_control_net({default_cnet: hint_channels}, lazy)
+        assert isinstance(self.m.control_model, nn.ModuleDict)
+        self.control_model = self.m.control_model
         freeze(self.m.control_model)
-        self.loaded = {k: False for k in selected_pool}
+        self.loaded = {}
         self.annotators = {}
-        self.num_pool = num_pool
         self.control_model = self.m.control_model
         self.base_sd_versions = {}
         self.controlnet_weights = {}
@@ -1890,10 +1889,37 @@ class ControlledDiffusionAPI(DiffusionAPI):
     def prepare_control(self, hints2tags: Dict[ControlNetHints, str]) -> None:
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
         for hint, tag in hints2tags.items():
-            self.controlnet_weights[hint] = torch.load(download_model(tag, root=root))
+            if hint not in self.control_model:
+                self.m.make_control_net(self.hint_channels, self.lazy, target_key=hint)
+            if hint not in self.controlnet_weights:
+                try:
+                    d = torch.load(download_model(tag, root=root))
+                except:
 
-    def prepare_control_defaults(self) -> None:
-        self.prepare_control(self.control_defaults)
+                    def fn(p: str, m: ControlledDiffusionAPI) -> tensor_dict_type:
+                        import cflearn
+
+                        return cflearn.scripts.sd.convert_controlnet(p)
+
+                    d = _convert_external(self, tag, "controlnet", convert_fn=fn)
+                self.loaded[hint] = False
+                self.controlnet_weights[hint] = d
+            elif hint not in self.loaded:
+                self.loaded[hint] = False
+
+    def prepare_all_controls(self) -> None:
+        self.prepare_control(self.control_mappings)
+
+    def remove_control(self, hints: List[ControlNetHints]) -> None:
+        for hint in hints:
+            if hint in self.loaded:
+                del self.loaded[hint]
+            if hint in self.controlnet_weights:
+                del self.controlnet_weights[hint]
+            if hint in self.control_model:
+                del self.control_model[hint]
+            if hint in self.base_sd_versions:
+                del self.base_sd_versions[hint]
 
     def switch_control(
         self,
@@ -1903,26 +1929,14 @@ class ControlledDiffusionAPI(DiffusionAPI):
         if self.m.control_model is None:
             raise ValueError("`control_model` is not built yet")
 
-        hints_list = list(hints)
-        if len(hints_list) > self.num_pool:
-            print_warning(
-                f"number of target hints ({len(hints_list)}) exceeds "
-                f"number of pool ({self.num_pool}), "
-                f"so only {self.num_pool} hints will be activated"
-            )
-            random.shuffle(hints_list)
-            hints_list = hints_list[: self.num_pool]
+        target = set(hints)
+        target_mapping = {hint: self.control_mappings[hint] for hint in target}
+        self.prepare_control(target_mapping)
 
-        target = set(hints_list)
-        current = set(self.loaded)
-        not_current = sorted(target - current)
-        if not_current:
-            not_target = sorted(current - target)
-            for i, i_not_current in enumerate(not_current):
-                pop_key = not_target[i]
-                self.m.rename_control_net(pop_key, i_not_current)
-                self.loaded[i_not_current] = False
-                self.loaded.pop(pop_key)
+        current = set(self.control_model.keys())
+        to_remove = current - target
+        if to_remove:
+            self.remove_control(list(to_remove))
 
         sorted_target = sorted(target)
         loaded_list = [self.loaded[hint] for hint in sorted_target]
@@ -1970,7 +1984,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             self.annotators[hint] = annotator
 
     def prepare_annotators(self) -> None:
-        for hint in self.controlnet_weights:
+        for hint in self.control_mappings:
             self.prepare_annotator(hint)
 
     def get_hint_of(
