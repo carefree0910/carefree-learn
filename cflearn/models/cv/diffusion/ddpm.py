@@ -584,6 +584,8 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
         self,
         hint_channels: Union[int, Dict[str, int]],
         lazy: bool = False,
+        *,
+        target_key: Optional[str] = None,
     ) -> None:
         def _make(n: int) -> ControlNet:
             # temporarily make inpainting compatible
@@ -591,16 +593,27 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
             kw["in_channels"] = 4
             return ControlNet(hint_channels=n, **kw)  # type: ignore
 
-        self.control_model_lazy = lazy
-        if isinstance(hint_channels, int):
-            self.control_model = _make(hint_channels)
+        if target_key is not None:
+            if not isinstance(self.control_model, nn.ModuleDict):
+                msg = "`target_key` can only be used in multi `ControlNet`"
+                raise ValueError(msg)
+            if not isinstance(hint_channels, int):
+                msg = "`hint_channels` should be int when `target_key` is used"
+                raise ValueError(msg)
+            if target_key not in self.control_model:
+                self.control_model[target_key] = _make(hint_channels)
         else:
-            self.control_model = nn.ModuleDict(
-                {
-                    key: _make(key_channels)
-                    for key, key_channels in hint_channels.items()
-                }
-            )
+            if isinstance(hint_channels, int):
+                self.control_model = _make(hint_channels)
+            else:
+                self.control_model = nn.ModuleDict(
+                    {
+                        key: _make(key_channels)
+                        for key, key_channels in hint_channels.items()
+                    }
+                )
+
+        self.control_model_lazy = lazy
         if not lazy:
             self._control_model_to()
 
