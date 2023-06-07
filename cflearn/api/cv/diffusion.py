@@ -1997,8 +1997,6 @@ class ControlledDiffusionAPI(DiffusionAPI):
         uint8_rgb: np.ndarray,
         **kwargs: Any,
     ) -> np.ndarray:
-        if not self.loaded.get(hint):
-            raise ValueError(f"'{hint}' is not loaded yet, please call `switch` first.")
         annotator = self.annotators.get(hint)
         if annotator is None:
             raise ValueError(
