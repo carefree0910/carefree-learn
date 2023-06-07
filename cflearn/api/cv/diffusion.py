@@ -195,7 +195,13 @@ def get_highres_steps(num_steps: int, fidelity: float) -> int:
     return int(num_steps / min(1.0 - fidelity, 0.999))
 
 
-def _convert_external(m: "DiffusionAPI", tag: str, sub_folder: Optional[str]) -> str:
+def _convert_external(
+    m: "DiffusionAPI",
+    tag: str,
+    sub_folder: Optional[str],
+    *,
+    convert_fn: Optional[Callable] = None,
+) -> str:
     external_root = OPT.external_dir
     if sub_folder is not None:
         external_root = os.path.join(external_root, sub_folder)
@@ -226,11 +232,12 @@ def _convert_external(m: "DiffusionAPI", tag: str, sub_folder: Optional[str]) ->
                 if not os.path.isfile(st_path):
                     raise FileNotFoundError(f"cannot find '{tag}'")
                 torch.save(load_file(st_path), model_path)
+            if convert_fn is not None:
+                d = convert_fn(model_path, m)
+            else:
+                import cflearn
 
-            import cflearn
-
-            d = cflearn.scripts.sd.convert(model_path, m, load=False)
-
+                d = cflearn.scripts.sd.convert(model_path, m, load=False)
             torch.save(d, converted_path)
             sizes[tag] = _get_file_size(converted_path)
         with open(converted_sizes_path, "w") as f:
