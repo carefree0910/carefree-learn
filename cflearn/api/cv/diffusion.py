@@ -1881,6 +1881,10 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 self._annotator_to(annotator)
 
     @property
+    def preset_control_hints(self) -> List[ControlNetHints]:
+        return list(self.control_mappings)
+
+    @property
     def available_control_hints(self) -> List[ControlNetHints]:
         return list(self.controlnet_weights)
 
