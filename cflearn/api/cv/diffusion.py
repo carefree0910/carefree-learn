@@ -1966,11 +1966,20 @@ class ControlledDiffusionAPI(DiffusionAPI):
         sorted_target = sorted(target)
         loaded_list = [self.loaded[hint] for hint in sorted_target]
         base_list = [self.base_sd_versions.get(hint) for hint in sorted_target]
+        if base_md is None:
+            base_md_id = None
+        else:
+            base_md_id = str(id(base_md))
         need_offset_list = [
             base is None
-            or self.current_sd_version is None
-            or base_md is not None
-            or get_sd_tag(base) != get_sd_tag(self.current_sd_version)
+            or (base_md is not None and base != base_md_id)
+            or (
+                base_md is None
+                and (
+                    self.current_sd_version is None
+                    or get_sd_tag(base) != get_sd_tag(self.current_sd_version)
+                )
+            )
             for base in base_list
         ]
         if all(loaded_list) and not any(need_offset_list):
@@ -1989,9 +1998,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 d = offset_cnet_weights(d, api=self, base_md=base_md)
             self.m.load_control_net_with(hint, d)
             self.loaded[hint] = True
-            # if `base_md` is provided, should reset cache settings
-            if base_md is not None:
-                self.base_sd_versions.pop(hint, None)
+            if base_md_id is not None:
+                self.base_sd_versions[hint] = base_md_id
             else:
                 if self.current_sd_version is not None:
                     self.base_sd_versions[hint] = self.current_sd_version
