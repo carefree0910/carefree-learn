@@ -90,7 +90,7 @@ class ControlNetHED_Apache2(nn.Module):
 class HedAPI:
     def __init__(self, device: torch.device):
         if cv2 is None:
-            raise ValueError("`cv2` is needed for `MiDaSAPI`")
+            raise ValueError("`cv2` is needed for `HedAPI`")
         if rearrange is None:
             raise ValueError("`einops` is needed for `HedAPI`")
         model_path = os.path.join(OPT.external_dir, "annotators", "ControlNetHED.pth")
