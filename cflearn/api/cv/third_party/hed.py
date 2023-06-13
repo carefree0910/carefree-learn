@@ -4,14 +4,16 @@ import torch
 import numpy as np
 import torch.nn as nn
 
-from einops import rearrange
-
 from ....parameters import OPT
 
 try:
     import cv2
 except:
     cv2 = None
+try:
+    from einops import rearrange
+except:
+    rearrange = None
 
 
 class DoubleConvBlock(nn.Module):
@@ -89,6 +91,8 @@ class HedAPI:
     def __init__(self, device: torch.device):
         if cv2 is None:
             raise ValueError("`cv2` is needed for `MiDaSAPI`")
+        if rearrange is None:
+            raise ValueError("`einops` is needed for `HedAPI`")
         model_path = os.path.join(OPT.external_dir, "annotators", "ControlNetHED.pth")
         if not os.path.isfile(model_path):
             raise ValueError(f"cannot find `ControlNetHED.pth` at {model_path}")
