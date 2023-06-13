@@ -53,6 +53,7 @@ from ..zoo import ldm_inpainting
 from ..zoo import DLZoo
 from ..utils import APIMixin
 from ..utils import WeightsPool
+from .third_party import HedAPI
 from .third_party import MiDaSAPI
 from .third_party import MLSDDetector
 from .third_party import OpenposeDetector
@@ -1734,6 +1735,7 @@ class ControlNetHints(str, Enum):
     CANNY = "canny"
     POSE = "pose"
     MLSD = "mlsd"
+    SOFTEDGE = "softedge"
 
 
 class Annotator(ABC):
@@ -1810,6 +1812,18 @@ class MLSDAnnotator(Annotator):
         return self.m(uint8_rgb, value_threshold, distance_threshold)
 
 
+class SoftEdgeAnnotator(Annotator):
+    def __init__(self, device: torch.device) -> None:
+        self.m = HedAPI(device)
+
+    def to(self, device: torch.device, *, use_half: bool) -> "SoftEdgeAnnotator":
+        self.m.to(device, use_half=use_half)
+        return self
+
+    def annotate(self, uint8_rgb: np.ndarray) -> np.ndarray:  # type: ignore
+        return self.m(uint8_rgb)
+
+
 class ControlledDiffusionAPI(DiffusionAPI):
     loaded: Dict[ControlNetHints, bool]
     annotators: Dict[ControlNetHints, Annotator]
@@ -1827,6 +1841,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         ControlNetHints.CANNY: CannyAnnotator,
         ControlNetHints.POSE: PoseAnnotator,
         ControlNetHints.MLSD: MLSDAnnotator,
+        ControlNetHints.SOFTEDGE: SoftEdgeAnnotator,
     }
 
     def __init__(
