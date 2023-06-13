@@ -1946,7 +1946,9 @@ class ControlledDiffusionAPI(DiffusionAPI):
             raise ValueError("`control_model` is not built yet")
 
         target = set(hints)
-        target_mapping = {hint: self.control_mappings[hint] for hint in target}
+        # if `hint` does not exist in `control_mappings`, it means it is an
+        # external controlnet, so it should be left as-is
+        target_mapping = {h: self.control_mappings.get(h, h) for h in target}
         self.prepare_control(target_mapping)
 
         current = set(self.control_model.keys())
@@ -1987,6 +1989,10 @@ class ControlledDiffusionAPI(DiffusionAPI):
             )
             for base in base_list
         ]
+        for i, hint in enumerate(sorted_target):
+            # external controlnets should not offset
+            if hint == target_mapping[hint]:
+                need_offset_list[i] = False
         if all(loaded_list) and not any(need_offset_list):
             return
         iterator = zip(loaded_list, sorted_target, need_offset_list)
