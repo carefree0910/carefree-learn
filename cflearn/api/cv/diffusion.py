@@ -1869,7 +1869,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             self.num_pool = None
         else:
             if num_pool == "all":
-                num_pool = len(self.control_mappings)
+                num_pool = len(ControlNetHints)
             self.num_pool = num_pool if isinstance(num_pool, int) else None
         self.hint_channels = hint_channels
         self.m.make_control_net({default_cnet: hint_channels}, lazy)
@@ -2043,7 +2043,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             self.annotators[hint] = annotator
 
     def prepare_annotators(self) -> None:
-        for hint in self.control_mappings:
+        for hint in ControlNetHints:
             self.prepare_annotator(hint)
 
     def get_hint_of(
