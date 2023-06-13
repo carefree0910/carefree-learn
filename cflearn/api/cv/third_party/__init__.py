@@ -1,3 +1,4 @@
+from .hed import *
 from .lama import *
 from .mlsd import *
 from .isnet import *
