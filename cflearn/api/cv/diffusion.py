@@ -1914,7 +1914,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
 
                         return cflearn.scripts.sd.convert_controlnet(p)
 
-                    d = _convert_external(self, tag, "controlnet", convert_fn=fn)
+                    p = _convert_external(self, tag, "controlnet", convert_fn=fn)
+                    d = torch.load(p)
                 self.loaded[hint] = False
                 self.controlnet_weights[hint] = d
             elif hint not in self.loaded:
