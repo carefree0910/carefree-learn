@@ -1953,15 +1953,19 @@ class ControlledDiffusionAPI(DiffusionAPI):
             to_remove = list(current - target)
             if to_remove:
                 if self.num_pool is None:
+                    print_warning(
+                        "`num_pool` is set to `None`, redundant controlnets "
+                        f"({to_remove}) will be removed"
+                    )
                     self.remove_control(to_remove)
                 else:
                     random.shuffle(to_remove)
                     diff = len(current) - self.num_pool
-                    self.remove_control(to_remove[:diff])
                     print_warning(
                         "current number of controlnets exceeds `num_pool` "
                         f"({self.num_pool}), {to_remove[:diff]} will be removed"
                     )
+                    self.remove_control(to_remove[:diff])
 
         sorted_target = sorted(target)
         loaded_list = [self.loaded[hint] for hint in sorted_target]
