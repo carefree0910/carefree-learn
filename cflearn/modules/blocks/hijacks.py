@@ -134,6 +134,7 @@ class ILoRAMappingHook(ILoRAHook[Union[nn.Linear, nn.Conv2d]], IBasicHook):
 
     def before_forward(self, inp: Tensor, index: Optional[int] = None) -> Tensor:
         if not self.injected:
+            self.to(self.m.weight)
             weight = self.m.weight
             updown = self.get_updown()
             self.inject(weight, updown, index)
@@ -142,7 +143,6 @@ class ILoRAMappingHook(ILoRAHook[Union[nn.Linear, nn.Conv2d]], IBasicHook):
     @classmethod
     def create_with(cls, m: IBasicHijackMixin, rank: int) -> "ILoRAMappingHook":
         self = cls(*m.args, rank=rank, **m.kwargs)
-        self.to(m.weight)
         self._ms = [m]
         return self
 
@@ -258,6 +258,8 @@ class LoRAAttentionHook(ILoRAHook[IAttention], IAttentionHook):
         if not self.injected:
             in_w = self.m.in_w
             hooks = [self.to_q, self.to_k, self.to_v]
+            for h in hooks:
+                h.to(in_w)
             updown = torch.vstack([h.get_updown() for h in hooks])
             assert in_w is not None, "should be self_attn in lora"
             self.inject(in_w, updown, index)
