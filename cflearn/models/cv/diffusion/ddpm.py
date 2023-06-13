@@ -664,6 +664,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
             def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
                 if self.m is not None and self.lazy:
                     self.to("cpu")
+                    torch.cuda.empty_cache()
 
         return _(self)
 
