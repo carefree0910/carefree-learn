@@ -292,15 +292,8 @@ def resize(
     return cv2.resize(inp, wh, interpolation=interpolation)
 
 
-def crop_masked_area(
-    image_tensor: np.ndarray,
-    mask_tensor: np.ndarray,
-    settings: InpaintingSettings,
-) -> CropResponse:
-    image = image_tensor[0].transpose(1, 2, 0)
-    mask = mask_tensor[0, 0]
-    h, w = image.shape[:2]
-    l, t, r, b = get_mask_lt_rb(to_uint8(mask), settings.mask_binary_threshold)
+def adjust_lt_rb(lt_rb: TLtRb, w: int, h: int, settings: InpaintingSettings) -> TLtRb:
+    l, t, r, b = lt_rb
     if settings.mask_padding is not None:
         padding = settings.mask_padding
         if isinstance(padding, int):
@@ -337,8 +330,20 @@ def crop_masked_area(
         else:
             t -= dh
             b += dh
+    return l, t, r, b
+
+
+def crop_masked_area(
+    image_tensor: np.ndarray,
+    mask_tensor: np.ndarray,
+    settings: InpaintingSettings,
+) -> CropResponse:
+    image = image_tensor[0].transpose(1, 2, 0)
+    mask = mask_tensor[0, 0]
+    h, w = image.shape[:2]
+    lt_rb = get_mask_lt_rb(to_uint8(mask), settings.mask_binary_threshold)
+    lt_rb = adjust_lt_rb(lt_rb, w, h, settings)
     # finalize
-    lt_rb = l, t, r, b
     cropped_image = crop_with(image, lt_rb)
     cropped_mask = crop_with(mask, lt_rb)
     resized_image = resize(cropped_image, (w, h))
