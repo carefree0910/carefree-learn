@@ -252,13 +252,14 @@ class InpaintingMode(str, Enum):
 
 
 TLtRb = Tuple[int, int, int, int]
+TPair = Optional[Union[int, Tuple[int, int]]]
 
 
 @dataclass
 class InpaintingSettings:
     mode: InpaintingMode = InpaintingMode.NORMAL
-    mask_blur: Optional[Union[int, Tuple[int, int]]] = None
-    mask_padding: Optional[Union[int, Tuple[int, int]]] = 32
+    mask_blur: TPair = None
+    mask_padding: TPair = 32
     mask_binary_threshold: Optional[int] = 32
 
 
@@ -292,10 +293,9 @@ def resize(
     return cv2.resize(inp, wh, interpolation=interpolation)
 
 
-def adjust_lt_rb(lt_rb: TLtRb, w: int, h: int, settings: InpaintingSettings) -> TLtRb:
+def adjust_lt_rb(lt_rb: TLtRb, w: int, h: int, padding: TPair) -> TLtRb:
     l, t, r, b = lt_rb
-    if settings.mask_padding is not None:
-        padding = settings.mask_padding
+    if padding is not None:
         if isinstance(padding, int):
             padding = padding, padding
         l = max(0, l - padding[0])
@@ -342,7 +342,7 @@ def crop_masked_area(
     mask = mask_tensor[0, 0]
     h, w = image.shape[:2]
     lt_rb = get_mask_lt_rb(to_uint8(mask), settings.mask_binary_threshold)
-    lt_rb = adjust_lt_rb(lt_rb, w, h, settings)
+    lt_rb = adjust_lt_rb(lt_rb, w, h, settings.mask_padding)
     # finalize
     cropped_image = crop_with(image, lt_rb)
     cropped_mask = crop_with(mask, lt_rb)
