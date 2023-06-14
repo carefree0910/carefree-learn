@@ -216,34 +216,34 @@ def _convert_external(
         else:
             with open(converted_sizes_path, "r") as f:
                 sizes = json.load(f)
-        converted_path = os.path.join(external_root, f"{tag}_converted.pt")
-        v_size = sizes.get(tag)
-        f_size = (
-            None
-            if not os.path.isfile(converted_path)
-            else _get_file_size(converted_path)
-        )
-        if f_size is None or v_size != f_size:
-            if f_size is not None:
-                print(f"> '{tag}' has been converted but size mismatch")
-            print(f"> converting external weights '{tag}'")
-            model_path = os.path.join(external_root, f"{tag}.ckpt")
-            if not os.path.isfile(model_path):
-                st_path = os.path.join(external_root, f"{tag}.safetensors")
-                if not os.path.isfile(st_path):
-                    raise FileNotFoundError(f"cannot find '{tag}'")
-                torch.save(load_file(st_path), model_path)
-            if convert_fn is not None:
-                d = convert_fn(model_path, m)
-            else:
-                import cflearn
+    converted_path = os.path.join(external_root, f"{tag}_converted.pt")
+    if not os.path.isfile(converted_path):
+        f_size = None
+    else:
+        f_size = _get_file_size(converted_path)
+    v_size = sizes.get(tag)
+    if f_size is None or v_size != f_size:
+        if f_size is not None:
+            print(f"> '{tag}' has been converted but size mismatch")
+        print(f"> converting external weights '{tag}'")
+        model_path = os.path.join(external_root, f"{tag}.ckpt")
+        if not os.path.isfile(model_path):
+            st_path = os.path.join(external_root, f"{tag}.safetensors")
+            if not os.path.isfile(st_path):
+                raise FileNotFoundError(f"cannot find '{tag}'")
+            torch.save(load_file(st_path), model_path)
+        if convert_fn is not None:
+            d = convert_fn(model_path, m)
+        else:
+            import cflearn
 
-                d = cflearn.scripts.sd.convert(model_path, m, load=False)
-            torch.save(d, converted_path)
-            sizes[tag] = _get_file_size(converted_path)
-        with open(converted_sizes_path, "w") as f:
-            json.dump(sizes, f)
-        return converted_path
+            d = cflearn.scripts.sd.convert(model_path, m, load=False)
+        torch.save(d, converted_path)
+        sizes[tag] = _get_file_size(converted_path)
+        with lock:
+            with open(converted_sizes_path, "w") as f:
+                json.dump(sizes, f)
+    return converted_path
 
 
 class InpaintingMode(str, Enum):
