@@ -445,11 +445,12 @@ def get_cropped(
         raise ValueError(f"Unknown inpainting mode: {settings.mode}")
     if settings is not None:
         if settings.mask_blur is not None:
-            cropped_mask = cv2.blur(
-                cropped_mask[0][0],
-                (settings.mask_blur, settings.mask_blur),
-            )
-            cropped_mask = cropped_mask[None, None]
+            blur = settings.mask_blur
+            if isinstance(blur, int):
+                blur = blur, blur
+            if blur[0] > 0 and blur[1] > 0:
+                cropped_mask = cv2.blur(cropped_mask[0][0], blur)
+                cropped_mask = cropped_mask[None, None]
     return CroppedResponse(cropped_image, cropped_mask, wh_ratio, crop_res)
 
 
