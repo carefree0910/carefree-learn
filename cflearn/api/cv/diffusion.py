@@ -377,7 +377,10 @@ def recover_with(
         blur = settings.mask_padding
         if isinstance(blur, int):
             blur = blur, blur
-        c_blurred_mask = cv2.blur(c_mask, blur)
+        if blur[0] > 0 and blur[1] > 0:
+            c_blurred_mask = cv2.blur(c_mask, blur)
+        else:
+            c_blurred_mask = c_mask
     sampled_array = sampled.numpy().transpose([0, 2, 3, 1])
     o_array = normalize_image_to_diffusion(to_rgb(original))
     c_o_array = crop_with(o_array, (l, t, r, b))
