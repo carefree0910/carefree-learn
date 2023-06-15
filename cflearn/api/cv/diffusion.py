@@ -261,10 +261,12 @@ class InpaintingSettings:
     mask_blur: TPair = None
     mask_padding: TPair = 32
     mask_binary_threshold: Optional[int] = 32
+    target_wh: TPair = None
 
 
 class CropResponse(NamedTuple):
     lt_rb: TLtRb
+    wh: Tuple[int, int]
     cropped_mask: np.ndarray
     resized_image_tensor: np.ndarray
     resized_mask_tensor: np.ndarray
@@ -344,13 +346,18 @@ def crop_masked_area(
     lt_rb = get_mask_lt_rb(to_uint8(mask), settings.mask_binary_threshold)
     lt_rb = adjust_lt_rb(lt_rb, w, h, settings.mask_padding)
     # finalize
+    if settings.target_wh is not None:
+        if isinstance(settings.target_wh, int):
+            w = h = settings.target_wh
+        else:
+            w, h = settings.target_wh
     cropped_image = crop_with(image, lt_rb)
     cropped_mask = crop_with(mask, lt_rb)
     resized_image = resize(cropped_image, (w, h))
     resized_mask = resize(cropped_mask, (w, h), cv2.INTER_NEAREST)
     resized_image = resized_image.transpose(2, 0, 1)[None]
     resized_mask = resized_mask[None, None]
-    return CropResponse(lt_rb, cropped_mask, resized_image, resized_mask)
+    return CropResponse(lt_rb, (w, h), cropped_mask, resized_image, resized_mask)
 
 
 def normalize_image_to_diffusion(image: Image.Image) -> np.ndarray:
@@ -405,9 +412,9 @@ def crop_controlnet(kwargs: Dict[str, Any], crop_res: Optional[CropResponse]) ->
     if hint is None:
         return
     for i, h in enumerate(hint):
-        h_h, h_w = h[1].shape[-2:]
+        hw, hh = crop_res.wh
         h_tensor = crop_tensor_with(h[1], crop_res.lt_rb)
-        h_tensor = F.interpolate(h_tensor, (h_h, h_w), mode="bilinear")
+        h_tensor = F.interpolate(h_tensor, (hh, hw), mode="bilinear")
         hint[i] = h[0], h_tensor
 
 
@@ -421,30 +428,26 @@ class CroppedResponse(NamedTuple):
 def get_cropped(
     image_res: ReadImageResponse,
     mask_res: ReadImageResponse,
-    inpainting_settings: Optional[InpaintingSettings],
+    settings: Optional[InpaintingSettings],
 ) -> CroppedResponse:
     ow, oh = image_res.original_size
     ih, iw = image_res.image.shape[-2:]
     wh_ratio = ow / iw, oh / ih
-    if inpainting_settings is None or inpainting_settings.mode == InpaintingMode.NORMAL:
+    if settings is None or settings.mode == InpaintingMode.NORMAL:
         crop_res = None
         cropped_image = image_res.image
         cropped_mask = mask_res.image
-    elif inpainting_settings.mode == InpaintingMode.MASKED:
-        crop_res = crop_masked_area(
-            image_res.image,
-            mask_res.image,
-            inpainting_settings,
-        )
+    elif settings.mode == InpaintingMode.MASKED:
+        crop_res = crop_masked_area(image_res.image, mask_res.image, settings)
         cropped_image = crop_res.resized_image_tensor
         cropped_mask = crop_res.resized_mask_tensor
     else:
-        raise ValueError(f"Unknown inpainting mode: {inpainting_settings.mode}")
-    if inpainting_settings is not None:
-        if inpainting_settings.mask_blur is not None:
+        raise ValueError(f"Unknown inpainting mode: {settings.mode}")
+    if settings is not None:
+        if settings.mask_blur is not None:
             cropped_mask = cv2.blur(
                 cropped_mask[0][0],
-                (inpainting_settings.mask_blur, inpainting_settings.mask_blur),
+                (settings.mask_blur, settings.mask_blur),
             )
             cropped_mask = cropped_mask[None, None]
     return CroppedResponse(cropped_image, cropped_mask, wh_ratio, crop_res)
