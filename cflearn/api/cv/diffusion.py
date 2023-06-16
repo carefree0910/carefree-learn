@@ -7,8 +7,6 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from abc import abstractmethod
-from abc import ABC
 from PIL import Image
 from enum import Enum
 from tqdm import tqdm
@@ -41,6 +39,8 @@ from cftool.types import tensor_dict_type
 from safetensors.torch import load_file
 from cflearn.misc.toolkit import _get_file_size
 
+from .annotator import annotators
+from .annotator import Annotator
 from ..zoo import ldm_sd
 from ..zoo import ldm_sd_v2
 from ..zoo import ldm_sd_v2_base
@@ -53,10 +53,6 @@ from ..zoo import ldm_inpainting
 from ..zoo import DLZoo
 from ..utils import APIMixin
 from ..utils import WeightsPool
-from .third_party import HedAPI
-from .third_party import MiDaSAPI
-from .third_party import MLSDDetector
-from .third_party import OpenposeDetector
 from ...data import ArrayData
 from ...schema import DataConfig
 from ...constants import INPUT_KEY
@@ -138,7 +134,6 @@ class MaskedCond(NamedTuple):
 
 
 T = TypeVar("T", bound="DiffusionAPI")
-TAnnotator = TypeVar("TAnnotator", bound="Annotator")
 
 
 class SDVersions(str, Enum):
@@ -1750,95 +1745,9 @@ class ControlNetHints(str, Enum):
     SOFTEDGE = "softedge"
 
 
-class Annotator(ABC):
-    @abstractmethod
-    def __init__(self, device: torch.device) -> None:
-        pass
-
-    @abstractmethod
-    def to(self: TAnnotator, device: torch.device, *, use_half: bool) -> TAnnotator:
-        pass
-
-    @abstractmethod
-    def annotate(self, uint8_rgb: np.ndarray, **kwargs: Any) -> np.ndarray:
-        pass
-
-
-class DepthAnnotator(Annotator):
-    def __init__(self, device: torch.device) -> None:
-        self.m = MiDaSAPI(device)
-
-    def to(self, device: torch.device, *, use_half: bool) -> "DepthAnnotator":
-        self.m.to(device, use_half=use_half)
-        return self
-
-    def annotate(self, uint8_rgb: np.ndarray) -> np.ndarray:  # type: ignore
-        return self.m.detect_depth(uint8_rgb)
-
-
-class CannyAnnotator(Annotator):
-    def __init__(self, device: torch.device) -> None:
-        if cv2 is None:
-            raise ValueError("`cv2` is needed for `CannyAnnotator`")
-
-    def to(self, device: torch.device, *, use_half: bool) -> "CannyAnnotator":
-        return self
-
-    def annotate(  # type: ignore
-        self,
-        uint8_rgb: np.ndarray,
-        *,
-        low_threshold: int,
-        high_threshold: int,
-    ) -> np.ndarray:
-        return cv2.Canny(uint8_rgb, low_threshold, high_threshold)
-
-
-class PoseAnnotator(Annotator):
-    def __init__(self, device: torch.device) -> None:
-        self.m = OpenposeDetector(device)
-
-    def to(self, device: torch.device, *, use_half: bool) -> "PoseAnnotator":
-        self.m.to(device, use_half=use_half)
-        return self
-
-    def annotate(self, uint8_rgb: np.ndarray) -> np.ndarray:  # type: ignore
-        return self.m(uint8_rgb)[0]
-
-
-class MLSDAnnotator(Annotator):
-    def __init__(self, device: torch.device) -> None:
-        self.m = MLSDDetector(device)
-
-    def to(self, device: torch.device, *, use_half: bool) -> "MLSDAnnotator":
-        self.m.to(device, use_half=use_half)
-        return self
-
-    def annotate(  # type: ignore
-        self,
-        uint8_rgb: np.ndarray,
-        *,
-        value_threshold: float,
-        distance_threshold: float,
-    ) -> np.ndarray:
-        return self.m(uint8_rgb, value_threshold, distance_threshold)
-
-
-class SoftEdgeAnnotator(Annotator):
-    def __init__(self, device: torch.device) -> None:
-        self.m = HedAPI(device)
-
-    def to(self, device: torch.device, *, use_half: bool) -> "SoftEdgeAnnotator":
-        self.m.to(device, use_half=use_half)
-        return self
-
-    def annotate(self, uint8_rgb: np.ndarray) -> np.ndarray:  # type: ignore
-        return self.m(uint8_rgb)
-
-
 class ControlledDiffusionAPI(DiffusionAPI):
     loaded: Dict[ControlNetHints, bool]
-    annotators: Dict[ControlNetHints, Annotator]
+    annotators: Dict[Union[str, ControlNetHints], Annotator]
     base_sd_versions: Dict[ControlNetHints, str]
     controlnet_weights: Dict[ControlNetHints, tensor_dict_type]
 
@@ -1847,13 +1756,6 @@ class ControlledDiffusionAPI(DiffusionAPI):
         ControlNetHints.CANNY: "ldm.sd_v1.5.control.diff.canny",
         ControlNetHints.POSE: "ldm.sd_v1.5.control.diff.pose",
         ControlNetHints.MLSD: "ldm.sd_v1.5.control.diff.mlsd",
-    }
-    annotator_classes: Dict[ControlNetHints, Type[Annotator]] = {
-        ControlNetHints.DEPTH: DepthAnnotator,
-        ControlNetHints.CANNY: CannyAnnotator,
-        ControlNetHints.POSE: PoseAnnotator,
-        ControlNetHints.MLSD: MLSDAnnotator,
-        ControlNetHints.SOFTEDGE: SoftEdgeAnnotator,
     }
 
     def __init__(
@@ -2042,11 +1944,12 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 if self.current_sd_version is not None:
                     self.base_sd_versions[hint] = self.current_sd_version
 
-    def prepare_annotator(self, hint: ControlNetHints) -> None:
+    def prepare_annotator(self, hint: Union[str, ControlNetHints]) -> None:
         if hint not in self.annotators:
-            annotator_class = self.annotator_classes.get(hint)
+            annotator_class = annotators.get(hint)
             if annotator_class is None:
-                raise ValueError(f"annotator for '{hint}' is not implemented")
+                print_warning(f"annotator '{hint}' is not implemented")
+                return
             if self.lazy:
                 annotator = annotator_class("cpu")
             else:
@@ -2060,16 +1963,14 @@ class ControlledDiffusionAPI(DiffusionAPI):
 
     def get_hint_of(
         self,
-        hint: ControlNetHints,
+        hint: Union[str, ControlNetHints],
         uint8_rgb: np.ndarray,
         **kwargs: Any,
     ) -> np.ndarray:
+        self.prepare_annotator(hint)
         annotator = self.annotators.get(hint)
         if annotator is None:
-            raise ValueError(
-                f"annotator for '{hint}' is not prepared yet, "
-                "please call `prepare_annotator`/`prepare_annotators` first."
-            )
+            return uint8_rgb
         if self.lazy:
             self._annotator_to(annotator)
         kwargs["uint8_rgb"] = uint8_rgb
