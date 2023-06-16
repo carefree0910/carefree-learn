@@ -36,13 +36,15 @@ hint_tensor = hint_tensor.to(api.device)
 api.txt2img(
     "A lovely little cat.",
     "controlled_txt2img.png",
-    hint={ControlNetHints.CANNY: hint_tensor},
+    hint=[(ControlNetHints.CANNY, hint_tensor)],
+    hint_start=[0.0],
     seed=234,
 )
 api.img2img(
     cat_path,
     "controlled_img2img.png",
     cond=["A lovely little cat."],
-    hint={ControlNetHints.CANNY: hint_tensor},
+    hint=[(ControlNetHints.CANNY, hint_tensor)],
+    hint_start=[0.0],
     seed=234,
 )
