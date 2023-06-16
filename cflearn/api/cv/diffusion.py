@@ -1852,9 +1852,6 @@ class ControlledDiffusionAPI(DiffusionAPI):
         if any_new:
             freeze(self.m.control_model)
 
-    def prepare_all_controls(self) -> None:
-        self.prepare_control(self.control_mappings)
-
     def remove_control(self, hints: List[ControlNetHints]) -> None:
         for hint in hints:
             if hint in self.loaded:

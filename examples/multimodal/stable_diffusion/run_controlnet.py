@@ -10,8 +10,7 @@ from cflearn.api.cv.diffusion import ControlNetHints
 
 file_folder = os.path.dirname(__file__)
 api = cflearn.cv.ControlledDiffusionAPI.from_sd("cuda:0", use_half=True)
-# prepare ControlNet weights/annotators
-api.prepare_all_controls()
+# prepare ControlNet annotators
 api.prepare_annotators()
 # for ControlledDiffusionAPI, we need to disable `ControlNet` before doing normal generations
 api.disable_control()
