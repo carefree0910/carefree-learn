@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import torch
 import random
 
@@ -1750,6 +1751,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
     annotators: Dict[Union[str, ControlNetHints], Annotator]
     base_sd_versions: Dict[ControlNetHints, str]
     controlnet_weights: Dict[ControlNetHints, tensor_dict_type]
+    controlnet_latest_usage: Dict[ControlNetHints, float]
 
     control_mappings = {
         ControlNetHints.DEPTH: "ldm.sd_v1.5.control.diff.depth",
@@ -1795,6 +1797,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         self.control_model = self.m.control_model
         self.base_sd_versions = {}
         self.controlnet_weights = {}
+        self.controlnet_latest_usage = {}
 
     def to(
         self,
@@ -1858,6 +1861,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 del self.loaded[hint]
             if hint in self.controlnet_weights:
                 del self.controlnet_weights[hint]
+            if hint in self.controlnet_latest_usage:
+                del self.controlnet_latest_usage[hint]
             if hint in self.control_model:
                 m = self.control_model.pop(hint)
                 m.to("cpu")
@@ -1872,6 +1877,9 @@ class ControlledDiffusionAPI(DiffusionAPI):
     ) -> None:
         if self.m.control_model is None:
             raise ValueError("`control_model` is not built yet")
+
+        for hint in hints:
+            self.controlnet_latest_usage[hint] = time.time()
 
         target = set(hints)
         # if `hint` does not exist in `control_mappings`, it means it is an
@@ -1890,13 +1898,16 @@ class ControlledDiffusionAPI(DiffusionAPI):
                     )
                     self.remove_control(to_remove)
                 else:
-                    random.shuffle(to_remove)
+                    usages = [self.controlnet_latest_usage.get(h, 0) for h in to_remove]
+                    sorted_indices = np.argsort(usages)
                     diff = len(current) - self.num_pool
+                    remove_indices = sorted_indices[:diff]
+                    to_remove = [to_remove[i] for i in remove_indices]
                     print_warning(
                         "current number of controlnets exceeds `num_pool` "
-                        f"({self.num_pool}), {to_remove[:diff]} will be removed"
+                        f"({self.num_pool}), {to_remove} will be removed"
                     )
-                    self.remove_control(to_remove[:diff])
+                    self.remove_control(to_remove)
 
         sorted_target = sorted(target)
         loaded_list = [self.loaded[hint] for hint in sorted_target]
