@@ -1859,7 +1859,9 @@ class ControlledDiffusionAPI(DiffusionAPI):
             if hint in self.controlnet_weights:
                 del self.controlnet_weights[hint]
             if hint in self.control_model:
-                del self.control_model[hint]
+                m = self.control_model.pop(hint)
+                m.to("cpu")
+                del m
             if hint in self.base_sd_versions:
                 del self.base_sd_versions[hint]
 
