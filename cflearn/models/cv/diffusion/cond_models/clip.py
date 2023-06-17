@@ -158,6 +158,8 @@ class CLIPTextConditionModel(IConditionModel):
         dtype = existing.dtype
         device = existing.device
         for name, embedding in embeddings.items():
+            if embedding is None:
+                continue
             tensor = torch.asarray(embedding, dtype=dtype, device=device)
             embedding_dim = self.embeddings.shape[1]
             if tensor.shape[1] != embedding_dim:
