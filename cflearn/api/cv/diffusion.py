@@ -31,12 +31,14 @@ from cftool.cv import read_image
 from cftool.cv import save_images
 from cftool.cv import restrict_wh
 from cftool.cv import get_suitable_size
+from cftool.cv import ImageBox
 from cftool.cv import ReadImageResponse
 from cftool.misc import safe_execute
 from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.types import arr_type
 from cftool.types import tensor_dict_type
+from cftool.types import TNumberPair
 from safetensors.torch import load_file
 from cflearn.misc.toolkit import _get_file_size
 
@@ -247,40 +249,21 @@ class InpaintingMode(str, Enum):
     MASKED = "masked"
 
 
-TLtRb = Tuple[int, int, int, int]
-TPair = Optional[Union[int, Tuple[int, int]]]
-
-
 @dataclass
 class InpaintingSettings:
     mode: InpaintingMode = InpaintingMode.NORMAL
-    mask_blur: TPair = None
-    mask_padding: TPair = 32
+    mask_blur: TNumberPair = None
+    mask_padding: TNumberPair = 32
     mask_binary_threshold: Optional[int] = 32
-    target_wh: TPair = None
+    target_wh: TNumberPair = None
 
 
 class CropResponse(NamedTuple):
-    lt_rb: TLtRb
+    lt_rb: ImageBox
     wh: Tuple[int, int]
     cropped_mask: np.ndarray
     resized_image_tensor: np.ndarray
     resized_mask_tensor: np.ndarray
-
-
-def get_mask_lt_rb(uint8_mask: np.ndarray, threshold: Optional[int]) -> TLtRb:
-    ys, xs = np.where(uint8_mask > (threshold or 0))
-    lt = xs.min().item(), ys.min().item()
-    rb = xs.max().item(), ys.max().item()
-    return *lt, *rb
-
-
-def crop_with(inp: np.ndarray, lt_rb: TLtRb) -> np.ndarray:
-    return inp[lt_rb[1] : lt_rb[3], lt_rb[0] : lt_rb[2]]
-
-
-def crop_tensor_with(inp: Tensor, lt_rb: TLtRb) -> Tensor:
-    return inp[..., lt_rb[1] : lt_rb[3], lt_rb[0] : lt_rb[2]]
 
 
 def resize(
@@ -291,8 +274,8 @@ def resize(
     return cv2.resize(inp, wh, interpolation=interpolation)
 
 
-def adjust_lt_rb(lt_rb: TLtRb, w: int, h: int, padding: TPair) -> TLtRb:
-    l, t, r, b = lt_rb
+def adjust_lt_rb(lt_rb: ImageBox, w: int, h: int, padding: TNumberPair) -> ImageBox:
+    l, t, r, b = lt_rb.tuple
     if padding is not None:
         if isinstance(padding, int):
             padding = padding, padding
@@ -328,7 +311,7 @@ def adjust_lt_rb(lt_rb: TLtRb, w: int, h: int, padding: TPair) -> TLtRb:
         else:
             t -= dh
             b += dh
-    return l, t, r, b
+    return ImageBox(l, t, r, b)
 
 
 def crop_masked_area(
@@ -339,7 +322,7 @@ def crop_masked_area(
     image = image_tensor[0].transpose(1, 2, 0)
     mask = mask_tensor[0, 0]
     h, w = image.shape[:2]
-    lt_rb = get_mask_lt_rb(to_uint8(mask), settings.mask_binary_threshold)
+    lt_rb = ImageBox.from_mask(to_uint8(mask), settings.mask_binary_threshold)
     lt_rb = adjust_lt_rb(lt_rb, w, h, settings.mask_padding)
     # finalize
     if settings.target_wh is not None:
@@ -347,8 +330,8 @@ def crop_masked_area(
             w = h = settings.target_wh
         else:
             w, h = settings.target_wh
-    cropped_image = crop_with(image, lt_rb)
-    cropped_mask = crop_with(mask, lt_rb)
+    cropped_image = lt_rb.crop(image)
+    cropped_mask = lt_rb.crop(mask)
     resized_image = resize(cropped_image, (w, h))
     resized_mask = resize(cropped_mask, (w, h), cv2.INTER_NEAREST)
     resized_image = resized_image.transpose(2, 0, 1)[None]
@@ -367,7 +350,7 @@ def recover_with(
     wh_ratio: Tuple[float, float],
     settings: InpaintingSettings,
 ) -> Tensor:
-    l, t, r, b = crop.lt_rb
+    l, t, r, b = crop.lt_rb.tuple
     w_ratio, h_ratio = wh_ratio
     l = round(l * w_ratio)
     t = round(t * h_ratio)
@@ -386,7 +369,7 @@ def recover_with(
             c_blurred_mask = c_mask
     sampled_array = sampled.numpy().transpose([0, 2, 3, 1])
     o_array = normalize_image_to_diffusion(to_rgb(original))
-    c_o_array = crop_with(o_array, (l, t, r, b))
+    c_o_array = ImageBox(l, t, r, b).crop(o_array)
     ch, cw = c_o_array.shape[:2]
     if ch != c_blurred_mask.shape[0] or cw != c_blurred_mask.shape[1]:
         c_blurred_mask = resize(c_blurred_mask, (cw, ch))
@@ -409,7 +392,7 @@ def crop_controlnet(kwargs: Dict[str, Any], crop_res: Optional[CropResponse]) ->
         return
     for i, h in enumerate(hint):
         hw, hh = crop_res.wh
-        h_tensor = crop_tensor_with(h[1], crop_res.lt_rb)
+        h_tensor = crop_res.lt_rb.crop_tensor(h[1])
         h_tensor = F.interpolate(h_tensor, (hh, hw), mode="bilinear")
         hint[i] = h[0], h_tensor
 
