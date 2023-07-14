@@ -256,6 +256,7 @@ class InpaintingSettings:
     mask_padding: TNumberPair = 32
     mask_binary_threshold: Optional[int] = 32
     target_wh: TNumberPair = None
+    padding_mode: Optional[str] = None
 
 
 class CropResponse(NamedTuple):
@@ -939,7 +940,12 @@ class DiffusionAPI(APIMixin):
 
         # raw inpainting
         if use_raw_inpainting:
-            image_res = read_image(image, max_wh, anchor=anchor)
+            image_res = read_image(
+                image,
+                max_wh,
+                anchor=anchor,
+                padding_mode=inpainting_settings.padding_mode,
+            )
             mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
             cropped_res = get_cropped(image_res, mask_res, inpainting_settings)
             z_ref_pack = self._get_z_ref_pack(cropped_res.image, cropped_res.mask, seed)
@@ -1579,8 +1585,19 @@ class DiffusionAPI(APIMixin):
         inpainting_settings: Optional[InpaintingSettings] = None,
     ) -> MaskedCond:
         # handle mask stuffs
-        image_res = read_image(image, max_wh, anchor=anchor)
         mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
+        read_image_kw = {}
+        if inpainting_settings is not None:
+            if inpainting_settings.padding_mode is not None:
+                o_mask = mask_res.original
+                if o_mask.mode == "RGBA":
+                    padding_mask = o_mask.split()[-1]
+                else:
+                    padding_mask = o_mask.convert("L")
+                padding_mask.save("padding_mask_debug.png")
+                read_image_kw["padding_mask"] = padding_mask
+                read_image_kw["padding_mode"] = inpainting_settings.padding_mode
+        image_res = read_image(image, max_wh, anchor=anchor, **read_image_kw)
         cropped_res = get_cropped(image_res, mask_res, inpainting_settings)
         c_image = cropped_res.image
         c_mask = cropped_res.mask
