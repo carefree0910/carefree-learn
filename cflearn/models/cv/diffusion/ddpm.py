@@ -31,6 +31,7 @@ from .utils import HYBRID_TYPE
 from .utils import CROSS_ATTN_KEY
 from .utils import CROSS_ATTN_TYPE
 from .utils import CONTROL_HINT_KEY
+from .utils import CONTROL_HINT_END_KEY
 from .utils import CONTROL_HINT_START_KEY
 from .samplers import is_misc_key
 from .samplers import ISampler
@@ -500,15 +501,19 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
                 raise ValueError("`cond` should be a dict when `control_model` is used")
             hint = cond.get(CONTROL_HINT_KEY)
             hint_start = cond.get(CONTROL_HINT_START_KEY)
+            hint_end = cond.get(CONTROL_HINT_END_KEY)
             check_hint_start = lambda start: start is None or start * total_step <= step
+            check_hint_end = lambda end: end is None or end * total_step >= step
             if hint is None:
                 raise ValueError("`hint` should be provided for `control_model`")
             if isinstance(self.control_model, ControlNet):
                 if not isinstance(hint, Tensor):
                     raise ValueError("`hint` should be a Tensor for single control")
-                if hint_start is not None and isinstance(hint_start, dict):
+                if hint_start is not None and isinstance(hint_start, list):
                     raise ValueError("`hint_start` should be float for single control")
-                if not check_hint_start(hint_start):
+                if hint_end is not None and isinstance(hint_end, list):
+                    raise ValueError("`hint_end` should be float for single control")
+                if not check_hint_start(hint_start) or not check_hint_end(hint_end):
                     ctrl = None
                 else:
                     ctrl = self.control_model(net, hint, timesteps=timesteps, **cond_kw)
@@ -524,6 +529,8 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
                     raise ValueError("`hint` should be a list for control settings")
                 if not isinstance(hint_start, list):
                     raise ValueError("`hint_start` should be a list of Optional[float]")
+                if not isinstance(hint_end, list):
+                    raise ValueError("`hint_end` should be a list of Optional[float]")
                 target_keys = set(self.control_model.keys())
                 hint_types = set(pair[0] for pair in hint)
                 if hint_types - target_keys:
@@ -531,8 +538,10 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
                     raise ValueError(msg)
                 ctrl = [0.0] * self.num_control_scales
                 any_activated = False
-                for i, ((i_type, i_hint), i_start) in enumerate(zip(hint, hint_start)):
-                    if not check_hint_start(i_start):
+                for i, ((i_type, i_hint), i_start, i_end) in enumerate(
+                    zip(hint, hint_start, hint_end)
+                ):
+                    if not check_hint_start(i_start) or not check_hint_end(i_end):
                         continue
                     any_activated = True
                     i_cmodel = self.control_model[i_type]

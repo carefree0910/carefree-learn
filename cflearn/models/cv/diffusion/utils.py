@@ -15,6 +15,7 @@ CROSS_ATTN_KEY = "context"
 CROSS_ATTN_TYPE = "cross_attn"
 CONTROL_HINT_KEY = "hint"
 CONTROL_HINT_START_KEY = "hint_start"
+CONTROL_HINT_END_KEY = "hint_end"
 
 
 def extract_to(array: Tensor, indices: Tensor, num_dim: int) -> Tensor:

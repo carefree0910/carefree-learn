@@ -83,6 +83,7 @@ from ...models.cv.diffusion.utils import CONCAT_TYPE
 from ...models.cv.diffusion.utils import HYBRID_TYPE
 from ...models.cv.diffusion.utils import CROSS_ATTN_KEY
 from ...models.cv.diffusion.utils import CONTROL_HINT_KEY
+from ...models.cv.diffusion.utils import CONTROL_HINT_END_KEY
 from ...models.cv.diffusion.utils import CONTROL_HINT_START_KEY
 from ...models.cv.diffusion.cond_models import CLIPTextConditionModel
 from ...models.cv.diffusion.samplers.ddim import DDIMMixin
@@ -616,6 +617,7 @@ class DiffusionAPI(APIMixin):
         unconditional_cond: Optional[Any] = None,
         hint: Optional[Union[Tensor, tensor_dict_type]] = None,
         hint_start: Optional[Union[float, Dict[str, float]]] = None,
+        hint_end: Optional[Union[float, Dict[str, float]]] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
@@ -634,6 +636,7 @@ class DiffusionAPI(APIMixin):
             unconditional_cond=unconditional_cond,
             hint=hint,
             hint_start=hint_start,
+            hint_end=hint_end,
             num_steps=num_steps,
             clip_output=clip_output,
             callback=callback,
@@ -791,11 +794,13 @@ class DiffusionAPI(APIMixin):
                         if isinstance(i_cond, dict):
                             i_cond[CONTROL_HINT_KEY] = hint
                             i_cond[CONTROL_HINT_START_KEY] = hint_start
+                            i_cond[CONTROL_HINT_END_KEY] = hint_end
                         else:
                             i_cond = {
                                 CROSS_ATTN_KEY: i_cond,
                                 CONTROL_HINT_KEY: hint,
                                 CONTROL_HINT_START_KEY: hint_start,
+                                CONTROL_HINT_END_KEY: hint_end,
                             }
                     with switch_sampler_context(self, i_kw.get("sampler")):
                         if highres_info is not None:
