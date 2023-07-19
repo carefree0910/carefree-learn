@@ -52,7 +52,7 @@ setup(
             "ortools>=9.3.0",
             "sacremoses",
             "sentencepiece",
-            "mlflow",
+            "mlflow>=2.5.0",
             "plotly",
         ],
     },

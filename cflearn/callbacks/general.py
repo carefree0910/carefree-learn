@@ -25,13 +25,13 @@ try:
     from mlflow.exceptions import MlflowException
     from mlflow.utils.mlflow_tags import MLFLOW_USER
     from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
-    from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
+    from mlflow.environment_variables import MLFLOW_RUN_ID
 except:
     mlflow = None
     MlflowException = None
     MLFLOW_USER = None
     MLFLOW_RUN_NAME = None
-    _RUN_ID_ENV_VAR = None
+    MLFLOW_RUN_ID = None
 
 
 def parse_mlflow_uri(path: str) -> str:
@@ -148,9 +148,8 @@ class MLFlowCallback(TrainerCallback):
 
         run = None
         from_external = False
-        if _RUN_ID_ENV_VAR in os.environ:
-            existing_run_id = os.environ[_RUN_ID_ENV_VAR]
-            del os.environ[_RUN_ID_ENV_VAR]
+        if existing_run_id := MLFLOW_RUN_ID.get():
+            del os.environ[MLFLOW_RUN_ID.name]
             try:
                 run = self.mlflow_client.get_run(existing_run_id)
                 from_external = True
