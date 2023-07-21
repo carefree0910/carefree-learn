@@ -6,3 +6,4 @@ from .iharm import *
 from .midas import *
 from .openpose import *
 from .prompt import *
+from .pidi import *

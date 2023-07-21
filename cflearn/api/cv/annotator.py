@@ -7,9 +7,11 @@ from typing import Any
 from typing import Dict
 from typing import Type
 from typing import TypeVar
+from typing import Optional
 from cftool.misc import WithRegister
 
 from .third_party import HedAPI
+from .third_party import PiDiAPI
 from .third_party import MiDaSAPI
 from .third_party import MLSDDetector
 from .third_party import OpenposeDetector
@@ -117,6 +119,24 @@ class SoftEdgeAnnotator(Annotator):
         return self.m(uint8_rgb)
 
 
+@Annotator.register("pidi")
+class PiDiAnnotator(Annotator):
+    def __init__(self, device: torch.device) -> None:
+        self.m = PiDiAPI(device)
+
+    def to(self, device: torch.device, *, use_half: bool) -> "PiDiAnnotator":
+        self.m.to(device, use_half=use_half)
+        return self
+
+    def annotate(  # type: ignore
+        self,
+        uint8_rgb: np.ndarray,
+        *,
+        threshold: Optional[float],
+    ) -> np.ndarray:  # type: ignore
+        return self.m(uint8_rgb, threshold)
+
+
 __all__ = [
     "Annotator",
     "DepthAnnotator",
@@ -124,4 +144,5 @@ __all__ = [
     "PoseAnnotator",
     "MLSDAnnotator",
     "SoftEdgeAnnotator",
+    "PiDiAnnotator",
 ]
