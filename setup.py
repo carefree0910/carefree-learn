@@ -37,7 +37,7 @@ setup(
         "filelock",
         "accelerate",
         "safetensors",
-        "carefree-toolkit>=0.3.7",
+        "carefree-toolkit>=0.3.8",
     ],
     extras_require={
         "onnx": onnx_requires,
