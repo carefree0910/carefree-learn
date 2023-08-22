@@ -943,75 +943,77 @@ class DiffusionAPI(APIMixin):
             inpainting_settings = InpaintingSettings()
         txt_list, num_samples = get_txt_cond(txt, num_samples)
 
-        # raw inpainting
-        if use_raw_inpainting:
-            image_res = read_image(
-                image,
-                max_wh,
-                anchor=anchor,
-                padding_mode=inpainting_settings.padding_mode,
-            )
-            mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
-            cropped_res = get_cropped(image_res, mask_res, inpainting_settings)
-            z_ref_pack = self._get_z_ref_pack(cropped_res.image, cropped_res.mask, seed)
-            z_ref, z_ref_mask, z_ref_noise = z_ref_pack
-            z, size = get_z_info_from(
-                z_ref if use_reference else None,
-                reference_fidelity,
-                z_ref.shape[-2:][::-1],
-            )
-            kw = shallow_copy_dict(kwargs)
-            kw.update(
-                dict(
-                    z=z,
-                    size=size,
-                    export_path=export_path,
-                    z_ref=z_ref,
-                    z_ref_mask=z_ref_mask,
-                    z_ref_noise=z_ref_noise,
-                    original_size=image_res.original_size,
-                    alpha=None,
-                    cond=txt_list,
-                    num_steps=num_steps,
-                    clip_output=clip_output,
-                    verbose=verbose,
-                )
-            )
-            crop_controlnet(kw, cropped_res.crop_res)
-            sampled = self.sample(num_samples, **kw)
-            crop_res = cropped_res.crop_res
-            if crop_res is not None:
-                sampled = recover_with(
-                    image_res.original,
-                    sampled,
-                    crop_res,
-                    cropped_res.wh_ratio,
-                    inpainting_settings,
-                )
-            if keep_original:
-                original = image_res.original
-                sampled = paste_original(original, mask_res.original, sampled)
-            return sampled
-
-        # 'real' inpainting
-        res = self._get_masked_cond(
-            image,
-            mask,
-            max_wh,
-            anchor,
-            lambda remained_mask, img: np.where(remained_mask, img, 0.5),
-            lambda bool_mask: torch.from_numpy(bool_mask),
-            inpainting_settings,
-        )
-        # sampling
         with switch_sampler_context(self, kwargs.get("sampler")):
-            # calculate `z_ref` stuffs based on `use_image_guidance`
+            # raw inpainting
+            if use_raw_inpainting:
+                image_res = read_image(
+                    image,
+                    max_wh,
+                    anchor=anchor,
+                    padding_mode=inpainting_settings.padding_mode,
+                )
+                mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
+                cropped_res = get_cropped(image_res, mask_res, inpainting_settings)
+                z_ref_pack = self._get_z_ref_pack(
+                    cropped_res.image, cropped_res.mask, seed
+                )
+                z_ref, z_ref_mask, z_ref_noise = z_ref_pack
+                z, size = get_z_info_from(
+                    z_ref if use_reference else None,
+                    reference_fidelity,
+                    z_ref.shape[-2:][::-1],
+                )
+                kw = shallow_copy_dict(kwargs)
+                kw.update(
+                    dict(
+                        z=z,
+                        size=size,
+                        export_path=export_path,
+                        z_ref=z_ref,
+                        z_ref_mask=z_ref_mask,
+                        z_ref_noise=z_ref_noise,
+                        original_size=image_res.original_size,
+                        alpha=None,
+                        cond=txt_list,
+                        num_steps=num_steps,
+                        clip_output=clip_output,
+                        verbose=verbose,
+                    )
+                )
+                crop_controlnet(kw, cropped_res.crop_res)
+                sampled = self.sample(num_samples, **kw)
+                crop_res = cropped_res.crop_res
+                if crop_res is not None:
+                    sampled = recover_with(
+                        image_res.original,
+                        sampled,
+                        crop_res,
+                        cropped_res.wh_ratio,
+                        inpainting_settings,
+                    )
+                if keep_original:
+                    original = image_res.original
+                    sampled = paste_original(original, mask_res.original, sampled)
+                return sampled
+
+            # 'real' inpainting
+            res = self._get_masked_cond(
+                image,
+                mask,
+                max_wh,
+                anchor,
+                lambda remained_mask, img: np.where(remained_mask, img, 0.5),
+                lambda bool_mask: torch.from_numpy(bool_mask),
+                inpainting_settings,
+            )
+            # sampling
+            ## calculate `z_ref` stuffs based on `use_image_guidance`
             if not use_background_guidance:
                 z_ref = z_ref_mask = z_ref_noise = None
             else:
                 z_ref_pack = self._get_z_ref_pack(res.image, res.mask, seed)
                 z_ref, z_ref_mask, z_ref_noise = z_ref_pack
-            # calculate `z` based on `z_ref`, if needed
+            ## calculate `z` based on `z_ref`, if needed
             z_shape = res.remained_image_cond.shape[-2:][::-1]
             if not use_reference:
                 args = None, reference_fidelity, z_shape
@@ -1020,9 +1022,9 @@ class DiffusionAPI(APIMixin):
             else:
                 args = self._get_z(res.image), reference_fidelity, z_shape
             z, size = get_z_info_from(*args)
-            # adjust ControlNet parameters
+            ## adjust ControlNet parameters
             crop_controlnet(kwargs, res.crop_res)
-            # core
+            ## core
             sampled = self.sample(
                 num_samples,
                 export_path,
