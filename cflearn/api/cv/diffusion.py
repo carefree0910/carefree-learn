@@ -1601,7 +1601,6 @@ class DiffusionAPI(APIMixin):
                     padding_mask = o_mask.split()[-1]
                 else:
                     padding_mask = o_mask.convert("L")
-                padding_mask.save("padding_mask_debug.png")
                 read_image_kw["padding_mask"] = padding_mask
                 read_image_kw["padding_mode"] = inpainting_settings.padding_mode
         image_res = read_image(image, max_wh, anchor=anchor, **read_image_kw)
