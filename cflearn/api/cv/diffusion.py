@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from PIL import Image
+from PIL import ImageOps
 from enum import Enum
 from tqdm import tqdm
 from torch import Tensor
@@ -32,6 +33,7 @@ from cftool.cv import save_images
 from cftool.cv import restrict_wh
 from cftool.cv import get_suitable_size
 from cftool.cv import ImageBox
+from cftool.cv import ImageProcessor
 from cftool.cv import ReadImageResponse
 from cftool.misc import safe_execute
 from cftool.misc import print_warning
@@ -910,6 +912,7 @@ class DiffusionAPI(APIMixin):
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         keep_original: bool = False,
+        keep_original_num_fade_pixels: Optional[int] = 50,
         use_raw_inpainting: bool = False,
         inpainting_settings: Optional[InpaintingSettings] = None,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
@@ -932,12 +935,28 @@ class DiffusionAPI(APIMixin):
             sampled_: Tensor,
         ) -> Tensor:
             rgb = to_rgb(original_)
-            rgb_normalized = normalize_image_to_diffusion(rgb)
-            rgb_normalized = rgb_normalized.transpose([2, 0, 1])[None]
-            mask_res_ = read_image(mask_, None, anchor=None, to_mask=True)
-            remained_mask_ = ~(mask_res_.image >= 0.5)
-            pasted = np.where(remained_mask_, rgb_normalized, sampled_.numpy())
-            return torch.from_numpy(pasted)
+            fade = keep_original_num_fade_pixels
+            if not fade:
+                rgb_normalized = normalize_image_to_diffusion(rgb)
+                rgb_normalized = rgb_normalized.transpose([2, 0, 1])[None]
+                mask_res_ = read_image(mask_, None, anchor=None, to_mask=True)
+                remained_mask_ = mask_res_.image < 0.5
+                pasted = np.where(remained_mask_, rgb_normalized, sampled_.numpy())
+                return torch.from_numpy(pasted)
+            if mask_.mode == "RGBA":
+                alpha = mask_.split()[-1]
+            else:
+                alpha = mask_.convert("L")
+            fg = Image.merge("RGBA", (*rgb.split(), ImageOps.invert(alpha)))
+            sampled_array = sampled_.numpy().transpose([0, 2, 3, 1])
+            sampled_uint8_array = ((sampled_array + 1.0) * 127.5).astype(np.uint8)
+            merged_arrays = []
+            for bg_array in sampled_uint8_array:
+                bg = Image.fromarray(bg_array)
+                merged = ImageProcessor.harmonization(fg, bg, fade).convert("RGB")
+                merged_arrays.append(normalize_image_to_diffusion(merged))
+            merged_array = np.stack(merged_arrays, axis=0).transpose([0, 3, 1, 2])
+            return torch.from_numpy(merged_array).contiguous()
 
         if inpainting_settings is None:
             inpainting_settings = InpaintingSettings()
@@ -1067,6 +1086,7 @@ class DiffusionAPI(APIMixin):
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         keep_original: bool = False,
+        keep_original_num_fade_pixels: Optional[int] = 50,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
         verbose: bool = True,
         **kwargs: Any,
@@ -1088,6 +1108,7 @@ class DiffusionAPI(APIMixin):
             num_steps=num_steps,
             clip_output=clip_output,
             keep_original=keep_original,
+            keep_original_num_fade_pixels=keep_original_num_fade_pixels,
             callback=callback,
             verbose=verbose,
             **kwargs,
