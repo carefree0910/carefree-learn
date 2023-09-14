@@ -951,8 +951,9 @@ class DiffusionAPI(APIMixin):
             merged_arrays = []
             for bg_array in sampled_uint8_array:
                 bg = Image.fromarray(bg_array)
-                merged = ImageProcessor.harmonization(fg, bg, fade).convert("RGB")
-                merged_arrays.append(normalize_image_to_diffusion(merged))
+                merged = ImageProcessor.paste(fg, bg, num_fade_pixels=fade)
+                merged_rgb = merged.convert("RGB")
+                merged_arrays.append(normalize_image_to_diffusion(merged_rgb))
             merged_array = np.stack(merged_arrays, axis=0).transpose([0, 3, 1, 2])
             return torch.from_numpy(merged_array).contiguous()
 
