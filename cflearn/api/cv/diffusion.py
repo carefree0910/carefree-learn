@@ -31,6 +31,7 @@ from cftool.cv import to_uint8
 from cftool.cv import read_image
 from cftool.cv import save_images
 from cftool.cv import restrict_wh
+from cftool.cv import to_alpha_channel
 from cftool.cv import get_suitable_size
 from cftool.cv import ImageBox
 from cftool.cv import ImageProcessor
@@ -943,10 +944,7 @@ class DiffusionAPI(APIMixin):
                 remained_mask_ = mask_res_.image < 0.5
                 pasted = np.where(remained_mask_, rgb_normalized, sampled_.numpy())
                 return torch.from_numpy(pasted)
-            if mask_.mode == "RGBA":
-                alpha = mask_.split()[-1]
-            else:
-                alpha = mask_.convert("L")
+            alpha = to_alpha_channel(mask_)
             fg = Image.merge("RGBA", (*rgb.split(), ImageOps.invert(alpha)))
             sampled_array = sampled_.numpy().transpose([0, 2, 3, 1])
             sampled_uint8_array = ((sampled_array + 1.0) * 127.5).astype(np.uint8)
@@ -1618,10 +1616,7 @@ class DiffusionAPI(APIMixin):
         if inpainting_settings is not None:
             if inpainting_settings.padding_mode is not None:
                 o_mask = mask_res.original
-                if o_mask.mode == "RGBA":
-                    padding_mask = o_mask.split()[-1]
-                else:
-                    padding_mask = o_mask.convert("L")
+                padding_mask = to_alpha_channel(o_mask)
                 read_image_kw["padding_mask"] = padding_mask
                 read_image_kw["padding_mode"] = inpainting_settings.padding_mode
         image_res = read_image(image, max_wh, anchor=anchor, **read_image_kw)
