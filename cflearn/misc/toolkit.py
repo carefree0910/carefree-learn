@@ -417,6 +417,10 @@ def _sdp_attn(
         dropout = dropout if training else None
         dropout = 0.0 if dropout is None else dropout
         return pt2_sdp_attn(q, k, v, mask, dropout)
+    warn_once(
+        "failed to run `scaled_dot_product_attention` from pytorch 2.x, "
+        "will use native `torch` implementations instead"
+    )
     raw_weights = q @ k.transpose(-2, -1) / math.sqrt(k.shape[-1])
     if mask is not None:
         raw_weights.masked_fill_(~mask, float("-inf"))
