@@ -478,6 +478,8 @@ class DiffusionAPI(APIMixin):
             self.first_stage = None
         else:
             self.first_stage = m.first_stage
+        # inference mode flag, should be switched to `False` when `compile`d
+        self._use_inference_mode = True
 
     # api
 
@@ -525,6 +527,12 @@ class DiffusionAPI(APIMixin):
             self.sampler.unconditional_cond = unconditional_cond.to(device)
         for k, v in self._uncond_cache.items():
             self._uncond_cache[k] = v.to(device)
+
+    def compile(self, **kwargs: Any) -> "DiffusionAPI":
+        self.first_stage = torch.compile(self.first_stage, **kwargs)
+        self.m = torch.compile(self.m, **kwargs)
+        self._use_inference_mode = False
+        return self
 
     def prepare_sd(
         self,
@@ -709,7 +717,7 @@ class DiffusionAPI(APIMixin):
             self.sampler.uncond = uncond.clone()
             self.sampler.unconditional_cond = uncond.clone()
         highres_info = kwargs.get("highres_info")
-        with eval_context(self.m):
+        with eval_context(self.m, use_inference=self._use_inference_mode):
             with self.amp_context:
                 for i, batch in enumerate(iterator):
                     # from the 2nd batch forward, we need to re-generate new seeds
