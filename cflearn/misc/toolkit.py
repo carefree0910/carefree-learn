@@ -391,6 +391,7 @@ def try_run_xformers_sdp_attn(
     mask: Optional[Tensor] = None,
     p: Optional[float] = None,
 ) -> Optional[Tensor]:
+    message = f"\nq: {q.dtype}, {q.shape}; k: {k.dtype}, {k.shape}; v: {v.dtype}, {v.shape}; mask: {None if mask is None else f'{mask.dtype}, {mask.shape}'}; p: {p}; training: {training}\n"
     try:
         import xformers.ops
 
@@ -398,7 +399,7 @@ def try_run_xformers_sdp_attn(
             p = 0.0
         return xformers.ops.memory_efficient_attention(q, k, v, mask, p)
     except Exception as err:
-        warn_once(f"failed to run `xformers` sdp attn: {err}")
+        warn_once(f"failed to run `xformers` sdp attn: {err}, details: {message}")
         return None
 
 
