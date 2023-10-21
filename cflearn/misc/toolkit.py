@@ -401,7 +401,19 @@ def try_run_xformers_sdp_attn(
 
         if p is None:
             p = 0.0
-        return xformers.ops.memory_efficient_attention(q, k, v, mask, p)
+        transpose = lambda t: t if len(t.shape) == 3 else t.transpose(1, 2)
+        q, k, v = map(transpose, (q, k, v))
+        if mask is not None:
+            if torch.allclose(mask, ~torch.triu(torch.ones_like(mask), diagonal=1)):
+                from xformers.ops.fmha.attn_bias import LowerTriangularMask
+
+                mask = LowerTriangularMask()
+            else:
+                mask = torch.where(mask, 0.0, float("-inf"))
+        ret = xformers.ops.memory_efficient_attention(q, k, v, mask, p)
+        if len(ret.shape) == 4:
+            ret = ret.transpose(1, 2)
+        return ret.contiguous()
     except Exception as err:
         warn_once(f"failed to run `xformers` sdp attn: {err}, details: {message}")
         xformers_failed.add(message)
