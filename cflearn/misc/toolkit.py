@@ -374,6 +374,7 @@ class WeightsStrategy:
 
 pt2_sdp_attn = getattr(F, "scaled_dot_product_attention", None)
 warnings = set()
+xformers_failed = set()
 
 
 def warn_once(message: str, *, key: Optional[str] = None) -> None:
@@ -392,6 +393,9 @@ def try_run_xformers_sdp_attn(
     p: Optional[float] = None,
 ) -> Optional[Tensor]:
     message = f"\nq: {q.dtype}, {q.shape}; k: {k.dtype}, {k.shape}; v: {v.dtype}, {v.shape}; mask: {None if mask is None else f'{mask.dtype}, {mask.shape}'}; p: {p}; training: {training}\n"
+    if message in xformers_failed:
+        return None
+
     try:
         import xformers.ops
 
@@ -400,6 +404,7 @@ def try_run_xformers_sdp_attn(
         return xformers.ops.memory_efficient_attention(q, k, v, mask, p)
     except Exception as err:
         warn_once(f"failed to run `xformers` sdp attn: {err}, details: {message}")
+        xformers_failed.add(message)
         return None
 
 
