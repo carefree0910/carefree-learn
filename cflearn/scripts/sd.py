@@ -242,7 +242,7 @@ def _convert_with_key_mapping(
     md: tensor_dict_type,
 ) -> tensor_dict_type:
     d, md = map(shallow_copy_dict, [d, md])
-    with open(download_json("sd_mapping"), "r") as f:
+    with download_json("sd_mapping").open("r") as f:
         mapping = json.load(f)
     nd = _convert_cond_stage(d, md)
     for k, mk in mapping.items():
@@ -311,7 +311,7 @@ def convert_v2(
             "condition_model.m.text_transformer.attention_mask",
         ]:
             nd[k] = md.pop(k)
-        with open(download_json("sd_v2_mapping"), "r") as f:
+        with download_json("sd_v2_mapping").open("r") as f:
             mapping = json.load(f)
         for k, mk in mapping.items():
             v = inp[k]
@@ -331,7 +331,7 @@ def inject(inp: Union[str, tensor_dict_type], api: DiffusionAPI) -> None:
 
 def convert_controlnet(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
     inp = get_tensors(inp)
-    with open(download_json("sd_controlnet_mapping"), "r") as f:
+    with download_json("sd_controlnet_mapping").open("r") as f:
         mapping = json.load(f)
     nd = {}
     for k, v in inp.items():

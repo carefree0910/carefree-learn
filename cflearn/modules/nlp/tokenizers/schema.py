@@ -33,7 +33,7 @@ class ITokenizer(WithRegister["ITokenizer"], metaclass=ABCMeta):
             return super().make(name, config)
         name = get_compatible_name(DownloadDtype.TOKENIZERS, name, [(3, 8), (3, 9)])
         if check_available(DownloadDtype.TOKENIZERS, name):
-            with open(download_tokenizer(name), "rb") as f:
+            with download_tokenizer(name).open("rb") as f:
                 return dill.load(f)
         raise ValueError(f"unrecognized tokenizer '{name}' occurred")
 

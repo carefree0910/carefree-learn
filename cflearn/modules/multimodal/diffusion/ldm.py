@@ -201,7 +201,7 @@ class SDLoRAMode(str, Enum):
 
 def convert_lora(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
     inp = get_tensors(inp)
-    with open(download_json("sd_lora_mapping"), "r") as f:
+    with download_json("sd_lora_mapping").open("r") as f:
         mapping = json.load(f)
     return {mapping[k]: v for k, v in inp.items()}
 
