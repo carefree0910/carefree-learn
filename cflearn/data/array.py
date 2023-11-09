@@ -14,10 +14,10 @@ from .utils import IArrayDataMixin
 from ..schema import IData
 from ..schema import DataArgs
 from ..schema import DataProcessor
+from ..toolkit import tensor_batch_to_np
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
 from ..constants import ORIGINAL_LABEL_KEY
-from ..misc.toolkit import tensor_batch_to_np
 
 
 class ArrayDataset(IArrayDataset):

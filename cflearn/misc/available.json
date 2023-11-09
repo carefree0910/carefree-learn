@@ -242,7 +242,7 @@
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/mlsd_large_512_fp32.pt"
     }
   },
-  "reference": {
+  "references": {
     "u2net": {
       "sha": "10025a17f49cd3208afc342b589890e402ee63123d6f2d289a4a0903695cce58",
       "st_size": 176290937
@@ -276,7 +276,29 @@
       "st_size": 381624133
     }
   },
-  "static": {
+  "datasets": {
+    "adain_tiny": {
+      "sha": "f6eb4adde7a57ce3ebcad87cd83dfdea998f5ce6f56492c7bb08510970af019c",
+      "st_size": 10516805
+    },
+    "Noto_Sans_SC": {
+      "sha": "02de3a8f7df187c72f1846233773506c1e79d566e3cd81da7311cbfa200c8e3e",
+      "st_size": 43756020
+    },
+    "poster_tiny": {
+      "sha": "ffed96e62db64fa32482c6493a0faa84f37cd50e13f346bb4537957a89e12e18",
+      "st_size": 534812
+    },
+    "products-10k_clf_tiny": {
+      "sha": "4c61b02482428757fb1007417f5188ae57f0b9a2be26b1ad39a3c951e6dfe2c2",
+      "st_size": 4137160
+    },
+    "products-10k_tiny": {
+      "sha": "f5ad018c6f58e6bc37f4c551c72ebe4ae3668edee605ecf249f3c7ebc36c1b6f",
+      "st_size": 5110361
+    }
+  },
+  "jsons": {
     "sd_mapping": {
       "sha": "f44f8dbad6e200beef6def3d72d958e5a707959e48f6f1611480c5bbe124f8e0",
       "st_size": 105368,

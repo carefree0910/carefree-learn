@@ -10,11 +10,7 @@
     "latent_channels": 3,
     "channel_multipliers": [1, 2, 4],
     "embedding_channels": 3,
-    "num_res_blocks": 2,
-    "kl_weight": 1.0e-6,
-    "d_loss_start_step": 50001,
-    "d_weight": 0.5,
-    "grad_accumulate": 2
+    "num_res_blocks": 2
   },
   "optimizer_settings": {
     "ae_parameters": {

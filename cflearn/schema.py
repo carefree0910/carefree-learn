@@ -1,6 +1,5 @@
 import json
 import math
-import torch
 
 import numpy as np
 import torch.nn as nn
@@ -10,9 +9,9 @@ from abc import ABC
 from abc import ABCMeta
 from copy import deepcopy
 from enum import Enum
+from torch import device
 from torch import Tensor
 from typing import Any
-from typing import Set
 from typing import Dict
 from typing import List
 from typing import Type
@@ -22,24 +21,14 @@ from typing import Generic
 from typing import TypeVar
 from typing import Callable
 from typing import Optional
-from typing import Protocol
 from typing import NamedTuple
-from accelerate import Accelerator
 from dataclasses import dataclass
-from torch.optim import Optimizer
-from cftool.misc import filter_kw
-from cftool.misc import print_info
-from cftool.misc import print_warning
 from cftool.misc import safe_execute
-from cftool.misc import check_requires
-from cftool.misc import shallow_copy_dict
-from cftool.misc import get_num_positional_args
+from cftool.misc import print_warning
 from cftool.misc import context_error_handler
-from cftool.misc import WithRegister
-from cftool.misc import DataClassBase
 from cftool.misc import PureFromInfoMixin
+from cftool.misc import DataClassBase
 from cftool.misc import ISerializable
-from cftool.misc import IWithRequirements
 from cftool.misc import ISerializableArrays
 from cftool.misc import ISerializableDataClass
 from cftool.array import to_numpy
@@ -48,61 +37,81 @@ from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 from cftool.pipeline import IBlock
 from cftool.pipeline import IPipeline
-from torch.optim.lr_scheduler import _LRScheduler
-
-from .types import data_type
-from .types import losses_type
-from .types import configs_type
-from .types import sample_weights_type
-from .types import forward_results_type
-from .constants import LOSS_KEY
-from .constants import INPUT_KEY
-from .constants import LABEL_KEY
-from .constants import PREDICTIONS_KEY
-from .misc.toolkit import is_local_rank_0
-from .misc.toolkit import get_clones
-from .misc.toolkit import get_device
-from .misc.toolkit import get_world_size
-from .misc.toolkit import fix_denormal_states
-from .misc.toolkit import eval_context
-from .misc.toolkit import ONNX
-
-try:
-    import onnx
-except:
-    onnx = None
-try:
-    from onnxsim import simplify as onnx_simplify
-
-    def get_inputs(model: onnx.ModelProto) -> List[onnx.ValueInfoProto]:
-        initializer_names = [x.name for x in model.graph.initializer]
-        return [inp for inp in model.graph.input if inp.name not in initializer_names]
-
-    def get_input_names(model: onnx.ModelProto) -> List[str]:
-        input_names = [inp.name for inp in get_inputs(model)]
-        return input_names
-
-except:
-    onnx_simplify = get_input_names = None  # type: ignore
 
 
-model_dict: Dict[str, Type["IDLModel"]] = {}
-monitor_dict: Dict[str, Type["TrainerMonitor"]] = {}
-loss_dict: Dict[str, Type["ILoss"]] = {}
-metric_dict: Dict[str, Type["IMetric"]] = {}
-callback_dict: Dict[str, Type["TrainerCallback"]] = {}
-data_dict: Dict[str, Type["IData"]] = {}
-data_processor_configs: Dict[str, Type["DataProcessorConfig"]] = {}
-data_configs: Dict[str, Type["DataConfig"]] = {}
-trainer_configs: Dict[str, Type["TrainerConfig"]] = {}
+# types
+
+
+data_type = Optional[Union[np.ndarray, str]]
+texts_type = Union[str, List[str]]
+param_type = Union[Tensor, nn.Parameter]
+configs_type = Optional[Union[List[Dict[str, Any]], Dict[str, Any]]]
+general_config_type = Optional[Union[str, Dict[str, Any]]]
+losses_type = Union[Tensor, tensor_dict_type]
+forward_results_type = Union[Tensor, tensor_dict_type]
+states_callback_type = Optional[Callable[[Any, Dict[str, Any]], Dict[str, Any]]]
+sample_weights_type = Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]
+device_type = Optional[Union[int, str, device]]
 
 TData = TypeVar("TData", bound="IData", covariant=True)
-TLoss = TypeVar("TLoss", bound="ILoss", covariant=True)
 TSplitSW = Tuple[Optional[np.ndarray], Optional[np.ndarray]]
 TDataLoaders = Tuple["IDataLoader", Optional["IDataLoader"]]
 TDataBundleItem = Optional[Union[data_type, np_dict_type, tensor_dict_type, Any]]
 TDataBlock = TypeVar("TDataBlock", bound="IDataBlock", covariant=True)
 TDataProcessor = TypeVar("TDataProcessor", bound="DataProcessor", covariant=True)
+
+
+# collections
+
+
+data_dict: Dict[str, Type["IData"]] = {}
+data_processor_configs: Dict[str, Type["DataProcessorConfig"]] = {}
+data_configs: Dict[str, Type["DataConfig"]] = {}
+
+
+# dataclasses
+
+
+@dataclass
+class MLEncoderSettings(DataClassBase):
+    """
+    Encoder settings.
+
+    Properties
+    ----------
+    dim (int) : number of different values of this categorical column.
+    methods (str | List[str]) : encoding methods to use for each categorical column.
+        * if List[str] is provided and its length > 1, then multiple encoding methods will be used.
+    method_configs (Dict[str, Any]) : (flattened) configs of the corresponding encoding methods.
+        * even if multiple methods are used, `method_configs` should still be 'flattened'
+
+    """
+
+    dim: int
+    methods: Union[str, List[str]] = "embedding"
+    method_configs: Optional[Dict[str, Any]] = None
+
+    @property
+    def use_one_hot(self) -> bool:
+        if self.methods == "one_hot":
+            return True
+        if isinstance(self.methods, list) and "one_hot" in self.methods:
+            return True
+        return False
+
+    @property
+    def use_embedding(self) -> bool:
+        if self.methods == "embedding":
+            return True
+        if isinstance(self.methods, list) and "embedding" in self.methods:
+            return True
+        return False
+
+
+@dataclass
+class MLGlobalEncoderSettings(DataClassBase):
+    embedding_dim: Optional[int] = None
+    embedding_dropout: Optional[float] = None
 
 
 # data
@@ -459,12 +468,6 @@ class IDataBlock(PureFromInfoMixin, IBlock, ISerializable, metaclass=ABCMeta):
     def recover_labels(self, y: np.ndarray) -> np.ndarray:
         return y
 
-    # api
-
-    @property
-    def is_local_rank_0(self) -> bool:
-        return is_local_rank_0()
-
 
 class INoInitDataBlock(IDataBlock):
     """
@@ -760,1168 +763,31 @@ DataProcessorConfig.register("base")(DataProcessorConfig)
 DataConfig.register("base")(DataConfig)
 
 
-# general model
-
-
-def _forward(
-    m: nn.Module,
-    batch_idx: int,
-    batch: tensor_dict_type,
-    general_input_key: str,
-    state: Optional["TrainerState"] = None,
-    *,
-    general_output_key: str = PREDICTIONS_KEY,
-    **kwargs: Any,
-) -> tensor_dict_type:
-    fn = m.forward
-    if check_requires(fn, "general_output_key"):
-        kwargs["general_output_key"] = general_output_key
-    kw = filter_kw(fn, kwargs)
-    args: List[Any] = []
-    if check_requires(fn, "batch_idx"):
-        args.append(batch_idx)
-    if get_num_positional_args(fn) > 0:
-        args.append(batch if check_requires(fn, "batch") else batch[general_input_key])
-    if check_requires(fn, "state"):
-        args.append(state)
-    rs = m(*args, **kw)
-    if not isinstance(rs, dict):
-        rs = {general_output_key: rs}
-    return rs
-
-
-class IDLModel(
-    nn.Module,
-    WithRegister["IDLModel"],
-    IWithRequirements,
-    metaclass=ABCMeta,
-):
-    d = model_dict
-
-    def __init__(self, *args: Any, **kwargs: Any):
-        super().__init__()
-
-    # optional callbacks
-
-    def init_with_trainer(self, trainer: "ITrainer") -> None:
-        pass
-
-    def permute_trainer_config(self, trainer_config: "TrainerConfig") -> None:
-        pass
-
-    def get_forward_args(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
-        **kwargs: Any,
-    ) -> Tuple[Any, ...]:
-        return (batch[INPUT_KEY],)
-
-    def postprocess(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        forward_results: forward_results_type,
-        state: Optional["TrainerState"] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        if isinstance(forward_results, dict):
-            return forward_results
-        if isinstance(forward_results, Tensor):
-            return {PREDICTIONS_KEY: forward_results}
-        raise ValueError(f"unrecognized forward results occurred: {forward_results}")
-
-    # api
-
-    def run(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        args = self.get_forward_args(batch_idx, batch, state, **kwargs)
-        forward_results = self(*args)
-        outputs = self.postprocess(batch_idx, batch, forward_results, state, **kwargs)
-        return outputs
-
-    def onnx_forward(self, batch: tensor_dict_type) -> Any:
-        return self.run(0, batch)
-
-    def summary_forward(self, batch: tensor_dict_type) -> None:
-        self.onnx_forward(batch)
-
-    def to_onnx(
-        self,
-        export_file: str,
-        input_sample: tensor_dict_type,
-        dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
-        *,
-        opset: int = 11,
-        simplify: bool = True,
-        forward_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
-        output_names: Optional[List[str]] = None,
-        num_samples: Optional[int] = None,
-        verbose: bool = True,
-        **kwargs: Any,
-    ) -> "IDLModel":
-        # prepare
-        device = get_device(self)
-        model = self.cpu()
-        if num_samples is not None:
-            input_sample = {k: v[:num_samples] for k, v in input_sample.items()}
-        onnx_forward = forward_fn or model.onnx_forward
-        input_names = sorted(input_sample.keys())
-        if output_names is None:
-            if forward_fn is not None:
-                msg = "`output_names` should be provided when `forward_fn` is provided"
-                raise ValueError(msg)
-            with eval_context(model):
-                forward_results = onnx_forward(shallow_copy_dict(input_sample))
-            if not isinstance(forward_results, dict):
-                forward_results = {PREDICTIONS_KEY: forward_results}
-            output_names = sorted(forward_results.keys())
-        # setup
-        kwargs = shallow_copy_dict(kwargs)
-        kwargs["input_names"] = input_names
-        kwargs["output_names"] = output_names
-        kwargs["opset_version"] = opset
-        kwargs["export_params"] = True
-        kwargs["do_constant_folding"] = True
-        if dynamic_axes is None:
-            dynamic_axes = {}
-        elif isinstance(dynamic_axes, list):
-            dynamic_axes = {axis: f"axis.{axis}" for axis in dynamic_axes}
-        if num_samples is None:
-            dynamic_axes[0] = "batch_size"
-        dynamic_axes_settings = {}
-        for name in input_names + output_names:
-            dynamic_axes_settings[name] = dynamic_axes
-        kwargs["dynamic_axes"] = dynamic_axes_settings
-        kwargs["verbose"] = verbose
-        # export
-
-        class ONNXWrapper(torch.nn.Module):
-            def __init__(self) -> None:
-                super().__init__()
-                self.model = model
-
-            def forward(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-                rs = onnx_forward(batch)
-                if isinstance(rs, Tensor):
-                    return {k: rs for k in output_names}  # type: ignore
-                return {k: rs[k] for k in output_names}  # type: ignore
-
-        m_onnx = ONNXWrapper()
-        original_states = model.state_dict()
-        fixed_states = fix_denormal_states(original_states, verbose=verbose)
-        with eval_context(m_onnx):
-            model.load_state_dict(fixed_states)
-            torch.onnx.export(
-                m_onnx,
-                ({k: input_sample[k] for k in input_names}, {}),
-                export_file,
-                **shallow_copy_dict(kwargs),
-            )
-            model.load_state_dict(original_states)
-            if not simplify:
-                return self.to(device)
-            if onnx is None:
-                print_warning(
-                    "`onnx` is not installed, "
-                    "so the exported onnx model will not be simplified"
-                )
-                return self.to(device)
-            if onnx_simplify is None or get_input_names is None:
-                print_warning(
-                    "`onnx-simplifier` is not installed, "
-                    "so the exported onnx model will not be simplified"
-                )
-                return self.to(device)
-            try:
-                onnx_model = onnx.load(export_file)
-                final_input_names = get_input_names(onnx_model)
-                model_simplified, check = onnx_simplify(
-                    onnx_model,
-                    test_input_shapes={
-                        name: tensor.shape
-                        for name, tensor in input_sample.items()
-                        if name in final_input_names
-                    },
-                )
-            except Exception as err:
-                if verbose:
-                    print_warning(f"Failed to simplify ONNX model ({err})")
-                model_simplified = None
-                check = False
-            if verbose:
-                tag = " " if check else " not "
-                print_info(f"Simplified ONNX model is{tag}validated!")
-            if check and model_simplified is not None:
-                onnx.save(model_simplified, export_file)
-        return self.to(device)
-
-
-class IMLModel(IDLModel, metaclass=ABCMeta):
-    def __init__(
-        self,
-        *args: Any,
-        encoder_settings: Optional[Dict[str, "MLEncoderSettings"]] = None,
-        **kwargs: Any,
-    ):
-        super().__init__()
-
-
-class EnsembleFn(Protocol):
-    def __call__(self, key: str, tensors: List[Tensor]) -> Tensor:
-        pass
-
-
-class DLEnsembleModel(nn.Module):
-    ensemble_fn: Optional[EnsembleFn]
-
-    def __init__(self, m: IDLModel, num_repeat: int) -> None:
-        super().__init__()
-        self.ms = get_clones(m, num_repeat)
-        self.ensemble_fn = None
-
-    def forward(self, *args: Any) -> forward_results_type:
-        outputs: Dict[str, List[Tensor]] = {}
-        for m in self.ms:
-            m_outputs = m(*args)
-            if isinstance(m_outputs, Tensor):
-                m_outputs = {PREDICTIONS_KEY: m_outputs}
-            for k, v in m_outputs.items():
-                outputs.setdefault(k, []).append(v)
-        final_results: tensor_dict_type = {}
-        for k in sorted(outputs):
-            if self.ensemble_fn is None:
-                v = torch.stack(outputs[k]).mean(0)
-            else:
-                v = safe_execute(self.ensemble_fn, dict(key=k, tensors=outputs[k]))
-            final_results[k] = v
-        return final_results
-
-    def run(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        m: IDLModel = self.ms[0]
-        args = m.get_forward_args(batch_idx, batch, state, **kwargs)
-        forward_results = self(*args)
-        outputs = m.postprocess(batch_idx, batch, forward_results, state, **kwargs)
-        return outputs
-
-
-class StepOutputs(NamedTuple):
-    forward_results: tensor_dict_type
-    loss_dict: Dict[str, float]
-
-
-class MetricsOutputs(NamedTuple):
-    final_score: float
-    metric_values: Dict[str, float]
-    is_positive: Dict[str, bool]
-
-
-class InferenceOutputs(NamedTuple):
-    forward_results: np_dict_type
-    labels: Optional[np.ndarray]
-    metric_outputs: Optional[MetricsOutputs]
-    loss_items: Optional[Dict[str, float]]
-
-
-# trainer types
-
-
-class TrainerState:
-    def __init__(
-        self,
-        loader: IDataLoader,
-        *,
-        num_epoch: int,
-        max_epoch: int,
-        fixed_steps: Optional[int] = None,
-        extension: int = 5,
-        enable_logging: bool = True,
-        min_num_sample: int = 3000,
-        snapshot_start_step: Optional[int] = None,
-        max_snapshot_file: int = 5,
-        num_snapshot_per_epoch: int = 2,
-        num_step_per_log: int = 350,
-        num_step_per_snapshot: Optional[int] = None,
-        max_step_per_snapshot: int = 1000,
-        min_snapshot_epoch_gap: int = 0,
-    ):
-        self.step = self.epoch = 0
-        self.batch_size = loader.batch_size * get_world_size()
-        self.num_step_per_epoch = len(loader)
-        self.num_epoch = num_epoch
-        self.max_epoch = max_epoch
-        self.fixed_steps = fixed_steps
-        self.extension = extension
-        self.enable_logging = enable_logging
-        self.min_num_sample = min_num_sample
-        if snapshot_start_step is None:
-            snapshot_start_step = math.ceil(min_num_sample / self.batch_size)
-        self.snapshot_start_step = snapshot_start_step
-        self.max_snapshot_file = max_snapshot_file
-        self.num_snapshot_per_epoch = num_snapshot_per_epoch
-        self.num_step_per_log = num_step_per_log
-        if num_step_per_snapshot is None:
-            num_step_per_snapshot = max(1, int(len(loader) / num_snapshot_per_epoch))
-            num_step_per_snapshot = min(max_step_per_snapshot, num_step_per_snapshot)
-        self.num_step_per_snapshot = num_step_per_snapshot
-        self.max_step_per_snapshot = max_step_per_snapshot
-        self.min_snapshot_epoch_gap = min_snapshot_epoch_gap
-        self._previous_snapshot_epoch = 0
-
-    def set_terminate(self) -> None:
-        self.step = self.epoch = -1
-
-    def update_snapshot_epoch(self) -> None:
-        self._previous_snapshot_epoch = self.epoch
-
-    @property
-    def config(self) -> Dict[str, Any]:
-        return {
-            "num_epoch": self.num_epoch,
-            "max_epoch": self.max_epoch,
-            "fixed_steps": self.fixed_steps,
-            "extension": self.extension,
-            "enable_logging": self.enable_logging,
-            "min_num_sample": self.min_num_sample,
-            "snapshot_start_step": self.snapshot_start_step,
-            "max_snapshot_file": self.max_snapshot_file,
-            "num_snapshot_per_epoch": self.num_snapshot_per_epoch,
-            "num_step_per_log": self.num_step_per_log,
-            "num_step_per_snapshot": self.num_step_per_snapshot,
-            "max_step_per_snapshot": self.max_step_per_snapshot,
-        }
-
-    @property
-    def is_terminate(self) -> bool:
-        return self.epoch == -1
-
-    @property
-    def should_train(self) -> bool:
-        if self.fixed_steps is not None:
-            return self.step < self.fixed_steps
-        return self.epoch < self.num_epoch
-
-    @property
-    def should_terminate(self) -> bool:
-        if self.fixed_steps is None:
-            return False
-        return self.step == self.fixed_steps
-
-    @property
-    def should_monitor(self) -> bool:
-        return self.step % self.num_step_per_snapshot == 0
-
-    @property
-    def should_log_lr(self) -> bool:
-        if not self.enable_logging:
-            return False
-        denominator = min(self.num_step_per_epoch, 10)
-        return self.step % denominator == 0
-
-    @property
-    def should_log_losses(self) -> bool:
-        if not self.enable_logging:
-            return False
-        patience = max(4, int(round(self.num_step_per_epoch / 50.0)))
-        denominator = min(self.num_step_per_epoch, patience)
-        return self.step % denominator == 0
-
-    @property
-    def should_log_artifacts(self) -> bool:
-        return self.should_log_metrics_msg
-
-    @property
-    def should_log_metrics_msg(self) -> bool:
-        if not self.enable_logging:
-            return False
-        if self.is_terminate:
-            return True
-        min_period = math.ceil(self.num_step_per_log / self.num_step_per_snapshot)
-        period = max(1, int(min_period)) * self.num_step_per_snapshot
-        return self.step % period == 0
-
-    @property
-    def can_snapshot(self) -> bool:
-        if self.is_terminate:
-            return True
-        return self.epoch - self._previous_snapshot_epoch >= self.min_snapshot_epoch_gap
-
-    @property
-    def should_start_snapshot(self) -> bool:
-        return self.step >= self.snapshot_start_step
-
-    @property
-    def should_extend_epoch(self) -> bool:
-        return self.epoch == self.num_epoch and self.epoch < self.max_epoch
-
-    @property
-    def reached_max_epoch(self) -> bool:
-        return self.epoch > self.max_epoch
-
-    @property
-    def disable_logging(self) -> context_error_handler:
-        class _(context_error_handler):
-            def __init__(self, state: TrainerState):
-                self.state = state
-                self.enabled = state.enable_logging
-
-            def __enter__(self) -> None:
-                self.state.enable_logging = False
-
-            def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-                self.state.enable_logging = self.enabled
-
-        return _(self)
-
-
-class TrainerMonitor(WithRegister["TrainerMonitor"], metaclass=ABCMeta):
-    d = monitor_dict
-
-    def __init__(self, *args: Any, **kwargs: Any):
-        pass
-
-    @abstractmethod
-    def snapshot(self, new_score: float) -> bool:
-        pass
-
-    @abstractmethod
-    def check_terminate(self, new_score: float) -> bool:
-        pass
-
-    @abstractmethod
-    def punish_extension(self) -> None:
-        pass
-
-    def handle_extension(self, state: TrainerState) -> None:
-        if state.should_extend_epoch:
-            self.punish_extension()
-            new_epoch = state.num_epoch + state.extension
-            state.num_epoch = min(new_epoch, state.max_epoch)
-
-
-class MonitorResults(NamedTuple):
-    terminate: bool
-    save_checkpoint: bool
-    metric_outputs: Optional[MetricsOutputs]
-
-
-# loss
-
-
-class ILoss(nn.Module, WithRegister[TLoss], metaclass=ABCMeta):
-    d = loss_dict
-    placeholder_key = "[PLACEHOLDER]"
-
-    def __init__(self, reduction: str = "mean"):
-        super().__init__()
-        self.reduction = reduction
-
-    def _reduce(self, losses: Tensor) -> Tensor:
-        if self.reduction == "none":
-            return losses
-        if self.reduction == "mean":
-            return losses.mean()
-        if self.reduction == "sum":
-            return losses.sum()
-        raise NotImplementedError(f"reduction '{self.reduction}' is not implemented")
-
-    # optional callbacks
-
-    def get_forward_args(
-        self,
-        forward_results: tensor_dict_type,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-    ) -> Tuple[Any, ...]:
-        return forward_results[PREDICTIONS_KEY], batch[LABEL_KEY]
-
-    def postprocess(
-        self,
-        losses: losses_type,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-    ) -> tensor_dict_type:
-        if not isinstance(losses, dict):
-            losses = {LOSS_KEY: losses}
-        return {k: self._reduce(v) for k, v in losses.items()}
-
-    # api
-
-    def run(
-        self,
-        forward_results: tensor_dict_type,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-    ) -> tensor_dict_type:
-        args = self.get_forward_args(forward_results, batch, state)
-        losses = self(*args)
-        losses = self.postprocess(losses, batch, state)
-        return losses
-
-
-class _MultiLoss(ILoss, metaclass=ABCMeta):
-    def __init__(
-        self,
-        reduction: str = "mean",
-        *,
-        loss_names: Optional[List[str]] = None,
-        loss_configs: Optional[Dict[str, Dict[str, Any]]] = None,
-        loss_weights: Optional[Dict[str, float]] = None,
-    ):
-        super().__init__(reduction)
-        name = self.__class__.__name__
-        if loss_names is None:
-            raise ValueError(f"`loss_names` should be specified for {name}")
-        loss_configs = loss_configs or {}
-        loss_weights = loss_weights or {}
-        self.loss_weights = {k: loss_weights.get(k, 1.0) for k in loss_names}
-        self.base_losses = nn.ModuleList(
-            [
-                ILoss.make(name, loss_configs.get(name, {}), ensure_safe=True)
-                for name in loss_names
-            ]
-        )
-
-    @staticmethod
-    def _inject(key: str, base_losses: losses_type, all_losses: losses_type) -> None:
-        if isinstance(base_losses, dict):
-            base_losses = base_losses[LOSS_KEY]
-        all_losses[key] = base_losses
-
-    def _merge(self, losses: tensor_dict_type) -> None:
-        merged = 0.0
-        for k, v in self.loss_weights.items():
-            k_loss = losses.get(k)
-            if k_loss is not None:
-                merged += k_loss * v
-        losses[LOSS_KEY] = merged
-
-
-@ILoss.register("multi_task")
-class MultiTaskLoss(_MultiLoss):
-    def run(
-        self,
-        forward_results: tensor_dict_type,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-    ) -> tensor_dict_type:
-        losses: losses_type = {}
-        for loss_ins in self.base_losses:
-            self._inject(
-                loss_ins.__identifier__,
-                loss_ins.run(forward_results, batch, state),
-                losses,
-            )
-        self._merge(losses)
-        return losses
-
-
-@ILoss.register("multi_stage")
-class MultiStageLoss(_MultiLoss):
-    def run(
-        self,
-        forward_results: tensor_dict_type,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-    ) -> tensor_dict_type:
-        predictions = forward_results[PREDICTIONS_KEY]
-        losses: tensor_dict_type = {}
-        for i, pred in enumerate(predictions):
-            forward_results[PREDICTIONS_KEY] = pred
-            for loss_ins in self.base_losses:
-                self._inject(
-                    f"{i}_{loss_ins.__identifier__}",
-                    loss_ins.run(forward_results, batch, state),
-                    losses,
-                )
-        self._merge(losses)
-        return losses
-
-
-@ILoss.register(ILoss.placeholder_key)
-class PlaceholderLoss(ILoss):
-    def forward(self, predictions: Tensor, labels: Tensor) -> Tensor:
-        raise ValueError("`forward` should not be called in `PlaceholderLoss`")
-
-
-# inference
-
-
-inferences: Dict[str, Type["IInference"]] = {}
-
-
-class IInference(WithRegister["IInference"], metaclass=ABCMeta):
-    d = inferences
-    use_grad_in_predict = False
-
-    @abstractmethod
-    def get_outputs(
-        self,
-        loader: IDataLoader,
-        *,
-        portion: float = 1.0,
-        state: Optional[TrainerState] = None,
-        metrics: Optional["IMetric"] = None,
-        loss: Optional[ILoss] = None,
-        return_outputs: bool = True,
-        stack_outputs: bool = True,
-        use_tqdm: bool = False,
-        **kwargs: Any,
-    ) -> InferenceOutputs:
-        pass
-
-
-# metrics
-
-
-class IMetric(WithRegister["IMetric"], metaclass=ABCMeta):
-    d = metric_dict
-
-    def __init__(self, *args: Any, **kwargs: Any):
-        pass
-
-    # abstract
-
-    @property
-    @abstractmethod
-    def is_positive(self) -> bool:
-        pass
-
-    @abstractmethod
-    def forward(self, *args: Any) -> float:
-        pass
-
-    # optional callback
-
-    @property
-    def requires_all(self) -> bool:
-        """
-        Specify whether this Metric needs 'all' data.
-
-        Typical metrics often does not need to evaluate itself on the entire dataset,
-        but some does need to avoid corner cases. (for instance, the AUC metrics may
-        fail to evaluate itself on only a batch, because the labels in this batch may
-        be all the same, which breaks the calculation of AUC).
-        """
-        return False
-
-    def get_forward_args(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[IDataLoader] = None,
-    ) -> Tuple[Any, ...]:
-        return np_outputs[PREDICTIONS_KEY], np_batch[LABEL_KEY]
-
-    # api
-
-    def run(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[IDataLoader] = None,
-    ) -> float:
-        args = self.get_forward_args(np_batch, np_outputs, loader)
-        return self.forward(*args)
-
-    @classmethod
-    def fuse(
-        cls,
-        names: Union[str, List[str]],
-        configs: configs_type = None,
-        *,
-        metric_weights: Optional[Dict[str, float]] = None,
-    ) -> "IMetric":
-        metrics = IMetric.make_multiple(names, configs)
-        if isinstance(metrics, IMetric):
-            return metrics
-        return MultipleMetrics(metrics, weights=metric_weights)
-
-    def evaluate(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[IDataLoader] = None,
-    ) -> MetricsOutputs:
-        metric = self.run(np_batch, np_outputs, loader)
-        score = metric * (1.0 if self.is_positive else -1.0)
-        k = self.__identifier__
-        return MetricsOutputs(score, {k: metric}, {k: self.is_positive})
-
-
-class MultipleMetrics(IMetric):
-    @property
-    def is_positive(self) -> bool:
-        raise NotImplementedError
-
-    @property
-    def requires_all(self) -> bool:
-        return any(metric.requires_all for metric in self.metrics)
-
-    def forward(self, *args: Any) -> float:
-        raise NotImplementedError
-
-    def __init__(
-        self,
-        metric_list: List[IMetric],
-        *,
-        weights: Optional[Dict[str, float]] = None,
-    ):
-        super().__init__()
-        self.metrics = metric_list
-        self.weights = weights or {}
-        self.__identifier__ = " | ".join(m.__identifier__ for m in metric_list)
-
-    def evaluate(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[IDataLoader] = None,
-    ) -> MetricsOutputs:
-        scores: List[float] = []
-        weights: List[float] = []
-        metrics_values: Dict[str, float] = {}
-        is_positive: Dict[str, bool] = {}
-        for metric in self.metrics:
-            metric_outputs = metric.evaluate(np_batch, np_outputs, loader)
-            w = self.weights.get(metric.__identifier__, 1.0)
-            weights.append(w)
-            scores.append(metric_outputs.final_score * w)
-            metrics_values.update(metric_outputs.metric_values)
-            is_positive.update(metric_outputs.is_positive)
-        return MetricsOutputs(sum(scores) / sum(weights), metrics_values, is_positive)
-
-
-# trainer interface
-
-
-class OptimizerPack(NamedTuple):
-    scope: str
-    optimizer_name: str
-    scheduler_name: Optional[str] = None
-    optimizer_config: Optional[Dict[str, Any]] = None
-    scheduler_config: Optional[Dict[str, Any]] = None
-
-
-@dataclass
-class TqdmSettings(DataClassBase):
-    use_tqdm: bool = False
-    use_step_tqdm: bool = False
-    use_tqdm_in_validation: bool = False
-    in_distributed: bool = False
-    position: int = 0
-    desc: str = "epoch"
-
-
-class TrainerCallback(WithRegister["TrainerCallback"]):
-    d = callback_dict
-
-    def __init__(self, *args: Any, **kwargs: Any):
-        pass
-
-    @property
-    def is_local_rank_0(self) -> bool:
-        return is_local_rank_0()
-
-    def initialize(self) -> None:
-        pass
-
-    def mutate_train_forward_kwargs(
-        self,
-        kwargs: Dict[str, Any],
-        trainer: "ITrainer",
-    ) -> None:
-        pass
-
-    def mutate_train_loss_kwargs(
-        self,
-        kwargs: Dict[str, Any],
-        trainer: "ITrainer",
-    ) -> None:
-        pass
-
-    def before_loop(self, trainer: "ITrainer") -> None:
-        pass
-
-    def log_lr(self, key: str, lr: float, state: TrainerState) -> None:
-        pass
-
-    def log_metrics(self, metric_outputs: MetricsOutputs, state: TrainerState) -> None:
-        pass
-
-    def log_metrics_msg(
-        self,
-        metric_outputs: MetricsOutputs,
-        metrics_log_path: str,
-        state: TrainerState,
-    ) -> None:
-        pass
-
-    def log_artifacts(self, trainer: "ITrainer") -> None:
-        pass
-
-    def after_step(self, step_outputs: StepOutputs, state: TrainerState) -> None:
-        pass
-
-    def after_monitor(
-        self,
-        monitor_results: MonitorResults,
-        state: TrainerState,
-    ) -> None:
-        pass
-
-    def finalize(self, trainer: "ITrainer") -> None:
-        pass
-
-
-class ITrainer(ABC):
-    config: "TrainerConfig"
-
-    loss: ILoss
-    model: IDLModel
-    metrics: Optional[IMetric]
-    monitors: List[TrainerMonitor]
-    callbacks: List[TrainerCallback]
-    optimizers: Dict[str, Optimizer]
-    schedulers: Dict[str, Optional[_LRScheduler]]
-    model_for_training: nn.Module
-    accelerator: Accelerator
-
-    state: TrainerState
-    train_loader: IDataLoader
-    train_loader_copy: IDataLoader
-    valid_loader: Optional[IDataLoader]
-    inference: IInference
-
-    tqdm_settings: TqdmSettings
-
-    @property
-    @abstractmethod
-    def export_config(self) -> Dict[str, Any]:
-        pass
-
-    @property
-    @abstractmethod
-    def device(self) -> torch.device:
-        pass
-
-    @property
-    @abstractmethod
-    def use_tqdm_in_validation(self) -> bool:
-        pass
-
-    @property
-    @abstractmethod
-    def validation_loader(self) -> IDataLoader:
-        pass
-
-    @property
-    @abstractmethod
-    def input_sample(self) -> tensor_dict_type:
-        pass
-
-    @property
-    @abstractmethod
-    def workspace(self) -> str:
-        pass
-
-    @property
-    @abstractmethod
-    def checkpoint_folder(self) -> str:
-        pass
-
-    @property
-    @abstractmethod
-    def has_checkpoint_folder(self) -> bool:
-        pass
-
-    # init
-
-    @abstractmethod
-    def _init_finetune(self) -> None:
-        pass
-
-    # core
-
-    @abstractmethod
-    def post_loss_step(self, loss_dict: tensor_dict_type) -> None:
-        pass
-
-    @abstractmethod
-    def clip_norm_step(self) -> None:
-        pass
-
-    @abstractmethod
-    def optimizer_step(self) -> None:
-        pass
-
-    @abstractmethod
-    def scheduler_step(self) -> None:
-        pass
-
-    @abstractmethod
-    def _get_scheduler_settings(
-        self,
-        key: str,
-        scheduler: Any,
-    ) -> Tuple[bool, Dict[str, Any]]:
-        pass
-
-    @abstractmethod
-    def _logging_step(self, metrics_outputs: MetricsOutputs) -> None:
-        pass
-
-    @abstractmethod
-    def _monitor_step(self, step_outputs: StepOutputs) -> MonitorResults:
-        pass
-
-    @abstractmethod
-    def _step(self, batch_idx: int, batch: tensor_dict_type) -> StepOutputs:
-        pass
-
-    @abstractmethod
-    def fit(
-        self,
-        data: IData,
-        loss: ILoss,
-        model: IDLModel,
-        metrics: Optional[IMetric],
-        inference: IInference,
-        optimizers: Dict[str, Optimizer],
-        schedulers: Dict[str, Optional[_LRScheduler]],
-        monitors: List[TrainerMonitor],
-        callbacks: List[TrainerCallback],
-        schedulers_requires_metric: Set[str],
-        *,
-        config_export_file: Optional[str] = None,
-        show_summary: Optional[bool] = None,
-        cuda: Optional[str] = None,
-    ) -> "ITrainer":
-        pass
-
-    @abstractmethod
-    def save_checkpoint(
-        self,
-        score: float,
-        folder: Optional[str] = None,
-        *,
-        no_history: bool = False,
-    ) -> None:
-        pass
-
-    @abstractmethod
-    def restore_checkpoint(
-        self,
-        folder: Optional[str] = None,
-        strict: bool = True,
-        state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-    ) -> bool:
-        pass
-
-
-# configs
-
-
-class PrecisionType(str, Enum):
-    NO = "no"
-    FP8 = "fp8"
-    FP16 = "fp16"
-    BF16 = "bf16"
-
-
-@dataclass
-class TrainerConfig(ISerializableDataClass):
-    state_config: Optional[Dict[str, Any]] = None
-    workspace: str = "_logs"
-    create_sub_workspace: bool = True
-    num_epoch: int = 40
-    max_epoch: int = 1000
-    fixed_epoch: Optional[int] = None
-    fixed_steps: Optional[int] = None
-    log_steps: Optional[int] = None
-    valid_portion: float = 1.0
-    mixed_precision: Union[str, PrecisionType] = PrecisionType.NO
-    clip_norm: float = 0.0
-    metric_names: Optional[Union[str, List[str]]] = None
-    metric_configs: configs_type = None
-    metric_weights: Optional[Dict[str, float]] = None
-    use_losses_as_metrics: Optional[bool] = None
-    loss_metrics_weights: Optional[Dict[str, float]] = None
-    recompute_train_losses_in_eval: bool = True
-    monitor_names: Optional[Union[str, List[str]]] = None
-    monitor_configs: Optional[Dict[str, Any]] = None
-    auto_callback: bool = True
-    callback_names: Optional[Union[str, List[str]]] = None
-    callback_configs: Optional[Dict[str, Any]] = None
-    lr: Optional[float] = None
-    optimizer_name: Optional[str] = None
-    scheduler_name: Optional[str] = None
-    optimizer_config: Optional[Dict[str, Any]] = None
-    scheduler_config: Optional[Dict[str, Any]] = None
-    update_scheduler_per_epoch: bool = False
-    optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None
-    use_zero: bool = False
-    finetune_config: Optional[Dict[str, Any]] = None
-    tqdm_settings: Optional[Dict[str, Any]] = None
-
-    @classmethod
-    def d(cls) -> Dict[str, Type["TrainerConfig"]]:
-        return trainer_configs
-
-
-@dataclass
-class Config(TrainerConfig):
-    loss_name: Optional[str] = None
-    loss_config: Optional[Dict[str, Any]] = None
-    in_loading: bool = False
-    allow_no_loss: bool = False
-    cudnn_benchmark: bool = False
-
-    def to_debug(self) -> None:
-        self.fixed_steps = 1
-        self.valid_portion = 1.0e-4
-
-    @property
-    def trainer_config(self) -> TrainerConfig:
-        return safe_execute(TrainerConfig, self.asdict())
-
-
-@dataclass
-class _DLConfig:
-    model_name: str = ""
-    model_config: Optional[Dict[str, Any]] = None
-    num_repeat: Optional[int] = None
-    inference_type: str = "dl"
-
-
-@dataclass
-@Config.register("dl")
-class DLConfig(Config, _DLConfig):
-    def sanity_check(self) -> None:
-        if not self.model_name:
-            raise ValueError("`model_name` should be provided")
-
-
-@dataclass
-class MLEncoderSettings(DataClassBase):
-    """
-    Encoder settings.
-
-    Properties
-    ----------
-    dim (int) : number of different values of this categorical column.
-    methods (str | List[str]) : encoding methods to use for each categorical column.
-        * if List[str] is provided and its length > 1, then multiple encoding methods will be used.
-    method_configs (Dict[str, Any]) : (flattened) configs of the corresponding encoding methods.
-        * even if multiple methods are used, `method_configs` should still be 'flattened'
-
-    """
-
-    dim: int
-    methods: Union[str, List[str]] = "embedding"
-    method_configs: Optional[Dict[str, Any]] = None
-
-    @property
-    def use_one_hot(self) -> bool:
-        if self.methods == "one_hot":
-            return True
-        if isinstance(self.methods, list) and "one_hot" in self.methods:
-            return True
-        return False
-
-    @property
-    def use_embedding(self) -> bool:
-        if self.methods == "embedding":
-            return True
-        if isinstance(self.methods, list) and "embedding" in self.methods:
-            return True
-        return False
-
-
-@dataclass
-class MLGlobalEncoderSettings(DataClassBase):
-    embedding_dim: Optional[int] = None
-    embedding_dropout: Optional[float] = None
-
-
-@dataclass
-@Config.register("ml")
-class MLConfig(DLConfig):
-    """
-    * encoder_settings: used by `Encoder`.
-    * global_encoder_settings: used by `Encoder`.
-    * index_mapping: since there might be some redundant columns, we may need to
-    map the original keys of the `encoder_settings` to the new ones.
-    * infer_encoder_settings: whether infer the `encoder_settings` based on
-    information gathered by `RecognizerBlock`.
-    """
-
-    encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None
-    global_encoder_settings: Optional[MLGlobalEncoderSettings] = None
-    index_mapping: Optional[Dict[str, int]] = None
-    infer_encoder_settings: bool = True
-
-    def from_info(self, info: Dict[str, Any]) -> None:
-        super().from_info(info)
-        if self.encoder_settings is not None:
-            self.encoder_settings = {
-                str_idx: MLEncoderSettings(**settings)
-                for str_idx, settings in self.encoder_settings.items()
-            }
-        ges = self.global_encoder_settings
-        if ges is not None:
-            self.global_encoder_settings = MLGlobalEncoderSettings(**ges)
-
-
 __all__ = [
-    "_forward",
-    "loss_dict",
-    "metric_dict",
-    "callback_dict",
-    "IData",
+    "data_type",
+    "texts_type",
+    "param_type",
+    "configs_type",
+    "general_config_type",
+    "losses_type",
+    "forward_results_type",
+    "states_callback_type",
+    "sample_weights_type",
+    "MLEncoderSettings",
+    "MLGlobalEncoderSettings",
+    "norm_sw",
+    "split_sw",
+    "IDataset",
+    "IDataLoader",
+    "DataArgs",
     "DataBundle",
     "IDataBlock",
+    "INoInitDataBlock",
     "IRuntimeDataBlock",
     "DataProcessorConfig",
     "DataProcessor",
     "DataConfig",
-    "IDataset",
-    "IDataLoader",
-    "IDLModel",
-    "StepOutputs",
-    "TrainerState",
-    "TrainerMonitor",
-    "MonitorResults",
-    "ILoss",
-    "MultiTaskLoss",
-    "MultiStageLoss",
-    "ONNX",
-    "InferenceOutputs",
-    "IInference",
-    "MetricsOutputs",
-    "IMetric",
-    "MultipleMetrics",
-    "OptimizerPack",
-    "TqdmSettings",
-    "TrainerCallback",
-    "ITrainer",
-    "PrecisionType",
-    "TrainerConfig",
-    "Config",
-    "DLConfig",
-    "MLEncoderSettings",
-    "MLGlobalEncoderSettings",
-    "MLConfig",
+    "IData",
+    "DataTypes",
+    "ColumnTypes",
 ]

@@ -1,15 +1,18 @@
 import torch
 
 import numpy as np
+import torch.nn as nn
 
 from abc import abstractmethod
 from abc import ABC
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
 from typing import Optional
+from typing import Protocol
 from cftool.misc import shallow_copy_dict
 from cftool.array import to_device
 from cftool.types import arr_type
@@ -17,17 +20,18 @@ from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
 from ..schema import IDataset
-from ..schema import IDLModel
 from ..schema import DataArgs
 from ..schema import DataBundle
 from ..schema import DataConfig
 from ..schema import IDataLoader
 from ..schema import DataProcessor
+from ..toolkit import eval_context
+from ..toolkit import get_device
+from ..toolkit import np_batch_to_tensor
+from ..toolkit import tensor_batch_to_np
+from ..constants import INPUT_KEY
+from ..constants import PREDICTIONS_KEY
 from ..constants import BATCH_INDICES_KEY
-from ..misc.toolkit import eval_context
-from ..misc.toolkit import get_device
-from ..misc.toolkit import np_batch_to_tensor
-from ..misc.toolkit import tensor_batch_to_np
 
 
 TSplitSW = Tuple[Optional[np.ndarray], Optional[np.ndarray]]
@@ -201,13 +205,25 @@ class IArrayDataMixin(ABC):
         pass
 
 
+class PredictFn(Protocol):
+    def __call__(
+        self,
+        m: nn.Module,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        **kwargs: Any,
+    ) -> Tensor:
+        pass
+
+
 def predict_array_data(
-    m: IDLModel,
+    m: nn.Module,
     data: IArrayDataMixin,
+    run_fn: Optional[PredictFn] = None,
     *,
     batch_size: Optional[int] = None,
     **predict_kwargs: Any,
-) -> Any:
+) -> tensor_dict_type:
     if batch_size is not None:
         data.config.batch_size = batch_size
     loader = data.get_loaders()[0]
@@ -216,7 +232,13 @@ def predict_array_data(
         tensor_batcher = TensorBatcher(loader, get_device(m))
         for i, batch in enumerate(tensor_batcher):
             batch = shallow_copy_dict(batch)
-            results.append(m.run(i, batch, **predict_kwargs))
+            if run_fn is None:
+                out = m(batch[INPUT_KEY], **predict_kwargs)
+            else:
+                out = run_fn(m, i, batch, **predict_kwargs)
+            if isinstance(out, Tensor):
+                out = {PREDICTIONS_KEY: out}
+            results.append(out)
     final = {}
     for k in results[0]:
         final[k] = torch.cat([rs[k] for rs in results], dim=0)

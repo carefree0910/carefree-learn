@@ -1,1 +1,0 @@
-TEXT_KEY = "text"

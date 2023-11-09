@@ -1,13 +1,12 @@
-import os
-
+from pathlib import Path
 from typing import Any
 from typing import Dict
 from cftool.misc import OPTBase
 
 
 class OPTClass(OPTBase):
-    cache_dir: str
-    external_dir: str
+    cache_dir: Path
+    external_dir: Path
     meta_settings: Dict[str, Any]
 
     @property
@@ -16,15 +15,16 @@ class OPTClass(OPTBase):
 
     @property
     def defaults(self) -> Dict[str, Any]:
+        user_dir = Path.home()
         return dict(
-            cache_dir=os.path.join(os.path.expanduser("~"), ".cache", "carefree-learn"),
-            external_dir=os.path.join(os.path.expanduser("~"), ".cache", "external"),
+            cache_dir=user_dir / ".cache" / "carefree-learn",
+            external_dir=user_dir / ".cache" / "external",
             meta_settings={},
         )
 
     @property
-    def data_cache_dir(self) -> str:
-        return os.path.join(self.cache_dir, "data")
+    def data_cache_dir(self) -> Path:
+        return self.cache_dir / "data"
 
 
 OPT = OPTClass()
