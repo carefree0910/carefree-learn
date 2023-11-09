@@ -1150,6 +1150,7 @@ class DiffusionAPI(IAPI):
     def first_stage(self) -> Optional[nn.Module]:
         if isinstance(self.m, LDM):
             return self.m.first_stage
+        return None
 
     @property
     def size_info(self) -> SizeInfo:
