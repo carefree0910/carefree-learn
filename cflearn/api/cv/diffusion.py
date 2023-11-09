@@ -546,8 +546,10 @@ class DiffusionAPI(IAPI):
         for k, v in self._uncond_cache.items():
             self._uncond_cache[k] = v.to(device)
 
-    def compile(self, **kwargs: Any) -> "DiffusionAPI":
+    def compile(self, *, compile_cond: bool = False, **kwargs: Any) -> "DiffusionAPI":
         self.m = torch.compile(self.m, **kwargs)
+        if compile_cond and self.cond_model is not None:
+            self.cond_model = torch.compile(self.cond_model, **kwargs)
         self._use_inference_mode = False
         return self
 
