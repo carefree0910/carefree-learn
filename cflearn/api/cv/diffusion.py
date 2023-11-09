@@ -6,6 +6,9 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
+from PIL import Image
+from PIL import ImageOps
+from enum import Enum
 from tqdm import tqdm
 from torch import Tensor
 from typing import Any
@@ -19,11 +22,21 @@ from typing import NamedTuple
 from typing import ContextManager
 from pathlib import Path
 from filelock import FileLock
+from dataclasses import dataclass
+from cftool.cv import to_rgb
+from cftool.cv import to_uint8
+from cftool.cv import read_image
 from cftool.cv import save_images
 from cftool.cv import restrict_wh
+from cftool.cv import to_alpha_channel
 from cftool.cv import get_suitable_size
+from cftool.cv import ImageBox
+from cftool.cv import ImageProcessor
+from cftool.cv import ReadImageResponse
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
+from cftool.types import TNumberPair
+from cftool.types import arr_type
 from cftool.types import tensor_dict_type
 
 from ..common import IAPI
@@ -47,6 +60,7 @@ from ...toolkit import slerp
 from ...toolkit import freeze
 from ...toolkit import new_seed
 from ...toolkit import load_file
+from ...toolkit import download_json
 from ...toolkit import seed_everything
 from ...toolkit import download_checkpoint
 from ...toolkit import eval_context
@@ -62,6 +76,13 @@ from ...modules.multimodal.diffusion.utils import CONTROL_HINT_END_KEY
 from ...modules.multimodal.diffusion.utils import CONTROL_HINT_START_KEY
 from ...modules.multimodal.diffusion.utils import get_timesteps
 from ...modules.multimodal.diffusion.cond_models import CLIPTextConditionModel
+
+try:
+    import cv2
+
+    INTER_LANCZOS4 = cv2.INTER_LANCZOS4
+except:
+    cv2 = INTER_LANCZOS4 = None
 
 
 def convert_external(
@@ -142,9 +163,249 @@ def get_txt_cond(t: Union[str, List[str]], n: Optional[int]) -> Tuple[List[str],
     return t, n
 
 
+def resize(
+    inp: np.ndarray,
+    wh: Tuple[int, int],
+    interpolation: int = INTER_LANCZOS4,
+) -> np.ndarray:
+    return cv2.resize(inp, wh, interpolation=interpolation)
+
+
+def adjust_lt_rb(lt_rb: ImageBox, w: int, h: int, padding: TNumberPair) -> ImageBox:
+    l, t, r, b = lt_rb.tuple
+    if padding is not None:
+        if isinstance(padding, int):
+            padding = padding, padding
+        l = max(0, l - padding[0])
+        t = max(0, t - padding[1])
+        r = min(w, r + padding[0])
+        b = min(h, b + padding[1])
+    cropped_h, cropped_w = b - t, r - l
+    # adjust lt_rb to make the cropped aspect ratio equals to the original one
+    if cropped_h / cropped_w > h / w:
+        dw = (int(cropped_h * w / h) - cropped_w) // 2
+        dh = 0
+    else:
+        dw = 0
+        dh = (int(cropped_w * h / w) - cropped_h) // 2
+    if dw > 0:
+        if l < dw:
+            l = 0
+            r = min(w, cropped_w + dw * 2)
+        elif r + dw > w:
+            r = w
+            l = max(0, w - cropped_w - dw * 2)
+        else:
+            l -= dw
+            r += dw
+    if dh > 0:
+        if t < dh:
+            t = 0
+            b = min(h, cropped_h + dh * 2)
+        elif b + dh > h:
+            b = h
+            t = max(0, h - cropped_h - dh * 2)
+        else:
+            t -= dh
+            b += dh
+    return ImageBox(l, t, r, b)
+
+
+def crop_masked_area(
+    image_tensor: np.ndarray,
+    mask_tensor: np.ndarray,
+    settings: "InpaintingSettings",
+) -> "CropResponse":
+    image = image_tensor[0].transpose(1, 2, 0)
+    mask = mask_tensor[0, 0]
+    h, w = image.shape[:2]
+    lt_rb = ImageBox.from_mask(to_uint8(mask), settings.mask_binary_threshold)
+    lt_rb = adjust_lt_rb(lt_rb, w, h, settings.mask_padding)
+    # finalize
+    if settings.target_wh is not None:
+        if isinstance(settings.target_wh, int):
+            w = h = settings.target_wh
+        else:
+            w, h = settings.target_wh
+    cropped_image = lt_rb.crop(image)
+    cropped_mask = lt_rb.crop(mask)
+    resized_image = resize(cropped_image, (w, h))
+    resized_mask = resize(cropped_mask, (w, h), cv2.INTER_NEAREST)
+    resized_image = resized_image.transpose(2, 0, 1)[None]
+    resized_mask = resized_mask[None, None]
+    return CropResponse(lt_rb, (w, h), cropped_mask, resized_image, resized_mask)
+
+
+def normalize_image_to_diffusion(image: Image.Image) -> np.ndarray:
+    return np.array(image).astype(np.float32) / 127.5 - 1.0
+
+
+def recover_with(
+    original: Image.Image,
+    sampled: Tensor,
+    crop: "CropResponse",
+    wh_ratio: Tuple[float, float],
+    settings: "InpaintingSettings",
+) -> Tensor:
+    l, t, r, b = crop.lt_rb.tuple
+    w_ratio, h_ratio = wh_ratio
+    l = round(l * w_ratio)
+    t = round(t * h_ratio)
+    r = round(r * w_ratio)
+    b = round(b * h_ratio)
+    c_mask = crop.cropped_mask
+    if settings.mask_padding is None:
+        c_blurred_mask = c_mask
+    else:
+        blur = settings.mask_padding
+        if isinstance(blur, int):
+            blur = blur, blur
+        if blur[0] > 0 and blur[1] > 0:
+            c_blurred_mask = cv2.blur(c_mask, blur)
+        else:
+            c_blurred_mask = c_mask
+    sampled_array = sampled.numpy().transpose([0, 2, 3, 1])
+    o_array = normalize_image_to_diffusion(to_rgb(original))
+    c_o_array = ImageBox(l, t, r, b).crop(o_array)
+    ch, cw = c_o_array.shape[:2]
+    if ch != c_blurred_mask.shape[0] or cw != c_blurred_mask.shape[1]:
+        c_blurred_mask = resize(c_blurred_mask, (cw, ch))
+    c_blurred_mask = c_blurred_mask[..., None]
+    mixed: List[np.ndarray] = []
+    for i_sampled in sampled_array:
+        i_sampled = resize(i_sampled, (cw, ch))
+        i_sampled = i_sampled * c_blurred_mask + c_o_array * (1.0 - c_blurred_mask)
+        i_pasted = o_array.copy()
+        i_pasted[t:b, l:r] = i_sampled
+        mixed.append(i_pasted.transpose([2, 0, 1]))
+    return torch.from_numpy(np.stack(mixed, axis=0))
+
+
+def crop_controlnet(kwargs: Dict[str, Any], crop_res: Optional["CropResponse"]) -> None:
+    if crop_res is None:
+        return
+    hint: Optional[List[Tuple[str, Tensor]]] = kwargs.get(CONTROL_HINT_KEY, None)
+    if hint is None:
+        return
+    for i, h in enumerate(hint):
+        hw, hh = crop_res.wh
+        h_tensor = crop_res.lt_rb.crop_tensor(h[1])
+        h_tensor = F.interpolate(h_tensor, (hh, hw), mode="bilinear")
+        hint[i] = h[0], h_tensor
+
+
+def get_cropped(
+    image_res: ReadImageResponse,
+    mask_res: ReadImageResponse,
+    settings: Optional["InpaintingSettings"],
+) -> "CroppedResponse":
+    ow, oh = image_res.original_size
+    ih, iw = image_res.image.shape[-2:]
+    wh_ratio = ow / iw, oh / ih
+    if settings is None or settings.mode == InpaintingMode.NORMAL:
+        crop_res = None
+        cropped_image = image_res.image
+        cropped_mask = mask_res.image
+    elif settings.mode == InpaintingMode.MASKED:
+        crop_res = crop_masked_area(image_res.image, mask_res.image, settings)
+        cropped_image = crop_res.resized_image_tensor
+        cropped_mask = crop_res.resized_mask_tensor
+    else:
+        raise ValueError(f"Unknown inpainting mode: {settings.mode}")
+    if settings is not None:
+        if settings.mask_blur is not None:
+            blur = settings.mask_blur
+            if isinstance(blur, int):
+                blur = blur, blur
+            if blur[0] > 0 and blur[1] > 0:
+                cropped_mask = cv2.blur(cropped_mask[0][0], blur)
+                cropped_mask = cropped_mask[None, None]
+    return CroppedResponse(cropped_image, cropped_mask, wh_ratio, crop_res)
+
+
+def offset_cnet_weights(
+    d: tensor_dict_type,
+    *,
+    api: Optional["DiffusionAPI"] = None,
+    base_md: Optional[tensor_dict_type] = None,
+) -> tensor_dict_type:
+    with download_json("sd_mapping").open("r") as f:
+        mapping = json.load(f)
+    with download_json("sd_controlnet_mapping").open("r") as f:
+        c_mapping = json.load(f)
+    rev_c_mapping = {v: k for k, v in c_mapping.items()}
+    nd = shallow_copy_dict(d)
+    if base_md is None:
+        if api is None:
+            raise ValueError("Either `api` or `md` must be provided.")
+        with api.load_context() as m:
+            base_md = m.state_dict()
+    device = list(base_md.values())[0].device
+    nd = {k: v.to(device) for k, v in nd.items()}
+    for k, v in nd.items():
+        rev_k = rev_c_mapping[k]
+        original_k = f"model.diffusion_model.{rev_k.split('.', 1)[1]}"
+        mk = mapping.get(original_k)
+        if mk is None:
+            continue
+        mv = base_md[mk].to(v)
+        # inpainting workaround
+        if k == "input_blocks.0.0.weight" and mv.shape[1] == 9:
+            mv = mv[:, :4]
+        nd[k] = v + mv
+    nd = {k: v.cpu() for k, v in nd.items()}
+    torch.cuda.empty_cache()
+    return nd
+
+
 class SizeInfo(NamedTuple):
     factor: int
     opt_size: int
+
+
+class MaskedCond(NamedTuple):
+    image: np.ndarray
+    mask: np.ndarray
+    mask_cond: Tensor
+    remained_image_cond: Tensor
+    remained_image: np.ndarray
+    remained_mask: np.ndarray
+    image_alpha: Optional[np.ndarray]
+    original_size: Tuple[int, int]
+    original_image: Image.Image
+    original_mask: Image.Image
+    wh_ratio: Tuple[float, float]
+    crop_res: Optional["CropResponse"]
+
+
+class CropResponse(NamedTuple):
+    lt_rb: ImageBox
+    wh: Tuple[int, int]
+    cropped_mask: np.ndarray
+    resized_image_tensor: np.ndarray
+    resized_mask_tensor: np.ndarray
+
+
+class CroppedResponse(NamedTuple):
+    image: np.ndarray
+    mask: np.ndarray
+    wh_ratio: Tuple[float, float]
+    crop_res: Optional[CropResponse]
+
+
+class InpaintingMode(str, Enum):
+    NORMAL = "normal"
+    MASKED = "masked"
+
+
+@dataclass
+class InpaintingSettings:
+    mode: InpaintingMode = InpaintingMode.NORMAL
+    mask_blur: TNumberPair = None
+    mask_padding: TNumberPair = 32
+    mask_binary_threshold: Optional[int] = 32
+    target_wh: TNumberPair = None
+    padding_mode: Optional[str] = None
 
 
 class switch_sampler_context:
@@ -504,7 +765,391 @@ class DiffusionAPI(IAPI):
             **kwargs,
         )
 
+    def txt2img_inpainting(
+        self,
+        txt: Union[str, List[str]],
+        image: Union[str, Image.Image],
+        mask: Union[str, Image.Image],
+        export_path: Optional[str] = None,
+        *,
+        seed: Optional[int] = None,
+        anchor: int = 64,
+        max_wh: int = 512,
+        num_samples: Optional[int] = None,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        keep_original: bool = False,
+        keep_original_num_fade_pixels: Optional[int] = 50,
+        use_raw_inpainting: bool = False,
+        inpainting_settings: Optional[InpaintingSettings] = None,
+        callback: Optional[Callable[[Tensor], Tensor]] = None,
+        use_background_guidance: bool = False,
+        use_reference: bool = False,
+        reference_fidelity: float = 0.2,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        def get_z_info_from(
+            z_ref_: Optional[Tensor], fidelity_: float, shape_: Tuple[int, int]
+        ) -> Tuple[Optional[Tensor], Optional[Tuple[int, int]]]:
+            return self._get_z_info_from(
+                z_ref_, fidelity_, shape_, seed, num_steps, kwargs
+            )
+
+        def paste_original(
+            original_: Image.Image,
+            mask_: Image.Image,
+            sampled_: Tensor,
+        ) -> Tensor:
+            rgb = to_rgb(original_)
+            fade = keep_original_num_fade_pixels
+            if not fade:
+                rgb_normalized = normalize_image_to_diffusion(rgb)
+                rgb_normalized = rgb_normalized.transpose([2, 0, 1])[None]
+                mask_res_ = read_image(mask_, None, anchor=None, to_mask=True)
+                remained_mask_ = mask_res_.image < 0.5
+                pasted = np.where(remained_mask_, rgb_normalized, sampled_.numpy())
+                return torch.from_numpy(pasted)
+            alpha = to_alpha_channel(mask_)
+            fg = Image.merge("RGBA", (*rgb.split(), ImageOps.invert(alpha)))
+            sampled_array = sampled_.numpy().transpose([0, 2, 3, 1])
+            sampled_uint8_array = ((sampled_array + 1.0) * 127.5).astype(np.uint8)
+            merged_arrays = []
+            for bg_array in sampled_uint8_array:
+                bg = Image.fromarray(bg_array)
+                merged = ImageProcessor.paste(fg, bg, num_fade_pixels=fade)
+                merged_rgb = merged.convert("RGB")
+                merged_arrays.append(normalize_image_to_diffusion(merged_rgb))
+            merged_array = np.stack(merged_arrays, axis=0).transpose([0, 3, 1, 2])
+            return torch.from_numpy(merged_array).contiguous()
+
+        if inpainting_settings is None:
+            inpainting_settings = InpaintingSettings()
+        txt_list, num_samples = get_txt_cond(txt, num_samples)
+
+        with switch_sampler_context(self, kwargs.get("sampler")):
+            # raw inpainting
+            if use_raw_inpainting:
+                image_res = read_image(
+                    image,
+                    max_wh,
+                    anchor=anchor,
+                    padding_mode=inpainting_settings.padding_mode,
+                )
+                mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
+                cropped_res = get_cropped(image_res, mask_res, inpainting_settings)
+                z_ref_pack = self._get_z_ref_pack(
+                    cropped_res.image, cropped_res.mask, seed
+                )
+                z_ref, z_ref_mask, z_ref_noise = z_ref_pack
+                z, size = get_z_info_from(
+                    z_ref if use_reference else None,
+                    reference_fidelity,
+                    z_ref.shape[-2:][::-1],
+                )
+                kw = shallow_copy_dict(kwargs)
+                kw.update(
+                    dict(
+                        z=z,
+                        size=size,
+                        export_path=export_path,
+                        z_ref=z_ref,
+                        z_ref_mask=z_ref_mask,
+                        z_ref_noise=z_ref_noise,
+                        original_size=image_res.original_size,
+                        alpha=None,
+                        cond=txt_list,
+                        num_steps=num_steps,
+                        clip_output=clip_output,
+                        verbose=verbose,
+                    )
+                )
+                crop_controlnet(kw, cropped_res.crop_res)
+                sampled = self.sample(num_samples, **kw)
+                crop_res = cropped_res.crop_res
+                if crop_res is not None:
+                    sampled = recover_with(
+                        image_res.original,
+                        sampled,
+                        crop_res,
+                        cropped_res.wh_ratio,
+                        inpainting_settings,
+                    )
+                if keep_original:
+                    original = image_res.original
+                    sampled = paste_original(original, mask_res.original, sampled)
+                return sampled
+
+            # 'real' inpainting
+            res = self._get_masked_cond(
+                image,
+                mask,
+                max_wh,
+                anchor,
+                lambda remained_mask, img: np.where(remained_mask, img, 0.5),
+                lambda bool_mask: torch.from_numpy(bool_mask),
+                inpainting_settings,
+            )
+            # sampling
+            ## calculate `z_ref` stuffs based on `use_image_guidance`
+            if not use_background_guidance:
+                z_ref = z_ref_mask = z_ref_noise = None
+            else:
+                z_ref_pack = self._get_z_ref_pack(res.image, res.mask, seed)
+                z_ref, z_ref_mask, z_ref_noise = z_ref_pack
+            ## calculate `z` based on `z_ref`, if needed
+            z_shape = res.remained_image_cond.shape[-2:][::-1]
+            if not use_reference:
+                args = None, reference_fidelity, z_shape
+            elif z_ref is not None:
+                args = z_ref, reference_fidelity, z_shape
+            else:
+                args = self._get_z(res.image), reference_fidelity, z_shape
+            z, size = get_z_info_from(*args)
+            ## adjust ControlNet parameters
+            crop_controlnet(kwargs, res.crop_res)
+            ## core
+            sampled = self.sample(
+                num_samples,
+                export_path,
+                seed=seed,
+                z=z,
+                z_ref=z_ref,
+                z_ref_mask=z_ref_mask,
+                z_ref_noise=z_ref_noise,
+                size=size,  # type: ignore
+                original_size=res.original_size,
+                alpha=None,
+                cond=txt_list,
+                cond_concat=torch.cat([res.mask_cond, res.remained_image_cond], dim=1),
+                num_steps=num_steps,
+                clip_output=clip_output,
+                callback=callback,
+                verbose=verbose,
+                **kwargs,
+            )
+            if res.crop_res is not None:
+                sampled = recover_with(
+                    res.original_image,
+                    sampled,
+                    res.crop_res,
+                    res.wh_ratio,
+                    inpainting_settings,
+                )
+        if keep_original:
+            sampled = paste_original(res.original_image, res.original_mask, sampled)
+        return sampled
+
+    def outpainting(
+        self,
+        txt: str,
+        image: Union[str, Image.Image],
+        export_path: Optional[str] = None,
+        *,
+        anchor: int = 64,
+        max_wh: int = 512,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        keep_original: bool = False,
+        keep_original_num_fade_pixels: Optional[int] = 50,
+        callback: Optional[Callable[[Tensor], Tensor]] = None,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        if isinstance(image, str):
+            image = Image.open(image)
+        if image.mode != "RGBA":
+            raise ValueError("`image` should be `RGBA` in outpainting")
+        *rgb, alpha = image.split()
+        mask = Image.fromarray(255 - np.array(alpha))
+        image = Image.merge("RGB", rgb)
+        return self.txt2img_inpainting(
+            txt,
+            image,
+            mask,
+            export_path,
+            anchor=anchor,
+            max_wh=max_wh,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            keep_original=keep_original,
+            keep_original_num_fade_pixels=keep_original_num_fade_pixels,
+            callback=callback,
+            verbose=verbose,
+            **kwargs,
+        )
+
+    def img2img(
+        self,
+        image: Union[str, Image.Image, Tensor],
+        export_path: Optional[str] = None,
+        *,
+        anchor: int = 32,
+        max_wh: int = 512,
+        fidelity: float = 0.2,
+        alpha: Optional[np.ndarray] = None,
+        cond: Optional[Any] = None,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        if isinstance(image, Tensor):
+            original_size = tuple(image.shape[-2:][::-1])
+        else:
+            res = read_image(image, max_wh, anchor=anchor)
+            image = res.image
+            original_size = res.original_size
+            if alpha is None:
+                alpha = res.alpha
+        z = self._get_z(image)
+        highres_info = kwargs.pop("highres_info", None)
+        if highres_info is not None:
+            z = self._get_highres_latent(z, highres_info)
+            if num_steps is None:
+                num_steps = self.sampler.default_steps
+            num_steps = get_highres_steps(num_steps, fidelity)
+            upscale_factor = highres_info["upscale_factor"]
+            original_size = (
+                round(original_size[0] * upscale_factor),
+                round(original_size[1] * upscale_factor),
+            )
+            if alpha is not None:
+                with torch.no_grad():
+                    alpha = F.interpolate(
+                        torch.from_numpy(alpha),
+                        original_size[::-1],
+                        mode="nearest",
+                    ).numpy()
+        return self._img2img(
+            z,
+            export_path,
+            fidelity=fidelity,
+            original_size=original_size,  # type: ignore
+            alpha=alpha,
+            cond=cond,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            verbose=verbose,
+            **kwargs,
+        )
+
+    def inpainting(
+        self,
+        image: Union[str, Image.Image],
+        mask: Union[str, Image.Image],
+        export_path: Optional[str] = None,
+        *,
+        anchor: int = 32,
+        max_wh: int = 512,
+        alpha: Optional[np.ndarray] = None,
+        refine_fidelity: Optional[float] = None,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        # inpainting callback, will not trigger in refine stage
+        def callback(out: Tensor) -> Tensor:
+            final = torch.from_numpy(res.remained_image.copy())
+            final += 0.5 * (1.0 + out) * (1.0 - res.remained_mask)
+            return 2.0 * final - 1.0
+
+        res = self._get_masked_cond(
+            image,
+            mask,
+            max_wh,
+            anchor,
+            lambda remained_mask, img: np.where(remained_mask, img, 0.0),
+            lambda bool_mask: torch.where(torch.from_numpy(bool_mask), 1.0, -1.0),
+        )
+        cond = torch.cat([res.remained_image_cond, res.mask_cond], dim=1)
+        size = self._get_identical_size_with(res.remained_image_cond)
+        # refine with img2img
+        if refine_fidelity is not None:
+            z = self._get_z(res.image)
+            return self._img2img(
+                z,
+                export_path,
+                fidelity=refine_fidelity,
+                original_size=res.original_size,
+                alpha=res.image_alpha if alpha is None else alpha,
+                cond=cond,
+                num_steps=num_steps,
+                clip_output=clip_output,
+                verbose=verbose,
+                **kwargs,
+            )
+        # sampling
+        return self.sample(
+            1,
+            export_path,
+            size=size,  # type: ignore
+            original_size=res.original_size,
+            alpha=res.image_alpha if alpha is None else alpha,
+            cond=cond,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            callback=callback,
+            verbose=verbose,
+            **kwargs,
+        )
+
+    def semantic2img(
+        self,
+        semantic: Union[str, Image.Image],
+        export_path: Optional[str] = None,
+        *,
+        anchor: int = 16,
+        max_wh: int = 512,
+        alpha: Optional[np.ndarray] = None,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        err_fmt = "`{}` is needed for `semantic2img`"
+        if self.cond_model is None:
+            raise ValueError(err_fmt.format("cond_model"))
+        in_channels = getattr(self.cond_model, "in_channels", None)
+        if in_channels is None:
+            raise ValueError(err_fmt.format("cond_model.in_channels"))
+        factor = getattr(self.cond_model, "factor", None)
+        if factor is None:
+            raise ValueError(err_fmt.format("cond_model.factor"))
+        res = read_image(
+            semantic,
+            max_wh,
+            anchor=anchor,
+            to_gray=True,
+            resample=Image.NEAREST,
+            normalize=False,
+        )
+        cond = torch.from_numpy(res.image).to(torch.long).to(self.device)
+        cond = F.one_hot(cond, num_classes=in_channels)[0]
+        cond = cond.half() if self.use_half else cond.float()
+        cond = cond.permute(0, 3, 1, 2).contiguous()
+        cond = self.get_cond(cond)
+        size = self._get_identical_size_with(cond)
+        return self.sample(
+            1,
+            export_path,
+            size=size,
+            original_size=res.original_size,
+            alpha=res.alpha if alpha is None else alpha,
+            cond=cond,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            verbose=verbose,
+            **kwargs,
+        )
+
     # utils
+
+    @property
+    def first_stage(self) -> Optional[nn.Module]:
+        if isinstance(self.m, LDM):
+            return self.m.first_stage
 
     @property
     def size_info(self) -> SizeInfo:
@@ -708,6 +1353,59 @@ class DiffusionAPI(IAPI):
 
     # internal
 
+    def _get_z(self, img: arr_type) -> Tensor:
+        img = 2.0 * img - 1.0
+        z = img if isinstance(img, Tensor) else torch.from_numpy(img)
+        if self.use_half:
+            z = z.half()
+        z = z.to(self.device)
+        z = self.m._preprocess(z, deterministic=True)
+        return z
+
+    def _get_z_ref_pack(
+        self,
+        image_tensor: np.ndarray,
+        mask_tensor: np.ndarray,
+        seed: Optional[int],
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        z_ref = self._get_z(image_tensor)
+        z_ref_mask = 1.0 - F.interpolate(
+            torch.from_numpy(mask_tensor).to(z_ref),
+            z_ref.shape[-2:],
+            mode="bicubic",
+        )
+        if seed is not None:
+            seed_everything(seed)
+        z_ref_noise = torch.randn_like(z_ref)
+        return z_ref, z_ref_mask, z_ref_noise
+
+    def _get_z_info_from(
+        self,
+        z_ref: Optional[Tensor],
+        fidelity: float,
+        shape: Tuple[int, int],
+        seed: Optional[int],
+        num_steps: Optional[int],
+        kwargs: Dict[str, Any],
+    ) -> Tuple[Optional[Tensor], Optional[Tuple[int, int]]]:
+        if z_ref is None:
+            z = None
+            size = tuple(map(lambda n: n * self.size_info.factor, shape))
+        else:
+            size = None
+            args = z_ref, num_steps, fidelity, seed
+            z, _, start_step = self._q_sample(*args, **kwargs)
+            kwargs["start_step"] = start_step
+        return z, size  # type: ignore
+
+    def _get_identical_size_with(self, pivot: Tensor) -> Tuple[int, int]:
+        return tuple(  # type: ignore
+            map(
+                lambda n: n * self.size_info.factor,
+                pivot.shape[-2:][::-1],
+            )
+        )
+
     def _update_sampler_uncond(self, clip_skip: int) -> None:
         if isinstance(self.cond_model, CLIPTextConditionModel):
             self.cond_model.clip_skip = clip_skip
@@ -750,6 +1448,55 @@ class DiffusionAPI(IAPI):
             z_noise = slerp(variation_noise, z_noise, variation_strength)
         z = get_new_z(z_noise)
         return z, z_noise
+
+    def _get_masked_cond(
+        self,
+        image: Union[str, Image.Image],
+        mask: Union[str, Image.Image],
+        max_wh: int,
+        anchor: int,
+        mask_image_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
+        mask_cond_fn: Callable[[np.ndarray], Tensor],
+        inpainting_settings: Optional[InpaintingSettings] = None,
+    ) -> MaskedCond:
+        # handle mask stuffs
+        mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
+        read_image_kw = {}
+        if inpainting_settings is not None:
+            if inpainting_settings.padding_mode is not None:
+                o_mask = mask_res.original
+                padding_mask = to_alpha_channel(o_mask)
+                read_image_kw["padding_mask"] = padding_mask
+                read_image_kw["padding_mode"] = inpainting_settings.padding_mode
+        image_res = read_image(image, max_wh, anchor=anchor, **read_image_kw)
+        cropped_res = get_cropped(image_res, mask_res, inpainting_settings)
+        c_image = cropped_res.image
+        c_mask = cropped_res.mask
+        bool_mask = np.round(c_mask) >= 0.5
+        remained_mask = (~bool_mask).astype(np.float16 if self.use_half else np.float32)
+        remained_image = mask_image_fn(remained_mask, c_image)
+        # construct condition tensor
+        remained_cond = self._get_z(remained_image)
+        latent_shape = remained_cond.shape[-2:]
+        mask_cond = mask_cond_fn(bool_mask).to(torch.float32)
+        mask_cond = F.interpolate(mask_cond, size=latent_shape)
+        if self.use_half:
+            mask_cond = mask_cond.half()
+        mask_cond = mask_cond.to(self.device)
+        return MaskedCond(
+            c_image,
+            c_mask,
+            mask_cond,
+            remained_cond,
+            remained_image,
+            remained_mask,
+            image_res.alpha,
+            image_res.original_size,
+            image_res.original,
+            mask_res.original,
+            cropped_res.wh_ratio,
+            cropped_res.crop_res,
+        )
 
     def _q_sample(
         self,
