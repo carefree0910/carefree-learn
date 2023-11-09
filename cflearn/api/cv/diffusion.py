@@ -189,11 +189,6 @@ class DiffusionAPI(IAPI):
         if self.cond_model is not None:
             freeze(self.cond_model)
         m.condition_model = nn.Identity()
-        # extract first stage
-        if not isinstance(m, LDM):
-            self.first_stage = None
-        else:
-            self.first_stage = m.first_stage
         # pre-calculate unconditional_cond if needed
         self._original_raw_uncond = getattr(m.sampler, "unconditional_cond", None)
         self._uncond_cache: tensor_dict_type = {}
@@ -514,10 +509,11 @@ class DiffusionAPI(IAPI):
     @property
     def size_info(self) -> SizeInfo:
         opt_size = self.m.img_size
-        if self.first_stage is None:
+        first_stage = self.first_stage
+        if first_stage is None:
             factor = 1
         else:
-            factor = self.first_stage.img_size // opt_size
+            factor = first_stage.img_size // opt_size
         return SizeInfo(factor, opt_size)
 
     def to(
@@ -532,8 +528,6 @@ class DiffusionAPI(IAPI):
         if use_half:
             if self.cond_model is not None:
                 self.cond_model.half()
-            if self.first_stage is not None:
-                self.first_stage.half()
             if unconditional_cond is not None:
                 unconditional_cond = unconditional_cond.half()
             for k, v in self._uncond_cache.items():
@@ -541,23 +535,18 @@ class DiffusionAPI(IAPI):
         else:
             if self.cond_model is not None:
                 self.cond_model.float()
-            if self.first_stage is not None:
-                self.first_stage.float()
             if unconditional_cond is not None:
                 unconditional_cond = unconditional_cond.float()
             for k, v in self._uncond_cache.items():
                 self._uncond_cache[k] = v.float()
         if self.cond_model is not None:
             self.cond_model.to(device)
-        if self.first_stage is not None:
-            self.first_stage.to(device)
         if unconditional_cond is not None:
             self.m.sampler.unconditional_cond = unconditional_cond.to(device)
         for k, v in self._uncond_cache.items():
             self._uncond_cache[k] = v.to(device)
 
     def compile(self, **kwargs: Any) -> "DiffusionAPI":
-        self.first_stage = torch.compile(self.first_stage, **kwargs)
         self.m = torch.compile(self.m, **kwargs)
         self._use_inference_mode = False
         return self
