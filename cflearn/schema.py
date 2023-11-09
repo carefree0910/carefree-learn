@@ -173,7 +173,7 @@ to be transformed.
 """
 
 
-def copy_data(data: TDataBundleItem) -> data_type:
+def copy_data(data: TDataBundleItem) -> TDataBundleItem:
     if data is None:
         return None
     if isinstance(data, dict):

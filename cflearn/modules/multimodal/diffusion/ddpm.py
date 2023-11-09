@@ -64,8 +64,8 @@ def make_beta_schedule(
         )
     elif schedule == "cosine":
         arange = np.arange(timesteps + 1, dtype=np.float64)
-        timesteps = arange / timesteps + cosine_s
-        alphas = timesteps / (1 + cosine_s) * np.pi / 2
+        timestep_array = arange / timesteps + cosine_s
+        alphas = timestep_array / (1 + cosine_s) * np.pi / 2
         alphas = np.cos(alphas) ** 2
         alphas = alphas / alphas[0]
         betas = 1.0 - alphas[1:] / alphas[:-1]
