@@ -451,13 +451,12 @@ class DiffusionAPI(IAPI):
             freeze(self.cond_model)
         m.condition_model = nn.Identity()
         # pre-calculate unconditional_cond if needed
-        self._original_raw_uncond = getattr(m.sampler, "unconditional_cond", None)
         self._uncond_cache: tensor_dict_type = {}
+        self._original_raw_uncond = getattr(m.sampler, "unconditional_cond", None)
+        self.to(device, use_amp=use_amp, use_half=use_half)
         self._update_sampler_uncond(clip_skip)
         # inference mode flag, should be switched to `False` when `compile`d
         self._use_inference_mode = True
-        # finalize
-        self.to(device, use_amp=use_amp, use_half=use_half)
 
     # core sampling method
 
@@ -1171,6 +1170,8 @@ class DiffusionAPI(IAPI):
     ) -> None:
         super().to(device, use_amp=use_amp, use_half=use_half)
         unconditional_cond = getattr(self.m.sampler, "unconditional_cond", None)
+        if not isinstance(unconditional_cond, Tensor):
+            unconditional_cond = None
         if use_half:
             if self.cond_model is not None:
                 self.cond_model.half()
