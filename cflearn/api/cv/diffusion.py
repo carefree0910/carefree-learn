@@ -14,8 +14,10 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Tuple
 from typing import Union
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -83,6 +85,9 @@ try:
     INTER_LANCZOS4 = cv2.INTER_LANCZOS4
 except:
     cv2 = INTER_LANCZOS4 = None
+
+
+T = TypeVar("T", bound="DiffusionAPI")
 
 
 def convert_external(
@@ -1338,14 +1343,14 @@ class DiffusionAPI(IAPI):
 
     @classmethod
     def from_sd(
-        cls,
+        cls: Type[T],
         version: Optional[str] = None,
         device: device_type = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
         clip_skip: int = 0,
-    ) -> "DiffusionAPI":
+    ) -> T:
         return cls(
             ldm_sd(version),
             device,
