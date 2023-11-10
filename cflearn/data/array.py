@@ -37,7 +37,10 @@ class ArrayDataset(IArrayDataset):
         return len(self.x)
 
     def __getitem__(self, item: Union[int, List[int], np.ndarray]) -> np_dict_type:
-        batch = {INPUT_KEY: self.x[item]}
+        if not isinstance(item, int) and isinstance(self.x, list):
+            batch = {INPUT_KEY: [self.x[i] for i in item]}
+        else:
+            batch = {INPUT_KEY: self.x[item]}
         if self.y is not None:
             label = self.y[item]
             batch.update({LABEL_KEY: label, ORIGINAL_LABEL_KEY: label})
