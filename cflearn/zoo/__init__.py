@@ -75,3 +75,14 @@ def ldm_sd(version: Optional[str] = None, pretrained: bool = True) -> Module:
         pretrained=pretrained,
         tag=f"ldm_sd_{get_sd_tag(version)}",
     )
+
+
+def ldm_sd_inpainting(pretrained: bool = True) -> Module:
+    return _ldm(
+        "diffusion/ldm.sd_inpainting",
+        64,
+        9,
+        4,
+        pretrained=pretrained,
+        tag="ldm.sd_inpainting",
+    )
