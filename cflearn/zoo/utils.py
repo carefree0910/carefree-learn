@@ -5,6 +5,7 @@ from typing import Dict
 from typing import NamedTuple
 from pathlib import Path
 from cftool.misc import update_dict
+from cftool.misc import print_warning
 
 from ..constants import DEFAULT_ZOO_TAG
 
@@ -27,6 +28,7 @@ def parse_config_info(config: str) -> ParsedInfo:
     json_folder = configs_root / model_type / model_name
     json_path = json_folder / f"{tag}.json"
     if not json_path.is_file():
+        print_warning(f"cannot find '{tag}', fallback to '{DEFAULT_ZOO_TAG}'")
         json_path = json_folder / f"{DEFAULT_ZOO_TAG}.json"
     return ParsedInfo(json_path, download_name)
 
