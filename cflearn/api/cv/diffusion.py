@@ -45,6 +45,7 @@ from ..common import IAPI
 from ..common import WeightsPool
 from ...zoo import ldm_sd
 from ...zoo import get_sd_tag
+from ...zoo import ldm_sd_inpainting
 from ...data import predict_array_data
 from ...data import ArrayData
 from ...data import TensorBatcher
@@ -1353,6 +1354,23 @@ class DiffusionAPI(IAPI):
     ) -> T:
         return cls(
             ldm_sd(version),
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            clip_skip=clip_skip,
+        )
+
+    @classmethod
+    def from_sd_inpainting(
+        cls: Type[T],
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+        clip_skip: int = 0,
+    ) -> T:
+        return cls(
+            ldm_sd_inpainting(),
             device,
             use_amp=use_amp,
             use_half=use_half,
