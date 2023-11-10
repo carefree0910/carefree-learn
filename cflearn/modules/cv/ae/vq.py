@@ -48,7 +48,7 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
         self.codebook = VQCodebook(num_code, embedding_channels)
 
     def encode(self, net: Tensor) -> Tensor:
-        net = self.generator.encode(net)
+        net = self.generator.encoder.encode(net)
         net = self.to_embedding(net)
         return net
 

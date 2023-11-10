@@ -64,7 +64,7 @@ class AttentionAutoEncoderKL(IAttentionAutoEncoder):
     enc_double_channels = True
 
     def encode(self, net: Tensor) -> GaussianDistribution:
-        net = self.generator.encode(net)
+        net = self.generator.encoder.encode(net)
         net = self.to_embedding(net)
         return GaussianDistribution(net)
 

@@ -183,8 +183,8 @@ class IArrayDataMixin(ABC):
     def get_loaders(self) -> Tuple[ArrayLoader, Optional[ArrayLoader]]:
         if not self.processor.is_ready:
             raise ValueError(
-                "`processor` should be ready before calling `initialize`, "
-                "did you forget to call the `prepare` method first?"
+                "`processor` should be ready before calling `get_loaders`, "
+                "did you forget to call the `fit` method first?"
             )
         if self.bundle is None:
             raise ValueError(

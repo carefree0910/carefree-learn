@@ -559,18 +559,19 @@ class DiffusionAPI(IAPI):
             size = opt_size, opt_size
         else:
             size = tuple(map(lambda n: round(n / factor), size))  # type: ignore
+        sampler = self.m.sampler
         uncond_backup = None
         unconditional_cond_backup = None
         if self.cond_model is not None and unconditional_cond is not None:
-            uncond_backup = getattr(self.sampler, "uncond", None)
+            uncond_backup = getattr(sampler, "uncond", None)
             unconditional_cond_backup = getattr(
-                self.sampler,
+                sampler,
                 "unconditional_cond",
                 None,
             )
             uncond = self.get_cond(unconditional_cond).to(self.device)
-            self.sampler.uncond = uncond.clone()
-            self.sampler.unconditional_cond = uncond.clone()
+            sampler.uncond = uncond.clone()
+            sampler.unconditional_cond = uncond.clone()
         highres_info = kwargs.get("highres_info")
         with eval_context(self.m, use_inference=self._use_inference_mode):
             with self.amp_context:
@@ -677,7 +678,7 @@ class DiffusionAPI(IAPI):
                             i_z = self._get_highres_latent(i_sampled, highres_info)
                             fidelity = highres_info["fidelity"]
                             if num_steps is None:
-                                num_steps = self.sampler.default_steps
+                                num_steps = sampler.default_steps
                             i_num_steps = get_highres_steps(num_steps, fidelity)
                             i_kw_backup.pop("highres_info", None)
                             i_kw_backup.update(o_kw_backup)
@@ -694,9 +695,9 @@ class DiffusionAPI(IAPI):
                                 )
                     sampled.append(i_sampled.cpu().float())
         if uncond_backup is not None:
-            self.sampler.uncond = uncond_backup
+            sampler.uncond = uncond_backup
         if unconditional_cond_backup is not None:
-            self.sampler.unconditional_cond = unconditional_cond_backup
+            sampler.unconditional_cond = unconditional_cond_backup
         concat = torch.cat(sampled, dim=0)
         if clip_output:
             concat = torch.clip(concat, -1.0, 1.0)
@@ -1006,7 +1007,7 @@ class DiffusionAPI(IAPI):
         if highres_info is not None:
             z = self._get_highres_latent(z, highres_info)
             if num_steps is None:
-                num_steps = self.sampler.default_steps
+                num_steps = self.m.sampler.default_steps
             num_steps = get_highres_steps(num_steps, fidelity)
             upscale_factor = highres_info["upscale_factor"]
             original_size = (
@@ -1245,7 +1246,7 @@ class DiffusionAPI(IAPI):
         if current_guidance is not None:
             if hasattr(sampler_ins, "unconditional_guidance_scale"):
                 sampler_ins.unconditional_guidance_scale = current_guidance
-        self.sampler = self.m.sampler = sampler_ins
+        self.m.sampler = sampler_ins
 
     def switch_circular(self, enable: bool) -> None:
         def _inject(m: nn.Module) -> None:
@@ -1511,20 +1512,21 @@ class DiffusionAPI(IAPI):
         variation_strength: Optional[float] = None,
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor, int]:
+        sampler = self.m.sampler
         if self._random_state is None:
             self._random_state = random.getstate()
         if num_steps is None:
-            num_steps = self.sampler.default_steps
+            num_steps = sampler.default_steps
         t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1)))
         ts = get_timesteps(t, 1, z.device)
-        if isinstance(self.sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
-            kw = shallow_copy_dict(self.sampler.sample_kwargs)
+        if isinstance(sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
+            kw = shallow_copy_dict(sampler.sample_kwargs)
             kw["total_step"] = num_steps
-            safe_execute(self.sampler._reset_buffers, kw)
+            safe_execute(sampler._reset_buffers, kw)
         z, noise = self._set_seed_and_variations(
             seed,
             lambda: torch.randn_like(z),
-            lambda noise_: self.sampler.q_sample(z, ts, noise_),
+            lambda noise_: sampler.q_sample(z, ts, noise_),
             variations,
             variation_seed,
             variation_strength,
