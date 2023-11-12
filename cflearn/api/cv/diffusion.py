@@ -587,7 +587,9 @@ class DiffusionAPI(IAPI):
                         seed = new_seed()
                     i_kw = shallow_copy_dict(kw)
                     i_kw_backup = shallow_copy_dict(i_kw)
-                    i_cond = batch[INPUT_KEY].to(self.device)
+                    i_cond = batch[INPUT_KEY]
+                    if not unconditional:
+                        i_cond = i_cond.to(self.device)
                     i_n = len(i_cond)
                     repeat = (
                         lambda t: t
