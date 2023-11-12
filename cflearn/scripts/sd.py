@@ -11,7 +11,7 @@ from cftool.array import tensor_dict_type
 
 from ..toolkit import get_tensors
 from ..toolkit import download_json
-from ..api.cv.diffusion import DiffusionAPI
+from ..api.multimodal.diffusion import DiffusionAPI
 
 
 key_mapping_inv = {}
