@@ -648,7 +648,7 @@ class DiffusionAPI(IAPI):
                             i_kw["ref_noise"] = repeat(z_ref_noise)
                     if unconditional:
                         i_cond = None
-                    if self.use_half:
+                    if self.to_half:
                         i_z = i_z.half()
                         if i_cond is not None:
                             i_cond = i_cond.half()
@@ -1135,7 +1135,7 @@ class DiffusionAPI(IAPI):
         )
         cond = torch.from_numpy(res.image).to(torch.long).to(self.device)
         cond = F.one_hot(cond, num_classes=in_channels)[0]
-        cond = cond.half() if self.use_half else cond.float()
+        cond = cond.half() if self.to_half else cond.float()
         cond = cond.permute(0, 3, 1, 2).contiguous()
         cond = self.get_cond(cond)
         size = self._get_identical_size_with(cond)
@@ -1181,7 +1181,7 @@ class DiffusionAPI(IAPI):
         unconditional_cond = getattr(self.m.sampler, "unconditional_cond", None)
         if not isinstance(unconditional_cond, Tensor):
             unconditional_cond = None
-        if use_half:
+        if self.to_half:
             if self.cond_model is not None:
                 self.cond_model.half()
             if unconditional_cond is not None:
@@ -1384,7 +1384,7 @@ class DiffusionAPI(IAPI):
     def _get_z(self, img: arr_type) -> Tensor:
         img = 2.0 * img - 1.0
         z = img if isinstance(img, Tensor) else torch.from_numpy(img)
-        if self.use_half:
+        if self.to_half:
             z = z.half()
         z = z.to(self.device)
         z = self.m._preprocess(z, deterministic=True)
@@ -1501,14 +1501,14 @@ class DiffusionAPI(IAPI):
         c_image = cropped_res.image
         c_mask = cropped_res.mask
         bool_mask = np.round(c_mask) >= 0.5
-        remained_mask = (~bool_mask).astype(np.float16 if self.use_half else np.float32)
+        remained_mask = (~bool_mask).astype(np.float16 if self.to_half else np.float32)
         remained_image = mask_image_fn(remained_mask, c_image)
         # construct condition tensor
         remained_cond = self._get_z(remained_image)
         latent_shape = remained_cond.shape[-2:]
         mask_cond = mask_cond_fn(bool_mask).to(torch.float32)
         mask_cond = F.interpolate(mask_cond, size=latent_shape)
-        if self.use_half:
+        if self.to_half:
             mask_cond = mask_cond.half()
         mask_cond = mask_cond.to(self.device)
         return MaskedCond(

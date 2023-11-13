@@ -32,6 +32,10 @@ class IAPI:
         self.to(device, use_amp=use_amp, use_half=use_half)
 
     @property
+    def to_half(self) -> bool:
+        return self.use_amp or self.use_half
+
+    @property
     def amp_context(self) -> autocast:
         return autocast(enabled=self.use_amp)
 
@@ -53,7 +57,7 @@ class IAPI:
         device_is_cpu = is_cpu(device)
         if device_is_cpu:
             self.m.to(device)
-        if use_half:
+        if self.to_half:
             self.m.half()
         else:
             self.m.float()
