@@ -48,6 +48,7 @@ from cftool.types import tensor_dict_type
 from safetensors.torch import load_file
 
 from .schema import data_type
+from .schema import d_inp_type
 from .schema import param_type
 from .schema import device_type
 from .schema import sample_weights_type
@@ -511,7 +512,9 @@ def sdp_attn(
     return net
 
 
-def get_tensors(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
+def get_tensors(inp: d_inp_type) -> tensor_dict_type:
+    if isinstance(inp, Path):
+        inp = str(inp)
     if isinstance(inp, str):
         if inp.endswith(".safetensors"):
             inp = load_file(inp)

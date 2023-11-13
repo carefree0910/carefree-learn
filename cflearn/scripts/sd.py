@@ -9,6 +9,7 @@ from typing import Optional
 from cftool.misc import shallow_copy_dict
 from cftool.array import tensor_dict_type
 
+from ..schema import d_inp_type
 from ..toolkit import get_tensors
 from ..toolkit import download_json
 from ..api.multimodal.diffusion import DiffusionAPI
@@ -253,8 +254,8 @@ def _convert_with_key_mapping(
 
 
 def _get_inp(
-    inp: Union[str, tensor_dict_type],
-    vae_inp: Optional[Union[str, tensor_dict_type]],
+    inp: d_inp_type,
+    vae_inp: Optional[d_inp_type],
 ) -> tensor_dict_type:
     inp = get_tensors(inp)
     if vae_inp is not None:
@@ -270,10 +271,10 @@ def _get_inp(
 
 
 def convert(
-    inp: Union[str, tensor_dict_type],
+    inp: d_inp_type,
     api: DiffusionAPI,
     *,
-    vae_inp: Optional[Union[str, tensor_dict_type]] = None,
+    vae_inp: Optional[d_inp_type] = None,
     load: bool = False,
     use_mapping: bool = True,
 ) -> tensor_dict_type:
@@ -290,10 +291,10 @@ def convert(
 
 
 def convert_v2(
-    inp: Union[str, tensor_dict_type],
+    inp: d_inp_type,
     api: DiffusionAPI,
     *,
-    vae_inp: Optional[Union[str, tensor_dict_type]] = None,
+    vae_inp: Optional[d_inp_type] = None,
     load: bool = False,
 ) -> tensor_dict_type:
     inp = _get_inp(inp, vae_inp)
@@ -323,13 +324,13 @@ def convert_v2(
     return nd
 
 
-def inject(inp: Union[str, tensor_dict_type], api: DiffusionAPI) -> None:
+def inject(inp: d_inp_type, api: DiffusionAPI) -> None:
     d = get_tensors(inp)
     with api.load_context() as m:
         m.load_state_dict(d)
 
 
-def convert_controlnet(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
+def convert_controlnet(inp: d_inp_type) -> tensor_dict_type:
     inp = get_tensors(inp)
     with download_json("sd_controlnet_mapping").open("r") as f:
         mapping = json.load(f)

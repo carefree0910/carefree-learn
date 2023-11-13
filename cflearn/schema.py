@@ -22,6 +22,7 @@ from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from pathlib import Path
 from dataclasses import dataclass
 from cftool.misc import safe_execute
 from cftool.misc import print_warning
@@ -52,6 +53,7 @@ forward_results_type = Union[Tensor, tensor_dict_type]
 states_callback_type = Optional[Callable[[Any, Dict[str, Any]], Dict[str, Any]]]
 sample_weights_type = Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]
 device_type = Optional[Union[int, str, device]]
+d_inp_type = Union[str, Path, tensor_dict_type]
 
 TData = TypeVar("TData", bound="IData", covariant=True)
 TSplitSW = Tuple[Optional[np.ndarray], Optional[np.ndarray]]

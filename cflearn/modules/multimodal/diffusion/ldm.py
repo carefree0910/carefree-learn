@@ -19,6 +19,7 @@ from ...core import IHook
 from ...core import LoRAManager
 from ...common import register_module
 from ...cv.ae.kl import GaussianDistribution
+from ....schema import d_inp_type
 from ....toolkit import freeze
 from ....toolkit import get_tensors
 from ....toolkit import download_json
@@ -199,7 +200,7 @@ class SDLoRAMode(str, Enum):
     UNET_EXTENDED = "unet_extended"
 
 
-def convert_lora(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
+def convert_lora(inp: d_inp_type) -> tensor_dict_type:
     inp = get_tensors(inp)
     with download_json("sd_lora_mapping").open("r") as f:
         mapping = json.load(f)
