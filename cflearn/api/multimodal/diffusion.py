@@ -1348,13 +1348,17 @@ class DiffusionAPI(IAPI):
         use_half: bool = False,
         clip_skip: int = 0,
     ) -> T:
-        return cls(
-            ldm_sd(version),
+        m = cls(
+            ldm_sd(),
             device,
             use_amp=use_amp,
             use_half=use_half,
             clip_skip=clip_skip,
         )
+        if version is not None:
+            m.prepare_sd([version])
+            m.switch_sd(version)
+        return m
 
     @classmethod
     def from_sd_inpainting(
