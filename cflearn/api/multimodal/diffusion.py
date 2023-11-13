@@ -46,7 +46,6 @@ from ..common import WeightsPool
 from ...zoo import ldm_sd
 from ...zoo import get_sd_tag
 from ...zoo import ldm_sd_inpainting
-from ...data import predict_array_data
 from ...data import ArrayData
 from ...data import TensorBatcher
 from ...schema import device_type
@@ -68,7 +67,6 @@ from ...toolkit import seed_everything
 from ...toolkit import download_checkpoint
 from ...toolkit import eval_context
 from ...constants import INPUT_KEY
-from ...constants import PREDICTIONS_KEY
 from ...parameters import OPT
 from ...modules.multimodal.diffusion.utils import CONCAT_KEY
 from ...modules.multimodal.diffusion.utils import CONCAT_TYPE
