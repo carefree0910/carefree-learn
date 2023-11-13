@@ -446,7 +446,6 @@ class DiffusionAPI(IAPI):
         use_half: bool = False,
         clip_skip: int = 0,
     ):
-        super().__init__(m, device, use_amp=use_amp, use_half=use_half)
         self.clip_skip = clip_skip
         self.sd_weights = WeightsPool()
         self.current_sd_version: Optional[str] = None
@@ -457,6 +456,8 @@ class DiffusionAPI(IAPI):
         m.condition_model = nn.Identity()
         # inference mode flag, should be switched to `False` when `compile`d
         self._use_inference_mode = True
+        # inherit
+        super().__init__(m, device, use_amp=use_amp, use_half=use_half)
 
     # core sampling method
 
