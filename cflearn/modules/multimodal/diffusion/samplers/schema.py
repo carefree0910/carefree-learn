@@ -226,7 +226,7 @@ class UncondSamplerMixin:
         cond2 = None
         if not isinstance(cond, dict):
             if cond.shape[1] == uncond.shape[1]:
-                cond2 = torch.cat([uncond, cond])
+                cond2 = torch.cat([cond, uncond])
         else:
             cond2 = shallow_copy_dict(cond)
             for k, v in cond2.items():
@@ -235,11 +235,11 @@ class UncondSamplerMixin:
                 if v.shape[1] != uncond.shape[1]:
                     cond2 = None
                     break
-                cond2[k] = torch.cat([uncond, v])
+                cond2[k] = torch.cat([v, uncond])
         if cond2 is not None:
             image2 = torch.cat([image, image])
             ts2 = torch.cat([ts, ts])
-            eps_uncond, eps = self.model.denoise(
+            eps, eps_uncond = self.model.denoise(
                 image2,
                 ts2,
                 cond2,
