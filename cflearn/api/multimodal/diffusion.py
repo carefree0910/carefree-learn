@@ -1581,5 +1581,7 @@ class DiffusionAPI(IAPI):
 
 
 __all__ = [
+    "InpaintingMode",
+    "InpaintingSettings",
     "DiffusionAPI",
 ]
