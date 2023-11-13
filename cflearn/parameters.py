@@ -18,7 +18,7 @@ class OPTClass(OPTBase):
         user_dir = Path.home()
         return dict(
             cache_dir=user_dir / ".cache" / "carefree-learn",
-            external_dir=user_dir / ".cache" / "external",
+            external_dir=user_dir / ".cache" / "carefree-learn" / "external",
             meta_settings={},
         )
 
