@@ -531,11 +531,7 @@ class DiffusionAPI(IAPI):
                     self.cond_model.register_custom(custom_embeddings)
         if cond is not None:
             if self.m.condition_type != CONCAT_TYPE and self.cond_model is not None:
-                cond = predict_array_data(
-                    self.cond_model,
-                    ArrayData.init().fit(np.array(cond)),
-                    batch_size=batch_size,
-                )[PREDICTIONS_KEY]
+                cond = self.get_cond(cond)
         if cond is not None and num_samples != len(cond):
             raise ValueError(
                 f"`num_samples` ({num_samples}) should be identical with "
