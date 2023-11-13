@@ -1585,13 +1585,6 @@ class ControlledDiffusionAPI(DiffusionAPI):
         num_pool: Optional[Union[str, int]] = "all",
         lazy: bool = False,
     ):
-        super().__init__(
-            m,
-            device,
-            use_amp=use_amp,
-            use_half=use_half,
-            clip_skip=clip_skip,
-        )
         default_cnet = sorted(self.control_mappings)[0]
         self.lazy = lazy
         if num_pool is None:
@@ -1601,15 +1594,23 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 num_pool = len(ControlNetHints)
             self.num_pool = num_pool if isinstance(num_pool, int) else None
         self.hint_channels = hint_channels
-        self.m.make_control_net({default_cnet: hint_channels}, lazy)
-        assert isinstance(self.m.control_model, nn.ModuleDict)
-        self.control_model = self.m.control_model
-        freeze(self.m.control_model)
+        m.make_control_net({default_cnet: hint_channels}, lazy)
+        assert isinstance(m.control_model, nn.ModuleDict)
+        self.control_model = m.control_model
+        freeze(m.control_model)
         self.loaded = {}
         self.annotators = {}
-        self.control_model = self.m.control_model
+        self.control_model = m.control_model
         self.controlnet_weights = {}
         self.controlnet_latest_usage = {}
+        # inherit
+        super().__init__(
+            m,
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            clip_skip=clip_skip,
+        )
 
     def to(
         self,
