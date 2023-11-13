@@ -446,8 +446,7 @@ class DiffusionAPI(IAPI):
         use_half: bool = False,
         clip_skip: int = 0,
     ):
-        self.m = freeze(m)
-        self.setup(device, use_amp, use_half)
+        super().__init__(m, device, use_amp=use_amp, use_half=use_half)
         self.clip_skip = clip_skip
         self.sd_weights = WeightsPool()
         self.current_sd_version: Optional[str] = None
@@ -456,11 +455,6 @@ class DiffusionAPI(IAPI):
         if self.cond_model is not None:
             freeze(self.cond_model)
         m.condition_model = nn.Identity()
-        # pre-calculate unconditional_cond if needed
-        self._uncond_cache: tensor_dict_type = {}
-        self._original_raw_uncond = getattr(m.sampler, "unconditional_cond", None)
-        self.to(device, use_amp=use_amp, use_half=use_half)
-        self._update_sampler_uncond(clip_skip)
         # inference mode flag, should be switched to `False` when `compile`d
         self._use_inference_mode = True
 
@@ -519,11 +513,11 @@ class DiffusionAPI(IAPI):
             batch_size = num_samples
         registered_custom = False
         if self.cond_model is not None:
-            clip_skip = kwargs.get(
-                "clip_skip",
-                0 if self.clip_skip is None else self.clip_skip,
-            )
-            self._update_sampler_uncond(clip_skip)
+            if isinstance(self.cond_model, CLIPTextConditionModel):
+                self.cond_model.clip_skip = kwargs.get(
+                    "clip_skip",
+                    0 if self.clip_skip is None else self.clip_skip,
+                )
             if isinstance(self.cond_model, CLIPTextConditionModel):
                 custom_embeddings = kwargs.get("custom_embeddings")
                 if custom_embeddings is not None:
@@ -1180,21 +1174,15 @@ class DiffusionAPI(IAPI):
                 self.cond_model.half()
             if unconditional_cond is not None:
                 unconditional_cond = unconditional_cond.half()
-            for k, v in self._uncond_cache.items():
-                self._uncond_cache[k] = v.half()
         else:
             if self.cond_model is not None:
                 self.cond_model.float()
             if unconditional_cond is not None:
                 unconditional_cond = unconditional_cond.float()
-            for k, v in self._uncond_cache.items():
-                self._uncond_cache[k] = v.float()
         if self.cond_model is not None:
             self.cond_model.to(device)
         if unconditional_cond is not None:
             self.m.sampler.unconditional_cond = unconditional_cond.to(device)
-        for k, v in self._uncond_cache.items():
-            self._uncond_cache[k] = v.to(device)
 
     def compile(self, *, compile_cond: bool = False, **kwargs: Any) -> "DiffusionAPI":
         self.m = torch.compile(self.m, **kwargs)
@@ -1431,18 +1419,6 @@ class DiffusionAPI(IAPI):
                 pivot.shape[-2:][::-1],
             )
         )
-
-    def _update_sampler_uncond(self, clip_skip: int) -> None:
-        if isinstance(self.cond_model, CLIPTextConditionModel):
-            self.cond_model.clip_skip = clip_skip
-        if self.cond_model is not None and self._original_raw_uncond is not None:
-            cache = self._uncond_cache.get(clip_skip)
-            if cache is not None:
-                uncond = cache
-            else:
-                uncond = self.get_cond(self._original_raw_uncond)
-                self._uncond_cache[clip_skip] = uncond
-            self.m.sampler.unconditional_cond = uncond.to(self.device)
 
     def _set_seed_and_variations(
         self,
