@@ -559,6 +559,8 @@ class DiffusionAPI(IAPI):
         sampler = self.m.sampler
         uncond_backup = None
         unconditional_cond_backup = None
+        if unconditional_cond is None:
+            unconditional_cond = getattr(sampler, "unconditional_cond", None)
         if self.cond_model is not None and unconditional_cond is not None:
             uncond_backup = getattr(sampler, "uncond", None)
             unconditional_cond_backup = getattr(
