@@ -1,4 +1,5 @@
 import json
+import time
 import torch
 import random
 
@@ -36,6 +37,7 @@ from cftool.cv import ImageBox
 from cftool.cv import ImageProcessor
 from cftool.cv import ReadImageResponse
 from cftool.misc import safe_execute
+from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.types import TNumberPair
 from cftool.types import arr_type
@@ -43,6 +45,8 @@ from cftool.types import tensor_dict_type
 
 from ..common import IAPI
 from ..common import WeightsPool
+from ..cv.annotator import annotators
+from ..cv.annotator import Annotator
 from ...zoo import ldm_sd
 from ...zoo import get_sd_tag
 from ...zoo import ldm_sd_inpainting
@@ -63,11 +67,13 @@ from ...toolkit import freeze
 from ...toolkit import new_seed
 from ...toolkit import load_file
 from ...toolkit import download_json
+from ...toolkit import download_checkpoint
 from ...toolkit import seed_everything
 from ...toolkit import download_checkpoint
 from ...toolkit import eval_context
 from ...constants import INPUT_KEY
 from ...parameters import OPT
+from ...modules.multimodal.diffusion.unet import ControlNet
 from ...modules.multimodal.diffusion.utils import CONCAT_KEY
 from ...modules.multimodal.diffusion.utils import CONCAT_TYPE
 from ...modules.multimodal.diffusion.utils import HYBRID_TYPE
@@ -325,41 +331,6 @@ def get_cropped(
                 cropped_mask = cv2.blur(cropped_mask[0][0], blur)
                 cropped_mask = cropped_mask[None, None]
     return CroppedResponse(cropped_image, cropped_mask, wh_ratio, crop_res)
-
-
-def offset_cnet_weights(
-    d: tensor_dict_type,
-    *,
-    api: Optional["DiffusionAPI"] = None,
-    base_md: Optional[tensor_dict_type] = None,
-) -> tensor_dict_type:
-    with download_json("sd_mapping").open("r") as f:
-        mapping = json.load(f)
-    with download_json("sd_controlnet_mapping").open("r") as f:
-        c_mapping = json.load(f)
-    rev_c_mapping = {v: k for k, v in c_mapping.items()}
-    nd = shallow_copy_dict(d)
-    if base_md is None:
-        if api is None:
-            raise ValueError("Either `api` or `md` must be provided.")
-        with api.load_context() as m:
-            base_md = m.state_dict()
-    device = list(base_md.values())[0].device
-    nd = {k: v.to(device) for k, v in nd.items()}
-    for k, v in nd.items():
-        rev_k = rev_c_mapping[k]
-        original_k = f"model.diffusion_model.{rev_k.split('.', 1)[1]}"
-        mk = mapping.get(original_k)
-        if mk is None:
-            continue
-        mv = base_md[mk].to(v)
-        # inpainting workaround
-        if k == "input_blocks.0.0.weight" and mv.shape[1] == 9:
-            mv = mv[:, :4]
-        nd[k] = v + mv
-    nd = {k: v.cpu() for k, v in nd.items()}
-    torch.cuda.empty_cache()
-    return nd
 
 
 class SizeInfo(NamedTuple):
@@ -1578,8 +1549,245 @@ class DiffusionAPI(IAPI):
         return F.interpolate(z, size=(h, w), mode="bilinear", antialias=False)
 
 
+# controlnet
+
+
+class ControlNetHints(str, Enum):
+    DEPTH = "depth"
+    CANNY = "canny"
+    POSE = "pose"
+    MLSD = "mlsd"
+    SOFTEDGE = "softedge"
+
+
+class ControlledDiffusionAPI(DiffusionAPI):
+    loaded: Dict[ControlNetHints, bool]
+    annotators: Dict[Union[str, ControlNetHints], Annotator]
+    controlnet_weights: Dict[ControlNetHints, tensor_dict_type]
+    controlnet_latest_usage: Dict[ControlNetHints, float]
+
+    control_mappings = {
+        ControlNetHints.DEPTH: "ldm.sd_v1.5.control.diff.depth",
+        ControlNetHints.CANNY: "ldm.sd_v1.5.control.diff.canny",
+        ControlNetHints.POSE: "ldm.sd_v1.5.control.diff.pose",
+        ControlNetHints.MLSD: "ldm.sd_v1.5.control.diff.mlsd",
+    }
+
+    def __init__(
+        self,
+        m: DDPM,
+        device: torch.device,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+        clip_skip: int = 0,
+        hint_channels: int = 3,
+        num_pool: Optional[Union[str, int]] = "all",
+        lazy: bool = False,
+    ):
+        super().__init__(
+            m,
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            clip_skip=clip_skip,
+        )
+        default_cnet = sorted(self.control_mappings)[0]
+        self.lazy = lazy
+        if num_pool is None:
+            self.num_pool = None
+        else:
+            if num_pool == "all":
+                num_pool = len(ControlNetHints)
+            self.num_pool = num_pool if isinstance(num_pool, int) else None
+        self.hint_channels = hint_channels
+        self.m.make_control_net({default_cnet: hint_channels}, lazy)
+        assert isinstance(self.m.control_model, nn.ModuleDict)
+        self.control_model = self.m.control_model
+        freeze(self.m.control_model)
+        self.loaded = {}
+        self.annotators = {}
+        self.control_model = self.m.control_model
+        self.controlnet_weights = {}
+        self.controlnet_latest_usage = {}
+
+    def to(
+        self,
+        device: torch.device,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+        no_annotator: bool = False,
+    ) -> None:
+        super().to(device, use_amp=use_amp, use_half=use_half)
+        if not no_annotator and not self.lazy:
+            for annotator in self.annotators.values():
+                self._annotator_to(annotator)
+
+    @property
+    def preset_control_hints(self) -> List[ControlNetHints]:
+        return list(self.control_mappings)
+
+    @property
+    def available_control_hints(self) -> List[ControlNetHints]:
+        return list(self.controlnet_weights)
+
+    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
+        super().set_tome_info(tome_info)
+        if self.control_model is not None:
+            if isinstance(self.control_model, ControlNet):
+                self.control_model.set_tome_info(tome_info)
+            else:
+                for m in self.control_model.values():
+                    m.set_tome_info(tome_info)
+
+    def prepare_control(self, hints2tags: Dict[ControlNetHints, str]) -> None:
+        any_new = False
+        for hint, tag in hints2tags.items():
+            if hint not in self.control_model:
+                any_new = True
+                self.m.make_control_net(self.hint_channels, self.lazy, target_key=hint)
+            if hint not in self.controlnet_weights:
+                try:
+                    d = torch.load(download_checkpoint(tag))
+                except:
+
+                    def fn(p: str, m: ControlledDiffusionAPI) -> tensor_dict_type:
+                        import cflearn
+
+                        return cflearn.scripts.sd.convert_controlnet(p)
+
+                    p = convert_external(self, tag, "controlnet", convert_fn=fn)
+                    d = torch.load(p)
+                self.loaded[hint] = False
+                self.controlnet_weights[hint] = d
+            elif hint not in self.loaded:
+                self.loaded[hint] = False
+        if any_new:
+            freeze(self.m.control_model)
+
+    def remove_control(self, hints: List[ControlNetHints]) -> None:
+        for hint in hints:
+            if hint in self.loaded:
+                del self.loaded[hint]
+            if hint in self.controlnet_weights:
+                del self.controlnet_weights[hint]
+            if hint in self.controlnet_latest_usage:
+                del self.controlnet_latest_usage[hint]
+            if hint in self.control_model:
+                m = self.control_model.pop(hint)
+                m.to("cpu")
+                del m
+
+    def switch_control(self, *hints: ControlNetHints) -> None:
+        if self.m.control_model is None:
+            raise ValueError("`control_model` is not built yet")
+
+        for hint in hints:
+            self.controlnet_latest_usage[hint] = time.time()
+
+        target = set(hints)
+        # if `hint` does not exist in `control_mappings`, it means it is an
+        # external controlnet, so it should be left as-is
+        target_mapping = {h: self.control_mappings.get(h, h) for h in target}
+        self.prepare_control(target_mapping)
+
+        current = set(self.control_model.keys())
+        if self.num_pool is None or len(current) > self.num_pool:
+            to_remove = list(current - target)
+            if to_remove:
+                if self.num_pool is None:
+                    print_warning(
+                        "`num_pool` is set to `None`, redundant controlnets "
+                        f"({to_remove}) will be removed"
+                    )
+                    self.remove_control(to_remove)
+                else:
+                    usages = [self.controlnet_latest_usage.get(h, 0) for h in to_remove]
+                    sorted_indices = np.argsort(usages)
+                    diff = len(current) - self.num_pool
+                    remove_indices = sorted_indices[:diff]
+                    to_remove = [to_remove[i] for i in remove_indices]
+                    print_warning(
+                        "current number of controlnets exceeds `num_pool` "
+                        f"({self.num_pool}), {to_remove} will be removed"
+                    )
+                    self.remove_control(to_remove)
+
+        sorted_target = sorted(target)
+        loaded_list = [self.loaded[hint] for hint in sorted_target]
+        if all(loaded_list):
+            return
+        iterator = zip(sorted_target, loaded_list)
+        for hint, loaded in iterator:
+            if loaded:
+                continue
+            d = self.controlnet_weights.get(hint)
+            if d is None:
+                raise ValueError(
+                    f"cannot find ControlNet weights called '{hint}', "
+                    f"available weights are: {', '.join(self.available_control_hints)}"
+                )
+            self.m.load_control_net_with(hint, d)
+            self.loaded[hint] = True
+
+    def prepare_annotator(self, hint: Union[str, ControlNetHints]) -> None:
+        if hint not in self.annotators:
+            annotator_class = annotators.get(hint)
+            if annotator_class is None:
+                print_warning(f"annotator '{hint}' is not implemented")
+                return
+            if self.lazy:
+                annotator = annotator_class("cpu")
+            else:
+                annotator = annotator_class(self.device)
+                self._annotator_to(annotator)
+            self.annotators[hint] = annotator
+
+    def prepare_annotators(self) -> None:
+        for hint in ControlNetHints:
+            self.prepare_annotator(hint)
+
+    def get_hint_of(
+        self,
+        hint: Union[str, ControlNetHints],
+        uint8_rgb: np.ndarray,
+        **kwargs: Any,
+    ) -> np.ndarray:
+        self.prepare_annotator(hint)
+        annotator = self.annotators.get(hint)
+        if annotator is None:
+            return uint8_rgb
+        if self.lazy:
+            self._annotator_to(annotator)
+        kwargs["uint8_rgb"] = uint8_rgb
+        out = safe_execute(annotator.annotate, kwargs)
+        if len(out.shape) == 2:
+            out = out[..., None]
+        if out.shape[-1] == 1:
+            out = np.repeat(out, 3, axis=2)
+        if self.lazy:
+            self._annotator_to(annotator, "cpu")
+        return out
+
+    def enable_control(self) -> None:
+        self.m.control_model = self.control_model
+
+    def disable_control(self) -> None:
+        self.m.control_model = None
+
+    # internal
+
+    def _annotator_to(self, annotator: Annotator, device: Optional[str] = None) -> None:
+        if device is None:
+            device = self.device
+        annotator.to(device, use_half=self.use_half)
+
+
 __all__ = [
     "InpaintingMode",
     "InpaintingSettings",
     "DiffusionAPI",
+    "ControlNetHints",
+    "ControlledDiffusionAPI",
 ]
