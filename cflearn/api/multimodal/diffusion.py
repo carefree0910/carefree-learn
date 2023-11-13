@@ -646,8 +646,6 @@ class DiffusionAPI(IAPI):
                         i_cond = None
                     if self.to_half:
                         i_z = i_z.half()
-                        if i_cond is not None:
-                            i_cond = i_cond.half()
                         for k, v in i_kw.items():
                             if isinstance(v, torch.Tensor) and v.is_floating_point():
                                 i_kw[k] = v.half()
