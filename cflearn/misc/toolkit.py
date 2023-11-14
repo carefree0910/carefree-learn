@@ -631,15 +631,15 @@ class Diffs(NamedTuple):
 
 
 def sorted_param_diffs(m1: nn.Module, m2: nn.Module) -> Diffs:
-    names1, params1 = list(zip(*m1.named_parameters()))
-    names2, params2 = list(zip(*m2.named_parameters()))
+    names1, params1 = zip(*m1.named_parameters())
+    names2, params2 = zip(*m2.named_parameters())
     if len(params1) != len(params2):
         raise ValueError(f"lengths of params are not identical between {m1} and {m2}")
     diffs = []
     for p1, p2 in zip(params1, params2):
         (p1, _), (p2, _) = map(torch.sort, [p1.view(-1), p2.view(-1)])
         diffs.append(torch.abs(p1.data - p2.data))
-    return Diffs(names1, names2, diffs)
+    return Diffs(list(names1), list(names2), diffs)
 
 
 def get_gradient(
