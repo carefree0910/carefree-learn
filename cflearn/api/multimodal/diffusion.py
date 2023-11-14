@@ -809,6 +809,7 @@ class DiffusionAPI(IAPI):
             inpainting_settings = InpaintingSettings()
         txt_list, num_samples = get_txt_cond(txt, num_samples)
 
+        z_ref_pack: Optional[Tuple[Tensor, Tensor, Tensor]]
         with switch_sampler_context(self, kwargs.get("sampler")):
             # raw inpainting
             if use_raw_inpainting:
