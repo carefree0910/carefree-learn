@@ -1365,11 +1365,6 @@ class DiffusionAPI(IAPI):
         seed: Optional[int],
     ) -> Tuple[Tensor, Tensor, Tensor]:
         z_ref = self._get_z(image_tensor)
-
-        # from pathlib import Path
-        # webui_dir = Path("~/webui/stable-diffusion-webui").expanduser()
-        # z_ref = torch.load(webui_dir / "init_latent.pt")
-
         z_ref_mask = 1.0 - F.interpolate(
             torch.from_numpy(mask_tensor).to(z_ref),
             z_ref.shape[-2:],
