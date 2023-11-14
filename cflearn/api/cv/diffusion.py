@@ -1672,7 +1672,7 @@ class DiffusionAPI(APIMixin):
         z, noise = self._set_seed_and_variations(
             seed,
             lambda: torch.randn_like(z) if q_sample_noise is None else q_sample_noise,
-            lambda noise: sampler.q_sample(z, ts, noise),
+            lambda noise: self.sampler.q_sample(z, ts, noise),
             variations,
             variation_seed,
             variation_strength,
