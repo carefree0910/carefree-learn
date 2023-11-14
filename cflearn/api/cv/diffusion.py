@@ -927,6 +927,7 @@ class DiffusionAPI(APIMixin):
         callback: Optional[Callable[[Tensor], Tensor]] = None,
         use_background_guidance: bool = False,
         use_reference: bool = False,
+        use_background_reference: bool = False,
         reference_fidelity: float = 0.2,
         verbose: bool = True,
         **kwargs: Any,
@@ -940,6 +941,8 @@ class DiffusionAPI(APIMixin):
             else:
                 size = None
                 z_ref, z_ref_mask, z_ref_noise = z_ref_pack
+                if use_background_reference:
+                    z_ref = z_ref * z_ref_mask + z_ref_noise * (1.0 - z_ref_mask)
                 args = z_ref, num_steps, reference_fidelity, seed
                 q_sample_kw = shallow_copy_dict(kwargs)
                 q_sample_kw["q_sample_noise"] = z_ref_noise
@@ -974,6 +977,7 @@ class DiffusionAPI(APIMixin):
             merged_array = np.stack(merged_arrays, axis=0).transpose([0, 3, 1, 2])
             return torch.from_numpy(merged_array).contiguous()
 
+        use_reference = use_reference or use_background_reference
         if inpainting_settings is None:
             inpainting_settings = InpaintingSettings()
         txt_list, num_samples = get_txt_cond(txt, num_samples)
