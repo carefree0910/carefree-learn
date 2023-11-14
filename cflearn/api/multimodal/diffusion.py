@@ -127,6 +127,8 @@ def convert_external(
         print(f"> converting external weights '{tag}'")
         model_path = external_root / f"{tag}.ckpt"
         if not model_path.is_file():
+            model_path = external_root / f"{tag}.pth"
+        if not model_path.is_file():
             st_path = external_root / f"{tag}.safetensors"
             if not st_path.is_file():
                 raise FileNotFoundError(f"cannot find '{tag}'")
