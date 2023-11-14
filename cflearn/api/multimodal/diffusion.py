@@ -760,11 +760,19 @@ class DiffusionAPI(IAPI):
         **kwargs: Any,
     ) -> Tensor:
         def get_z_info_from(
-            z_ref_: Optional[Tensor], fidelity_: float, shape_: Tuple[int, int]
+            z_ref_pack: Optional[Tuple[Tensor, Tensor, Tensor]], shape: Tuple[int, int]
         ) -> Tuple[Optional[Tensor], Optional[Tuple[int, int]]]:
-            return self._get_z_info_from(
-                z_ref_, fidelity_, shape_, seed, num_steps, kwargs
-            )
+            if z_ref_pack is None or not use_reference:
+                z = None
+                size = tuple(map(lambda n: n * self.size_info.factor, shape))
+            else:
+                size = None
+                z_ref, z_ref_mask, z_ref_noise = z_ref_pack
+                args = z_ref, num_steps, reference_fidelity, seed
+                q_sample_kw = shallow_copy_dict(kwargs)
+                z, _, start_step = self._q_sample(*args, **q_sample_kw)
+                kwargs["start_step"] = start_step
+            return z, size  # type: ignore
 
         def paste_original(
             original_: Image.Image,
@@ -812,11 +820,11 @@ class DiffusionAPI(IAPI):
                     cropped_res.image, cropped_res.mask, seed
                 )
                 z_ref, z_ref_mask, z_ref_noise = z_ref_pack
-                z, size = get_z_info_from(
-                    z_ref if use_reference else None,
-                    reference_fidelity,
-                    z_ref.shape[-2:][::-1],
-                )
+                if use_reference:
+                    z, size = get_z_info_from(z_ref_pack, z_ref.shape[-2:][::-1])
+                else:
+                    z = None
+                    size = cropped_res.image.shape[-2:][::-1]
                 kw = shallow_copy_dict(kwargs)
                 kw.update(
                     dict(
@@ -861,21 +869,15 @@ class DiffusionAPI(IAPI):
                 inpainting_settings,
             )
             # sampling
-            ## calculate `z_ref` stuffs based on `use_image_guidance`
-            if not use_background_guidance:
-                z_ref = z_ref_mask = z_ref_noise = None
+            ## calculate `z_ref` stuffs, if needed
+            if not use_reference and not use_background_guidance:
+                z_ref_pack = z_ref = z_ref_mask = z_ref_noise = None
             else:
                 z_ref_pack = self._get_z_ref_pack(res.image, res.mask, seed)
                 z_ref, z_ref_mask, z_ref_noise = z_ref_pack
             ## calculate `z` based on `z_ref`, if needed
             z_shape = res.remained_image_cond.shape[-2:][::-1]
-            if not use_reference:
-                args = None, reference_fidelity, z_shape
-            elif z_ref is not None:
-                args = z_ref, reference_fidelity, z_shape
-            else:
-                args = self._get_z(res.image), reference_fidelity, z_shape
-            z, size = get_z_info_from(*args)
+            z, size = get_z_info_from(z_ref_pack, z_shape)
             ## adjust ControlNet parameters
             crop_controlnet(kwargs, res.crop_res)
             ## core
@@ -1357,6 +1359,11 @@ class DiffusionAPI(IAPI):
         seed: Optional[int],
     ) -> Tuple[Tensor, Tensor, Tensor]:
         z_ref = self._get_z(image_tensor)
+
+        # from pathlib import Path
+        # webui_dir = Path("~/webui/stable-diffusion-webui").expanduser()
+        # z_ref = torch.load(webui_dir / "init_latent.pt")
+
         z_ref_mask = 1.0 - F.interpolate(
             torch.from_numpy(mask_tensor).to(z_ref),
             z_ref.shape[-2:],
@@ -1366,25 +1373,6 @@ class DiffusionAPI(IAPI):
             seed_everything(seed)
         z_ref_noise = torch.randn_like(z_ref)
         return z_ref, z_ref_mask, z_ref_noise
-
-    def _get_z_info_from(
-        self,
-        z_ref: Optional[Tensor],
-        fidelity: float,
-        shape: Tuple[int, int],
-        seed: Optional[int],
-        num_steps: Optional[int],
-        kwargs: Dict[str, Any],
-    ) -> Tuple[Optional[Tensor], Optional[Tuple[int, int]]]:
-        if z_ref is None:
-            z = None
-            size = tuple(map(lambda n: n * self.size_info.factor, shape))
-        else:
-            size = None
-            args = z_ref, num_steps, fidelity, seed
-            z, _, start_step = self._q_sample(*args, **kwargs)
-            kwargs["start_step"] = start_step
-        return z, size  # type: ignore
 
     def _get_identical_size_with(self, pivot: Tensor) -> Tuple[int, int]:
         return tuple(  # type: ignore
