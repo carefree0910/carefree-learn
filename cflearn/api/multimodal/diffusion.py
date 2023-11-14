@@ -770,6 +770,7 @@ class DiffusionAPI(IAPI):
                 z_ref, z_ref_mask, z_ref_noise = z_ref_pack
                 args = z_ref, num_steps, reference_fidelity, seed
                 q_sample_kw = shallow_copy_dict(kwargs)
+                q_sample_kw["q_sample_noise"] = z_ref_noise
                 z, _, start_step = self._q_sample(*args, **q_sample_kw)
                 kwargs["start_step"] = start_step
             return z, size  # type: ignore
@@ -1471,6 +1472,7 @@ class DiffusionAPI(IAPI):
         variations: Optional[List[Tuple[int, float]]] = None,
         variation_seed: Optional[int] = None,
         variation_strength: Optional[float] = None,
+        q_sample_noise: Optional[Tensor] = None,
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor, int]:
         sampler = self.m.sampler
@@ -1486,8 +1488,8 @@ class DiffusionAPI(IAPI):
             safe_execute(sampler._reset_buffers, kw)
         z, noise = self._set_seed_and_variations(
             seed,
-            lambda: torch.randn_like(z),
-            lambda noise_: sampler.q_sample(z, ts, noise_),
+            lambda: torch.randn_like(z) if q_sample_noise is None else q_sample_noise,
+            lambda noise: sampler.q_sample(z, ts, noise),
             variations,
             variation_seed,
             variation_strength,
