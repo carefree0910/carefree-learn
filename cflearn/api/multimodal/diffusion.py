@@ -805,6 +805,7 @@ class DiffusionAPI(IAPI):
             merged_array = np.stack(merged_arrays, axis=0).transpose([0, 3, 1, 2])
             return torch.from_numpy(merged_array).contiguous()
 
+        use_reference = use_reference or use_background_reference
         if inpainting_settings is None:
             inpainting_settings = InpaintingSettings()
         txt_list, num_samples = get_txt_cond(txt, num_samples)
