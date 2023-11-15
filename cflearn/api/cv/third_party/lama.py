@@ -34,7 +34,7 @@ def pad_img_to_mod(
     mod: int,
     square: bool = False,
     min_size: Optional[int] = None,
-) -> np.array:
+) -> ndarray:
     if len(img.shape) == 2:
         img = img[..., None]
     height, width = img.shape[:2]
@@ -272,10 +272,10 @@ class LaMa(InpaintModel):
         self.model.to(device)
 
     def forward(self, image: ndarray, mask: ndarray, config: Config) -> ndarray:
-        image, mask = map(to_tensor, [image, mask])
-        image = image.to(self.device)
-        mask = mask.to(self.device)
-        net = self.model(image, mask)
+        image_tensor, mask_tensor = map(to_tensor, [image, mask])
+        image_tensor = image_tensor.to(self.device)
+        mask_tensor = mask_tensor.to(self.device)
+        net = self.model(image_tensor, mask_tensor)
         net = net[0].permute(1, 2, 0).cpu().numpy()
         return net
 
