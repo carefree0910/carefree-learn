@@ -617,6 +617,9 @@ class DiffusionAPI(IAPI):
                         for k, v in i_kw.items():
                             if isinstance(v, torch.Tensor) and v.is_floating_point():
                                 i_kw[k] = v.half()
+                    if self.use_half:
+                        if i_cond is not None:
+                            i_cond = i_cond.half()
                     if cond_concat is not None:
                         if self.m.condition_type != HYBRID_TYPE:
                             raise ValueError(
