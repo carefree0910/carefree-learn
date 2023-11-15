@@ -229,7 +229,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         self.log_sigmas_base = self.sigmas_base.log()
         t_max = len(self.sigmas_base) - 1
         ts = torch.linspace(t_max, 0, total_step, device=self.sigmas_base.device)
-        self.sigmas = append_zero(self._t_to_sigma(ts)).to(ts.dtype)
+        self.sigmas = append_zero(self._t_to_sigma(ts)).to(alphas.dtype)
         self.sigma_data = 1.0
         self.quantize = quantize
         # q sampling
