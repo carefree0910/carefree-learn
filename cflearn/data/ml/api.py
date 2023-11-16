@@ -167,8 +167,8 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
                 "did you forget to call the `fit` method first?"
             )
         self.train_dataset = MLDataset(
-            self.bundle.x_train,
-            self.bundle.y_train,
+            self.bundle.x_train,  # type: ignore
+            self.bundle.y_train,  # type: ignore
             MLDatasetTag.TRAIN,
             self.processor,
             **(self.bundle.train_others or {}),
@@ -177,8 +177,8 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
             self.valid_dataset = None
         else:
             self.valid_dataset = MLDataset(
-                self.bundle.x_valid,
-                self.bundle.y_valid,
+                self.bundle.x_valid,  # type: ignore
+                self.bundle.y_valid,  # type: ignore
                 MLDatasetTag.VALID,
                 self.processor,
                 **(self.bundle.valid_others or {}),
@@ -229,14 +229,14 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
         self = self.copy()
         bundle = self.transform(x, y)
         x, y = bundle.x_train, bundle.y_train
-        dataset = MLDataset(x, y, MLDatasetTag.TRAIN, self.processor, **others)
+        dataset = MLDataset(x, y, MLDatasetTag.TRAIN, self.processor, **others)  # type: ignore
         loader = MLLoader(
             dataset,
             shuffle=shuffle,
             batch_size=batch_size
             or self.config.valid_batch_size
             or self.config.batch_size,
-            sample_weights=sample_weights,
+            sample_weights=sample_weights,  # type: ignore
         )
         return loader
 

@@ -999,6 +999,7 @@ class DiffusionAPI(APIMixin):
                     cropped_res.image, cropped_res.mask, seed
                 )
                 z_ref, z_ref_mask, z_ref_noise = z_ref_pack
+                size: Optional[Tuple[int, ...]]
                 if use_reference:
                     z, size = get_z_info_from(z_ref_pack, z_ref.shape[-2:][::-1])
                 else:

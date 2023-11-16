@@ -98,6 +98,7 @@ class DLInference(IInference):
                         continue
                     if v is None:
                         continue
+                    v_np: Union[np.ndarray, List[np.ndarray]]
                     if isinstance(v, np.ndarray):
                         v_np = v
                     elif isinstance(v, Tensor):

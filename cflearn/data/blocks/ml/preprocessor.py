@@ -115,13 +115,13 @@ class PreProcessorBlock(INoInitDataBlock):
         )
 
     def transform(self, bundle: DataBundle, for_inference: bool) -> DataBundle:
-        self._transform_x(bundle.x_train)
+        self._transform_x(bundle.x_train)  # type: ignore
         if bundle.y_train is not None:
-            self._transform_y(bundle.y_train)
+            self._transform_y(bundle.y_train)  # type: ignore
         if bundle.x_valid is not None:
-            self._transform_x(bundle.x_valid)
+            self._transform_x(bundle.x_valid)  # type: ignore
         if bundle.y_valid is not None:
-            self._transform_y(bundle.y_valid)
+            self._transform_y(bundle.y_valid)  # type: ignore
         return bundle
 
     def fit_transform(self, bundle: DataBundle) -> DataBundle:
@@ -178,9 +178,9 @@ class PreProcessorBlock(INoInitDataBlock):
             self.label_stats,
         )
         if bundle.x_valid is not None:
-            self._transform_x(bundle.x_valid)
+            self._transform_x(bundle.x_valid)  # type: ignore
         if bundle.y_valid is not None:
-            self._transform_y(bundle.y_valid)
+            self._transform_y(bundle.y_valid)  # type: ignore
         return bundle
 
     def recover_labels(self, y: np.ndarray) -> np.ndarray:

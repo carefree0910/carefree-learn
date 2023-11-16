@@ -17,9 +17,9 @@ from cftool.misc import ISerializable
 from cftool.misc import PureFromInfoMixin
 from cftool.array import is_float
 
-from ....types import data_type
 from ....schema import DataTypes
 from ....schema import DataBundle
+from ....schema import TDataBundleItem
 from ....schema import INoInitDataBlock
 
 
@@ -259,7 +259,7 @@ class FileParserBlock(INoInitDataBlock):
         self.default_values = self.config.default_values or {}
         if not self._check_file(bundle.x_train):
             self.is_placeholder = True
-            self._setup_none_file(bundle.x_train, bundle.y_train)
+            self._setup_none_file(bundle.x_train, bundle.y_train)  # type: ignore
             return bundle
         self.is_placeholder = False
         # sanity check
@@ -369,7 +369,7 @@ class FileParserBlock(INoInitDataBlock):
 
     # internal
 
-    def _check_file(self, x: data_type) -> bool:
+    def _check_file(self, x: TDataBundleItem) -> bool:
         if not isinstance(x, str):
             if self.is_local_rank_0:
                 print_warning("data is not a file, `FileParserBlock` will do nothing")

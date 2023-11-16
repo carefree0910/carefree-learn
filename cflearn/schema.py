@@ -164,7 +164,7 @@ to be transformed.
 """
 
 
-def copy_data(data: TDataBundleItem) -> data_type:
+def copy_data(data: TDataBundleItem) -> TDataBundleItem:
     if data is None:
         return None
     if isinstance(data, dict):
@@ -686,10 +686,10 @@ class IData(ISerializableArrays, Generic[TData], metaclass=ABCMeta):
 
     def get_bundle(
         self,
-        x_train: data_type,
-        y_train: Optional[data_type] = None,
-        x_valid: Optional[data_type] = None,
-        y_valid: Optional[data_type] = None,
+        x_train: TDataBundleItem,
+        y_train: Optional[TDataBundleItem] = None,
+        x_valid: Optional[TDataBundleItem] = None,
+        y_valid: Optional[TDataBundleItem] = None,
         train_others: Optional[np_dict_type] = None,
         valid_others: Optional[np_dict_type] = None,
         *args: Any,
@@ -718,10 +718,10 @@ class IData(ISerializableArrays, Generic[TData], metaclass=ABCMeta):
 
     def fit(
         self: TData,
-        x_train: data_type,
-        y_train: Optional[data_type] = None,
-        x_valid: Optional[data_type] = None,
-        y_valid: Optional[data_type] = None,
+        x_train: TDataBundleItem,
+        y_train: Optional[TDataBundleItem] = None,
+        x_valid: Optional[TDataBundleItem] = None,
+        y_valid: Optional[TDataBundleItem] = None,
         train_others: Optional[np_dict_type] = None,
         valid_others: Optional[np_dict_type] = None,
         *args: Any,

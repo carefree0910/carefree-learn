@@ -185,10 +185,10 @@ class NanHandlerBlock(INoInitDataBlock):
             )
             if bundle.x_valid is not None:
                 bundle.x_valid, bundle.y_valid = drop_nan(
-                    bundle.x_valid,
-                    bundle.y_valid,
-                    x_valid_nan_mask,
-                    y_valid_nan_mask,
+                    bundle.x_valid,  # type: ignore
+                    bundle.y_valid,  # type: ignore
+                    x_valid_nan_mask,  # type: ignore
+                    y_valid_nan_mask,  # type: ignore
                     only_drop_y=only_drop_y,
                 )
         # replace nan
@@ -197,14 +197,14 @@ class NanHandlerBlock(INoInitDataBlock):
             replacement = self.replacements.get(str(idx))
             replace_nan(bundle.x_train, x_train_nan_mask, idx, cn, replacement)
             if bundle.x_valid is not None:
-                replace_nan(bundle.x_valid, x_valid_nan_mask, idx, cn, replacement)
+                replace_nan(bundle.x_valid, x_valid_nan_mask, idx, cn, replacement)  # type: ignore
         if bundle.y_train is not None:
             for idx in range(bundle.y_train.shape[-1]):
                 cn = self._get_column_name(idx, True)
                 replacement = self.label_replacements.get(str(idx))
-                replace_nan(bundle.y_train, y_train_nan_mask, idx, cn, replacement)
+                replace_nan(bundle.y_train, y_train_nan_mask, idx, cn, replacement)  # type: ignore
                 if bundle.y_valid is not None:
-                    replace_nan(bundle.y_valid, y_valid_nan_mask, idx, cn, replacement)
+                    replace_nan(bundle.y_valid, y_valid_nan_mask, idx, cn, replacement)  # type: ignore
         return bundle
 
 

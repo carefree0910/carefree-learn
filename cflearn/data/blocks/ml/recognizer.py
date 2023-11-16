@@ -61,8 +61,8 @@ class RecognizerBlock(INoInitDataBlock):
         return bundle
 
     def fit_transform(self, bundle: DataBundle) -> DataBundle:
-        x_train: np.ndarray = bundle.x_train
-        y_train: np.ndarray = bundle.y_train
+        x_train: np.ndarray = bundle.x_train  # type: ignore
+        y_train: np.ndarray = bundle.y_train  # type: ignore
         self.feature_types = {}
         self.label_types = {}
         self.num_unique_features = {}
