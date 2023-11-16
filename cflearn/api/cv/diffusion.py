@@ -1614,9 +1614,7 @@ class DiffusionAPI(APIMixin):
         read_image_kw = {}
         if inpainting_settings is not None:
             if inpainting_settings.padding_mode is not None:
-                o_mask = mask_res.original
-                padding_mask = to_alpha_channel(o_mask)
-                read_image_kw["padding_mask"] = padding_mask
+                read_image_kw["padding_mask"] = mask_res.to_masked
                 read_image_kw["padding_mode"] = inpainting_settings.padding_mode
         image_res = read_image(image, max_wh, anchor=anchor, **read_image_kw)
         cropped_res = get_cropped(image_res, mask_res, inpainting_settings)
