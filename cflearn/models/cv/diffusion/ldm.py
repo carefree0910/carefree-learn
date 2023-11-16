@@ -237,8 +237,9 @@ class StableDiffusion(LDM):
         print_info(f"loading '{key}' from '{path}'")
         d = get_tensors(path)
         wk = "lora_unet_down_blocks_0_attentions_0_proj_in.lora_down.weight"
+        resnet_k = "lora_unet_down_blocks_0_resnets_0_conv1.lora_down.weight"
         rank = d[wk].shape[0]
-        mode = SDLoRAMode.UNET if "res" not in d else SDLoRAMode.UNET_EXTENDED
+        mode = SDLoRAMode.UNET if resnet_k not in d else SDLoRAMode.UNET_EXTENDED
         inject_text_encoder = "lora_te_text_model_encoder_layers_0_mlp_fc1.alpha" in d
         print_info(
             f"preparing lora (rank={rank}, mode={mode}, "
@@ -259,7 +260,8 @@ class StableDiffusion(LDM):
     ) -> None:
         target_ancestors = {"SpatialTransformer", "GEGLU"}
         if mode == SDLoRAMode.UNET_EXTENDED:
-            target_ancestors.add("ResBlock")
+            for res_blocks in ["ResBlock", "ResDownsample", "ResUpsample"]:
+                target_ancestors.add(res_blocks)
         if inject_text_encoder:
             target_ancestors.add("TeTEncoder")
         self.lora_manager.prepare(
