@@ -986,13 +986,14 @@ class DiffusionAPI(APIMixin):
         with switch_sampler_context(self, kwargs.get("sampler")):
             # raw inpainting
             if use_raw_inpainting:
+                mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
                 image_res = read_image(
                     image,
                     max_wh,
                     anchor=anchor,
                     padding_mode=inpainting_settings.padding_mode,
+                    padding_mask=mask_res.to_masked,
                 )
-                mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
                 cropped_res = get_cropped(image_res, mask_res, inpainting_settings)
                 z_ref_pack = self._get_z_ref_pack(
                     cropped_res.image, cropped_res.mask, seed
