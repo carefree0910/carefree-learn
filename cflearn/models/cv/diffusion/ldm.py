@@ -10,6 +10,7 @@ from typing import Tuple
 from typing import Union
 from typing import Optional
 from cftool.misc import print_info
+from cftool.misc import print_warning
 from cftool.array import tensor_dict_type
 
 from .ddpm import make_condition_model
@@ -215,7 +216,11 @@ def convert_lora(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
     inp = get_tensors(inp)
     with open(download_static("sd_lora_mapping", extension="json"), "r") as f:
         mapping = json.load(f)
-    return {mapping[k]: v for k, v in inp.items()}
+    converted = {mapping[k]: v for k, v in inp.items() if k in mapping}
+    diff = len(inp) - len(converted)
+    if diff != 0:
+        print_warning(f"{diff} tensors are not converted")
+    return converted
 
 
 @IDLModel.register("sd")
