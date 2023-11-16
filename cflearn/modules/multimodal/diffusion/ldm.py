@@ -7,9 +7,9 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Tuple
-from typing import Union
 from typing import Optional
 from cftool.misc import print_info
+from cftool.misc import print_warning
 from cftool.types import tensor_dict_type
 
 from .ddpm import make_condition_model
@@ -204,7 +204,11 @@ def convert_lora(inp: d_inp_type) -> tensor_dict_type:
     inp = get_tensors(inp)
     with download_json("sd_lora_mapping").open("r") as f:
         mapping = json.load(f)
-    return {mapping[k]: v for k, v in inp.items()}
+    converted = {mapping[k]: v for k, v in inp.items() if k in mapping}
+    diff = len(inp) - len(converted)
+    if diff != 0:
+        print_warning(f"{diff} tensors are not converted")
+    return converted
 
 
 @register_module("sd")
