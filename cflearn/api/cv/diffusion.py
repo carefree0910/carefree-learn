@@ -1020,6 +1020,7 @@ class DiffusionAPI(APIMixin):
                         num_steps=num_steps,
                         clip_output=clip_output,
                         verbose=verbose,
+                        discretize="uniform_ensure_start",
                     )
                 )
                 crop_controlnet(kw, cropped_res.crop_res)
