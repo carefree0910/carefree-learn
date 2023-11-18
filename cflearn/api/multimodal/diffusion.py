@@ -1484,10 +1484,11 @@ class DiffusionAPI(IAPI):
             self._random_state = random.getstate()
         if num_steps is None:
             num_steps = sampler.default_steps
-        t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1)))
+        t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1))) - 1
         ts = get_timesteps(t, 1, z.device)
         if isinstance(sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
             kw = shallow_copy_dict(sampler.sample_kwargs)
+            kw.update(shallow_copy_dict(kwargs))
             kw["total_step"] = num_steps
             safe_execute(sampler._reset_buffers, kw)
         z, noise = self._set_seed_and_variations(
@@ -1498,7 +1499,7 @@ class DiffusionAPI(IAPI):
             variation_seed,
             variation_strength,
         )
-        start_step = num_steps - t
+        start_step = num_steps - t - 1
         return z, noise, start_step
 
     def _img2img(
