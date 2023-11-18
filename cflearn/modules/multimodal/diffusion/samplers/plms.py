@@ -33,9 +33,9 @@ class PLMSSampler(DDIMMixin):
         model_output = get_model_output(image, self._ts)
 
         if len(self.old_outputs) == 0:
-            denoised = get_denoised(model_output, self._ts_next)
-            model_output_next = get_model_output(denoised, self._ts_next)
-            model_output_prime = 0.5 * (model_output + model_output_next)
+            denoised = get_denoised(model_output, self._ts_prev)
+            model_output_prev = get_model_output(denoised, self._ts_prev)
+            model_output_prime = 0.5 * (model_output + model_output_prev)
         elif len(self.old_outputs) == 1:
             model_output_prime = 0.5 * (3.0 * model_output - self.old_outputs[-1])
         elif len(self.old_outputs) == 2:
