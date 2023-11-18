@@ -4,3 +4,4 @@ from .ddim import *
 from .plms import *
 from .solver import *
 from .k_samplers import *
+from .lcm import *
