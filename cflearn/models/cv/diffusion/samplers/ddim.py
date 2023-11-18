@@ -172,14 +172,15 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     def _register_temp_buffers(self, image: Tensor, step: int, total_step: int) -> None:
         b = image.shape[0]
         device = image.device
-        index = total_step - step - 1
-        t = self.ddim_timesteps[index]
-        t_next = self.ddim_timesteps[max(index - 1, 0)]
-        self._ts = get_timesteps(t, b, device)
-        self._ts_next = get_timesteps(t_next, b, device)
+        self._t_index = total_step - step - 1
+        self._t_index_prev = max(self._t_index - 1, 0)
+        self._t = self.ddim_timesteps[self._t_index]
+        self._t_prev = self.ddim_timesteps[self._t_index_prev]
+        self._ts = get_timesteps(self._t, b, device)
+        self._ts_prev = get_timesteps(self._t_prev, b, device)
         extract = lambda base: torch.full(
             (b, 1, 1, 1),
-            base[index],
+            base[self._t_index],
             dtype=image.dtype,
             device=device,
         )
