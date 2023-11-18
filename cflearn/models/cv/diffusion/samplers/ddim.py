@@ -188,14 +188,12 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         self._sigmas_t = extract(self.ddim_sigmas)
         self._sqrt_one_minus_at = extract(self.ddim_sqrt_one_minus_alphas)
 
-    def _get_denoised_and_pred_x0(
+    def _get_pred_x0(
         self,
         model_output: Tensor,
         ts: Tensor,
         image: Tensor,
         quantize_denoised: bool,
-        temperature: float,
-        noise_dropout: float,
     ) -> Tuple[Tensor, Tensor]:
         if self.model.parameterization != "v":
             eps = model_output
@@ -217,6 +215,18 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
                     )
                 )
             pred_x0 = first_stage.codebook(pred_x0).z_q
+        return eps, pred_x0
+
+    def _get_denoised_and_pred_x0(
+        self,
+        model_output: Tensor,
+        ts: Tensor,
+        image: Tensor,
+        quantize_denoised: bool,
+        temperature: float,
+        noise_dropout: float,
+    ) -> Tuple[Tensor, Tensor]:
+        eps, pred_x0 = self._get_pred_x0(model_output, ts, image, quantize_denoised)
         direction = (1.0 - self._a_prev_t - self._sigmas_t**2).sqrt() * eps
         noise = self._sigmas_t * torch.randn_like(image) * temperature
         if noise_dropout > 0:
