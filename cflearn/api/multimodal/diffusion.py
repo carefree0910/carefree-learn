@@ -335,6 +335,11 @@ def get_cropped(
     return CroppedResponse(cropped_image, cropped_mask, wh_ratio, crop_res)
 
 
+def inject_inpainting_sampler_settings(kwargs: Dict[str, Any]) -> None:
+    # ddim settings
+    kwargs["discretize"] = "uniform_ensure_start"
+
+
 class SizeInfo(NamedTuple):
     factor: int
     opt_size: int
@@ -777,6 +782,7 @@ class DiffusionAPI(IAPI):
                 args = z_ref, num_steps, reference_fidelity, seed
                 q_sample_kw = shallow_copy_dict(kwargs)
                 q_sample_kw["q_sample_noise"] = z_ref_noise
+                q_sample_kw["in_inpainting"] = True
                 z, _, start_step = self._q_sample(*args, **q_sample_kw)
                 kwargs["start_step"] = start_step
             return z, size  # type: ignore
@@ -850,9 +856,9 @@ class DiffusionAPI(IAPI):
                         num_steps=num_steps,
                         clip_output=clip_output,
                         verbose=verbose,
-                        discretize="uniform_ensure_start",
                     )
                 )
+                inject_inpainting_sampler_settings(kw)
                 crop_controlnet(kw, cropped_res.crop_res)
                 sampled = self.sample(num_samples, **kw)
                 crop_res = cropped_res.crop_res
@@ -1478,6 +1484,7 @@ class DiffusionAPI(IAPI):
         variation_seed: Optional[int] = None,
         variation_strength: Optional[float] = None,
         q_sample_noise: Optional[Tensor] = None,
+        in_inpainting: bool = False,
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor, int]:
         sampler = self.m.sampler
@@ -1493,6 +1500,8 @@ class DiffusionAPI(IAPI):
             kw = shallow_copy_dict(sampler.sample_kwargs)
             kw.update(shallow_copy_dict(kwargs))
             kw["total_step"] = num_steps
+            if in_inpainting:
+                inject_inpainting_sampler_settings(kw)
             safe_execute(sampler._reset_buffers, kw)
         z, noise = self._set_seed_and_variations(
             seed,
