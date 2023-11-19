@@ -177,6 +177,7 @@ class ISampler(WithRegister):
         image = z
         if cond is not None and self.model.condition_model is not None:
             cond = self.model._get_cond(cond)
+        inpainting_ref_one_more_step = kwargs.get("inpainting_ref_one_more_step", False)
         for step in iterator:
             callback = kwargs.get("step_callback")
             if callback is not None:
@@ -187,7 +188,10 @@ class ISampler(WithRegister):
             update_dict(shallow_copy_dict(kwargs), kw)
             image = self.sample_step(image, cond, step, num_steps, **kw)
             if ref is not None and ref_mask is not None and ref_noise is not None:
-                ref_ts = get_timesteps(num_steps - step - 1, ref.shape[0], z.device)
+                t_prev = num_steps - step - 1
+                if inpainting_ref_one_more_step:
+                    t_prev = max(0, t_prev - 1)
+                ref_ts = get_timesteps(t_prev, ref.shape[0], z.device)
                 ref_noisy = self.q_sample(ref, ref_ts, ref_noise)
                 image = ref_noisy * ref_mask + image * (1.0 - ref_mask)
         self.initialized = False
