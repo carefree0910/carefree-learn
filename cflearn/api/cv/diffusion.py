@@ -1666,6 +1666,8 @@ class DiffusionAPI(APIMixin):
             num_steps = self.sampler.default_steps
         t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1))) - 1
         ts = get_timesteps(t, 1, z.device)
+        if isinstance(self.sampler, KSamplerMixin):
+            ts += 1
         if isinstance(self.sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
             kw = shallow_copy_dict(self.sampler.sample_kwargs)
             kw.update(shallow_copy_dict(kwargs))
