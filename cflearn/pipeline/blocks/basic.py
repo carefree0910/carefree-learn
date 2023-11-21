@@ -396,9 +396,6 @@ class DefaultOptimizerSettings(NamedTuple):
                     "warmup_step",
                     min(default_max_warmup_step, 10 * state_info.num_batches),
                 )
-        if self.optimizer_name == "nag":
-            optimizer_config.setdefault("momentum", 0.999)
-            optimizer_config.setdefault("weight_decay", 1e-7)
         return OptimizerPack(
             "all",
             self.optimizer_name,
