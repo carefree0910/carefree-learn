@@ -18,6 +18,7 @@ from cftool.array import quantile_normalize
 from cftool.array import quantile_normalize_from
 from cftool.array import recover_quantile_normalize_from
 
+from .file import FileParserBlock
 from .recognizer import RecognizerBlock
 from ....schema import DataBundle
 from ....schema import ColumnTypes
@@ -147,14 +148,11 @@ class PreProcessorBlock(INoInitDataBlock):
                 for str_idx, column_type in recognizer.label_types.items()
                 if column_type == ColumnTypes.NUMERICAL
             ]
-        if self.config.preprocess_methods is None:
-            self.config.preprocess_methods = {}
-        if self.config.preprocess_configs is None:
-            self.config.preprocess_configs = {}
-        if self.config.label_preprocess_methods is None:
-            self.config.label_preprocess_methods = {}
-        if self.config.label_preprocess_configs is None:
-            self.config.label_preprocess_configs = {}
+        preprocess_methods = self._convert_keys(self.config.preprocess_methods)
+        preprocess_configs = self._convert_keys(self.config.preprocess_configs)
+        l_preprocess_methods = self._convert_keys(self.config.label_preprocess_methods)
+        l_preprocess_configs = self._convert_keys(self.config.label_preprocess_configs)
+
         self.methods = {}
         self.stats = {}
         self.label_methods = {}
@@ -163,8 +161,8 @@ class PreProcessorBlock(INoInitDataBlock):
             x_train,
             x_target,
             self.config.auto_preprocess,
-            self.config.preprocess_methods,
-            self.config.preprocess_configs,
+            preprocess_methods,
+            preprocess_configs,
             self.methods,
             self.stats,
         )
@@ -172,8 +170,8 @@ class PreProcessorBlock(INoInitDataBlock):
             y_train,
             y_target,
             self.config.auto_preprocess,
-            self.config.label_preprocess_methods,
-            self.config.label_preprocess_configs,
+            l_preprocess_methods,
+            l_preprocess_configs,
             self.label_methods,
             self.label_stats,
         )
@@ -190,10 +188,26 @@ class PreProcessorBlock(INoInitDataBlock):
     # api
 
     @property
+    def file_parser(self) -> Optional[FileParserBlock]:
+        return self.try_get_previous(FileParserBlock)
+
+    @property
     def recognizer(self) -> Optional[RecognizerBlock]:
         return self.try_get_previous(RecognizerBlock)
 
     # internal
+
+    def _convert_keys(self, d: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if d is None:
+            return {}
+        file_parser = self.file_parser
+        recognizer = self.recognizer
+        if file_parser is None or recognizer is None:
+            return d
+        mapping = recognizer.index_mapping
+        header = file_parser.feature_header
+        header2str_idx = {name: str(i) for i, name in enumerate(header)}
+        return {str(mapping[header2str_idx[k]]): v for k, v in d.items()}
 
     def _transform_x(self, x: np.ndarray) -> None:
         _transform(x, self.methods, self.stats, fn_with_stats_mapping)
