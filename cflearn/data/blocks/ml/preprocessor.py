@@ -24,35 +24,35 @@ from ....schema import ColumnTypes
 from ....schema import INoInitDataBlock
 
 
-class PreProcessMethod(str, Enum):
+class PreProcessMethods(str, Enum):
     MIN_MAX = "min_max"
     NORMALIZE = "normalize"
     QUANTILE_NORMALIZE = "quantile_normalize"
 
 
 fn_mapping = {
-    PreProcessMethod.MIN_MAX: min_max_normalize,
-    PreProcessMethod.NORMALIZE: normalize,
-    PreProcessMethod.QUANTILE_NORMALIZE: quantile_normalize,
+    PreProcessMethods.MIN_MAX: min_max_normalize,
+    PreProcessMethods.NORMALIZE: normalize,
+    PreProcessMethods.QUANTILE_NORMALIZE: quantile_normalize,
 }
 fn_with_stats_mapping = {
-    PreProcessMethod.MIN_MAX: min_max_normalize_from,
-    PreProcessMethod.NORMALIZE: normalize_from,
-    PreProcessMethod.QUANTILE_NORMALIZE: quantile_normalize_from,
+    PreProcessMethods.MIN_MAX: min_max_normalize_from,
+    PreProcessMethods.NORMALIZE: normalize_from,
+    PreProcessMethods.QUANTILE_NORMALIZE: quantile_normalize_from,
 }
 recover_fn_mapping = {
-    PreProcessMethod.MIN_MAX: recover_min_max_normalize_from,
-    PreProcessMethod.NORMALIZE: recover_normalize_from,
-    PreProcessMethod.QUANTILE_NORMALIZE: recover_quantile_normalize_from,
+    PreProcessMethods.MIN_MAX: recover_min_max_normalize_from,
+    PreProcessMethods.NORMALIZE: recover_normalize_from,
+    PreProcessMethods.QUANTILE_NORMALIZE: recover_quantile_normalize_from,
 }
 
 
 @dataclass
 class MLPreProcessConfig:
     auto_preprocess: bool = True
-    preprocess_methods: Optional[Dict[str, PreProcessMethod]] = None
+    preprocess_methods: Optional[Dict[str, PreProcessMethods]] = None
     preprocess_configs: Optional[Dict[str, Dict[str, Any]]] = None
-    label_preprocess_methods: Optional[Dict[str, PreProcessMethod]] = None
+    label_preprocess_methods: Optional[Dict[str, PreProcessMethods]] = None
     label_preprocess_configs: Optional[Dict[str, Dict[str, Any]]] = None
 
 
@@ -60,9 +60,9 @@ def _fit_transform(
     data: np.ndarray,
     target: List[int],
     auto_preprocess: bool,
-    preprocess_methods: Dict[str, PreProcessMethod],
+    preprocess_methods: Dict[str, PreProcessMethods],
     preprocess_configs: Dict[str, Dict[str, Any]],
-    methods: Dict[str, PreProcessMethod],
+    methods: Dict[str, PreProcessMethods],
     all_stats: Dict[str, Dict[str, float]],
 ) -> None:
     for idx in target:
@@ -71,7 +71,7 @@ def _fit_transform(
         if method is None and not auto_preprocess:
             continue
         if method is None:
-            method = PreProcessMethod.NORMALIZE
+            method = PreProcessMethods.NORMALIZE
         fn = fn_mapping.get(method)
         if fn is None:
             raise ValueError(f"unrecognized method '{method}' occurred")
@@ -86,9 +86,9 @@ def _fit_transform(
 
 def _transform(
     data: np.ndarray,
-    methods: Dict[str, PreProcessMethod],
+    methods: Dict[str, PreProcessMethods],
     all_stats: Dict[str, Dict[str, float]],
-    mapping: Dict[PreProcessMethod, Any],
+    mapping: Dict[PreProcessMethods, Any],
 ) -> None:
     for str_idx, stats in all_stats.items():
         idx = int(str_idx)
@@ -99,9 +99,9 @@ def _transform(
 @INoInitDataBlock.register("ml_preprocessor")
 class PreProcessorBlock(INoInitDataBlock):
     config: MLPreProcessConfig  # type: ignore
-    methods: Dict[str, PreProcessMethod]
+    methods: Dict[str, PreProcessMethods]
     stats: Dict[str, Dict[str, float]]
-    label_methods: Dict[str, PreProcessMethod]
+    label_methods: Dict[str, PreProcessMethods]
     label_stats: Dict[str, Dict[str, float]]
 
     # inheritance
@@ -203,7 +203,7 @@ class PreProcessorBlock(INoInitDataBlock):
 
 
 __all__ = [
-    "PreProcessMethod",
+    "PreProcessMethods",
     "MLPreProcessConfig",
     "PreProcessorBlock",
 ]
