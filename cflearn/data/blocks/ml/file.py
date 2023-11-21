@@ -8,6 +8,7 @@ from typing import List
 from typing import Tuple
 from typing import Union
 from typing import Optional
+from pathlib import Path
 from collections import Counter
 from dataclasses import dataclass
 from cftool.misc import print_info
@@ -23,6 +24,7 @@ from ....schema import TDataBundleItem
 from ....schema import INoInitDataBlock
 
 
+TFile = Union[str, Path]
 TArrayPair = Tuple[np.ndarray, Optional[np.ndarray]]
 
 
@@ -208,6 +210,12 @@ get_x_column_name = lambda idx: f"f{idx}"
 get_y_column_name = lambda idx: f"l{idx}"
 
 
+def _validate_file(x: Optional[Union[TFile, Any]]) -> None:
+    if not isinstance(x, str) and not isinstance(x, Path):
+        msg = f"`FileParserBlock` expected `str` or `Path`, but got {type(x)}"
+        raise TypeError(msg)
+
+
 @INoInitDataBlock.register("ml_file_parser")
 class FileParserBlock(INoInitDataBlock):
     config: MLFileProcessorConfig  # type: ignore
@@ -268,16 +276,14 @@ class FileParserBlock(INoInitDataBlock):
         if bundle.y_valid is not None:
             raise ValueError("`y_valid` should not be provided for `FileParserBlock`")
         # read raw train data
-        if not isinstance(bundle.x_train, str):
-            raise ValueError("`FileParserBlock` should be used on file inputs")
+        _validate_file(bundle.x_train)
         all_header, data = self._read(bundle.x_train)
         num_columns = len(data[0])
         # read raw valid data
         if bundle.x_valid is None:
             valid_data = None
         else:
-            if not isinstance(bundle.x_valid, str):
-                raise ValueError("`FileParserBlock` should be used on file inputs")
+            _validate_file(bundle.x_valid)
             all_valid_header, valid_data = self._read(bundle.x_valid)
             if self.config.has_header and all_header != all_valid_header:
                 raise ValueError(
@@ -370,7 +376,7 @@ class FileParserBlock(INoInitDataBlock):
     # internal
 
     def _check_file(self, x: TDataBundleItem) -> bool:
-        if not isinstance(x, str):
+        if not isinstance(x, str) and not isinstance(x, Path):
             if self.is_local_rank_0:
                 print_warning("data is not a file, `FileParserBlock` will do nothing")
             return False
@@ -386,7 +392,7 @@ class FileParserBlock(INoInitDataBlock):
         for h in self.label_header:
             self.converters[h] = Converter.get_placeholder(h, True)
 
-    def _read(self, file: str) -> Tuple[Optional[List[str]], List[List[str]]]:
+    def _read(self, file: TFile) -> Tuple[Optional[List[str]], List[List[str]]]:
         with open(file, "r") as f:
             data = list(csv.reader(f, delimiter=self.delimiter))
             for i in range(len(data) - 1, -1, -1):
@@ -436,14 +442,10 @@ class FileParserBlock(INoInitDataBlock):
         if train_valid_T is not None:
             train_T, valid_T = train_valid_T
         else:
-            if not isinstance(bundle.x_train, str):
-                raise ValueError("`FileParserBlock` should be used on file inputs")
             train_T = list(zip(*self._read(bundle.x_train)[1]))
             if bundle.x_valid is None:
                 valid_T = None
             else:
-                if not isinstance(bundle.x_valid, str):
-                    raise ValueError("`FileParserBlock` should be used on file inputs")
                 valid_T = list(zip(*self._read(bundle.x_valid)[1]))
         if len(train_T) != len(self.all_header):
             if for_inference and len(train_T) + 1 == len(self.all_header):
