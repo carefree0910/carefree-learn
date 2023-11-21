@@ -79,6 +79,7 @@ class Converter(PureFromInfoMixin, ISerializable):
         column_name: str,
         line: List[str],
         is_label: bool,
+        custom_dtype: Optional[DataTypes],
         custom_mapping: Optional[Dict[str, int]],
         default_value: Optional[int],
     ) -> "Converter":
@@ -91,6 +92,11 @@ class Converter(PureFromInfoMixin, ISerializable):
         try:
             array = np.array(not_empty, np.float64)
         except ValueError:
+            if custom_dtype is not None and custom_dtype != DataTypes.STRING:
+                print_warning(
+                    f"`custom_dtype` is set to '{custom_dtype}' but corresponding "
+                    "column cannot cast it, fallback to 'string'"
+                )
             self.has_nan = False
             self.dtype = DataTypes.STRING
             if custom_mapping is not None:
@@ -114,7 +120,7 @@ class Converter(PureFromInfoMixin, ISerializable):
         self.has_nan = len(array) != len(not_nan)
         int_array = not_nan.astype(int)
         int_float_array = int_array.astype(np.float64)
-        if not np.allclose(not_nan, int_float_array):
+        if custom_dtype == DataTypes.FLOAT or not np.allclose(not_nan, int_float_array):
             self.mapping = {}
             self.counter = {}
             self.dtype = DataTypes.FLOAT
@@ -202,6 +208,7 @@ class MLFileProcessorConfig:
     label_indices: Optional[List[int]] = None
     contain_labels: bool = True
     auto_convert_labels: bool = True
+    custom_dtypes: Optional[Dict[str, DataTypes]] = None
     custom_mappings: Optional[Dict[str, Dict[str, int]]] = None
     default_values: Optional[Dict[str, int]] = None
 
@@ -223,6 +230,7 @@ class FileParserBlock(INoInitDataBlock):
     has_header: bool
     contain_labels: bool
     auto_convert_labels: bool
+    custom_dtypes: Optional[Dict[str, DataTypes]]
     custom_mappings: Optional[Dict[str, Dict[str, int]]]
     default_values: Optional[Dict[str, int]] = None
     feature_header: List[str]
@@ -239,6 +247,7 @@ class FileParserBlock(INoInitDataBlock):
             has_header=self.has_header,
             contain_labels=self.contain_labels,
             auto_convert_labels=self.auto_convert_labels,
+            custom_dtypes=self.custom_dtypes,
             custom_mappings=self.custom_mappings,
             default_values=self.default_values,
             feature_header=self.feature_header,
@@ -263,6 +272,7 @@ class FileParserBlock(INoInitDataBlock):
         self.has_header = self.config.has_header
         self.contain_labels = self.config.contain_labels
         self.auto_convert_labels = self.config.auto_convert_labels
+        self.custom_dtypes = self.config.custom_dtypes or {}
         self.custom_mappings = self.config.custom_mappings or {}
         self.default_values = self.config.default_values or {}
         if not self._check_file(bundle.x_train):
@@ -338,9 +348,17 @@ class FileParserBlock(INoInitDataBlock):
         self.converters = {}
         for column_name, line in zip(all_header, data_T):
             is_label = column_name in label_header
+            custom_dtype = self.custom_dtypes.get(column_name)
             custom_mapping = self.custom_mappings.get(column_name)
             default_value = self.default_values.get(column_name)
-            args = column_name, line, is_label, custom_mapping, default_value
+            args = (
+                column_name,
+                line,
+                is_label,
+                custom_dtype,
+                custom_mapping,
+                default_value,
+            )
             converter = Converter.fit(*args)  # type: ignore
             self.converters[column_name] = converter
         # transform
