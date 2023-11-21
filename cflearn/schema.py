@@ -1890,6 +1890,8 @@ __all__ = [
     "loss_dict",
     "metric_dict",
     "callback_dict",
+    "DataTypes",
+    "ColumnTypes",
     "IData",
     "DataBundle",
     "IDataBlock",
