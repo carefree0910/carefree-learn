@@ -191,7 +191,7 @@ class PreProcessorBlock(INoInitDataBlock):
 
     @property
     def recognizer(self) -> Optional[RecognizerBlock]:
-        return self.try_get_previous(RecognizerBlock.__identifier__)
+        return self.try_get_previous(RecognizerBlock)
 
     # internal
 
