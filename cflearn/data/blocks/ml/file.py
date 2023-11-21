@@ -87,7 +87,8 @@ class Converter(PureFromInfoMixin, ISerializable):
         self.column_name = column_name
         self.is_label = is_label
         not_empty = [e for e in line if e]
-        self.has_empty = len(not_empty) != len(line)
+        num_empty = len(line) - len(not_empty)
+        self.has_empty = num_empty > 0
         self.default_value = default_value
         try:
             array = np.array(not_empty, np.float64)
@@ -140,6 +141,13 @@ class Converter(PureFromInfoMixin, ISerializable):
                     str_original = str(unique_list[idx])
                     self.mapping[str_original] = i
                     self.counter[str_original] = counts_list[idx]
+        if self.dtype == DataTypes.INT:
+            if self.has_nan:
+                self.mapping["nan"] = len(self.mapping)
+                self.counter["nan"] = nan_mask.sum().item()
+            if self.has_empty:
+                self.mapping[""] = len(self.mapping)
+                self.counter[""] = num_empty
         return self
 
     @classmethod
@@ -164,8 +172,8 @@ class Converter(PureFromInfoMixin, ISerializable):
         for e in line:
             if e.lower() == "nan":
                 e = "nan"
-            elif self.dtype == DataTypes.INT:
-                e = str(int(e))
+            elif self.dtype == DataTypes.INT and e:
+                e = str(int(round(float(e))))
             mapped = self.mapping.get(e)
             if mapped is None:
                 ood += 1
