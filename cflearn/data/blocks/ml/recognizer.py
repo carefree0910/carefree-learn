@@ -14,9 +14,6 @@ from ....schema import ColumnTypes
 from ....schema import INoInitDataBlock
 
 
-TRes = Tuple[ColumnTypes, int]
-
-
 @dataclass
 class MLRecognizerConfig:
     all_close_threshold: float = 1.0e-6
@@ -121,7 +118,7 @@ class RecognizerBlock(INoInitDataBlock):
         line: np.ndarray,
         dtype: DataTypes,
         custom_type: Optional[ColumnTypes],
-    ) -> TRes:
+    ) -> Tuple[ColumnTypes, int]:
         prefix = f"values in {dtype} column {name}"
         postfix = "It'll be marked as redundant."
         if dtype == DataTypes.FLOAT:
