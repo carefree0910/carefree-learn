@@ -295,7 +295,7 @@ class FileParserBlock(INoInitDataBlock):
             raise ValueError("`y_valid` should not be provided for `FileParserBlock`")
         # read raw train data
         _validate_file(bundle.x_train)
-        all_header, data = self._read(bundle.x_train)
+        all_header, data = self._read(bundle.x_train)  # type: ignore
         num_columns = len(data[0])
         # read raw valid data
         if bundle.x_valid is None:
@@ -468,7 +468,7 @@ class FileParserBlock(INoInitDataBlock):
         if train_valid_T is not None:
             train_T, valid_T = train_valid_T
         else:
-            train_T = list(zip(*self._read(bundle.x_train)[1]))
+            train_T = list(zip(*self._read(bundle.x_train)[1]))  # type: ignore
             if bundle.x_valid is None:
                 valid_T = None
             else:
