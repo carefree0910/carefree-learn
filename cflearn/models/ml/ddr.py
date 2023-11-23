@@ -55,7 +55,7 @@ def _expand_element(
 
 
 def _make_ddr_grid(num_samples: int, device: torch.device) -> Tensor:
-    return make_grid(num_samples + 2, 1, device)[:, 1:-1]
+    return make_grid(num_samples, 1, device)
 
 
 @MLModel.register("ddr")
