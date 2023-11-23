@@ -105,11 +105,11 @@ class DDRVisualizer:
         y: np.ndarray,
         export_path: Optional[str],
         *,
-        ratios: Union[float, List[float]],
+        tau: TCond,
         **kwargs: Any,
     ) -> None:
-        if isinstance(ratios, float):
-            ratios = [ratios]
+        if isinstance(tau, float):
+            tau = [tau]
 
         x_min, x_max = np.min(x), np.max(x)
         y_min, y_max = np.min(y), np.max(y)
@@ -127,21 +127,21 @@ class DDRVisualizer:
         render_args = x_min, x_max, y_min, y_max, y_padding
         # quantile curves
         if self.m.predict_quantiles:
-            quantile_curves = self.predictor.quantile(x_base, ratios)
+            quantile_curves = self.predictor.quantile(x_base, tau)
             if quantile_curves.shape[-1] != 1:
                 raise ValueError("`out_dim` > 1 is not supported")
             quantile_curves = quantile_curves[..., 0]
-            for q, quantile_curve in zip(ratios, quantile_curves.T):
+            for q, quantile_curve in zip(tau, quantile_curves.T):
                 plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
             DDRVisualizer._render_figure(*render_args)
         # cdf curves
         if self.m.predict_cdf:
-            anchors = [ratio * (y_max - y_min) + y_min for ratio in ratios]
+            anchors = [ratio * (y_max - y_min) + y_min for ratio in tau]
             cdfs, pdfs = self.predictor.cdf_pdf(x_base, anchors)
             if cdfs.shape[-1] != 1 or pdfs.shape[-1] != 1:
                 raise ValueError("`out_dim` > 1 is not supported")
             cdfs, pdfs = cdfs[..., 0], pdfs[..., 0]
-            for ratio, anchor, cdf, pdf in zip(ratios, anchors, cdfs.T, pdfs.T):
+            for ratio, anchor, cdf, pdf in zip(tau, anchors, cdfs.T, pdfs.T):
                 anchor_line = np.full(len(x_base), anchor)
                 plt.plot(x_base.ravel(), cdf, label=f"cdf {ratio:4.2f}")
                 pdf = pdf / (pdf.max() + 1.0e-8) * y_max
@@ -162,12 +162,12 @@ class DDRVisualizer:
         y: np.ndarray,
         export_folder: str,
         *,
+        tau: TCond,
         num_base: int = 1000,
         num_repeat: int = 10000,
-        ratios: Union[float, List[float]],
     ) -> None:
-        if isinstance(ratios, float):
-            ratios = [ratios]
+        if isinstance(tau, float):
+            tau = [tau]
 
         x_min, x_max = x.min(), x.max()
         x_diff = x_max - x_min
@@ -197,14 +197,14 @@ class DDRVisualizer:
             show_or_save(os.path.join(export_folder, f"{prefix}_{num:4.2f}.png"))
 
         if self.m.predict_quantiles:
-            yq_predictions = self.predictor.quantile(x_base, ratios)
+            yq_predictions = self.predictor.quantile(x_base, tau)
             yq_predictions = yq_predictions[..., 0]
-            for q, yq_pred in zip(ratios, yq_predictions.T):
+            for q, yq_pred in zip(tau, yq_predictions.T):
                 yq = np.percentile(y_matrix, int(100 * q), axis=1)
                 _plot("quantile", q, yq, yq_pred, None)
 
         if self.m.predict_cdf:
-            anchors = [ratio * (y_max - y_min) + y_min for ratio in ratios]
+            anchors = [ratio * (y_max - y_min) + y_min for ratio in tau]
             for anchor in anchors:
                 assert isinstance(anchor, float)
                 anchor_line = np.full(len(x_base), anchor)

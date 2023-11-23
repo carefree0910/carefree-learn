@@ -56,7 +56,7 @@ visualizer.visualize(
     x_test,
     y_test,
     os.path.join(output_folder, "all.png"),
-    ratios=ratios,
+    tau=ratios,
     padding=padding,
 )
-visualizer.visualize_multiple(f, x_test, y_test, output_folder, ratios=ratios)
+visualizer.visualize_multiple(f, x_test, y_test, output_folder, tau=ratios)
