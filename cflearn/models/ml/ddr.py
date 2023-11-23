@@ -44,7 +44,8 @@ def _expand_element(
     if isinstance(element, Tensor):
         return element
     if isinstance(element, np.ndarray):
-        element_arr = element.reshape(*element.shape, 1)
+        element_arr = np.repeat(element[None], n, axis=0).astype(np.float32)
+        element_arr = element_arr[..., None]
     elif isinstance(element, float):
         element_arr = np.repeat(element, n).astype(np.float32)
         element_arr = element_arr.reshape([-1, 1, 1])
