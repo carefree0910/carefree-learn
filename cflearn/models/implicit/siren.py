@@ -12,6 +12,7 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from ...constants import LABEL_KEY
+from ...misc.toolkit import insert_intermediate_dims
 from ...modules.blocks import Lambda
 from ...modules.blocks import Activation
 from ...modules.blocks import ChannelPadding
@@ -173,11 +174,7 @@ class Siren(nn.Module):
                 net = grid.repeat(len(inp), 1, 1)  # type: ignore
         # forward process
         for block, mod in zip(self.blocks, mods):
-            net = block(net)
-            dim_diff = len(net.shape) - len(mod.shape)
-            if dim_diff > 0:
-                mod = mod.view(mod.shape[0], *((1,) * dim_diff), mod.shape[1])
-            net = net * mod
+            net = block(net) * insert_intermediate_dims(mod, net)
         return self.head(net)
 
 
