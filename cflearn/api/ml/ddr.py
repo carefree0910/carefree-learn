@@ -45,16 +45,8 @@ class DDRPredictor:
         results = self._fetch(x, tau=tau, get_cdf=False)
         return to_numpy(results["quantiles"])
 
-    def cdf_pdf(
-        self,
-        x: np.ndarray,
-        y: Union[float, List[float]],
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        if isinstance(y, float):
-            y = [y]
-        y_anchor = np.array(y, np.float32).reshape([1, -1])
-        y_anchor = np.repeat(y_anchor, len(x), axis=0)
-        results = self._fetch(x, y_anchor=y_anchor, get_quantiles=False)
+    def cdf_pdf(self, x: np.ndarray, y: TCond) -> Tuple[np.ndarray, np.ndarray]:
+        results = self._fetch(x, y_anchor=y, get_quantiles=False)
         return to_numpy(results["cdf"]), to_numpy(results["pdf"])
 
     @classmethod
