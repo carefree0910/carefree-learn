@@ -1,14 +1,21 @@
 import numpy as np
 
 from typing import Any
+from typing import Tuple
+from typing import Optional
 from cftool.misc import print_warning
 from cftool.array import iou
 from cftool.array import corr
 from cftool.array import softmax
 from cftool.array import get_full_logits
 from cftool.array import get_label_predictions
+from cftool.types import np_dict_type
 
 from .schema import IMetric
+from .schema import IDataLoader
+from .constants import LABEL_KEY
+from .constants import PREDICTIONS_KEY
+from .misc.toolkit import insert_intermediate_dims
 
 try:
     from sklearn import metrics
@@ -33,19 +40,31 @@ class Accuracy(IMetric):
 
 @IMetric.register("quantile")
 class Quantile(IMetric):
-    def __init__(self, q: Any):
+    def __init__(self, q: Any, predictions_key: Optional[str] = PREDICTIONS_KEY):
         super().__init__()
         if not isinstance(q, float):
             q = np.asarray(q, np.float32).reshape([1, -1])
         self.q = q
+        self.predictions_key = predictions_key
 
     @property
     def is_positive(self) -> bool:
         return False
 
     def forward(self, predictions: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
-        diff = labels - predictions
-        return np.maximum(self.q * diff, (self.q - 1.0) * diff).mean(0).sum().item()
+        pred_dim = len(predictions.shape)
+        diff = insert_intermediate_dims(labels, predictions) - predictions
+        q = self.q.reshape((-1,) + (1,) * (pred_dim - 2))
+        error = np.maximum(q * diff, (q - 1.0) * diff)
+        return error.mean(0).sum().item()
+
+    def get_forward_args(
+        self,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
+        loader: Optional[IDataLoader] = None,
+    ) -> Tuple[Any, ...]:
+        return np_outputs[self.predictions_key], np_batch[LABEL_KEY]
 
 
 @IMetric.register("f1")
