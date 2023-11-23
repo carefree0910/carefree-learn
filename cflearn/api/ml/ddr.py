@@ -18,6 +18,7 @@ from ...misc.toolkit import get_device
 from ...misc.toolkit import eval_context
 from ...misc.toolkit import show_or_save
 from ...models.ml import DDR
+from ...models.ml.ddr import TCond
 
 try:
     import matplotlib.pyplot as plt
@@ -40,7 +41,7 @@ class DDRPredictor:
         results = self._fetch(x, get_quantiles=False)
         return to_numpy(results[PREDICTIONS_KEY])
 
-    def quantile(self, x: np.ndarray, tau: Union[float, List[float]]) -> np.ndarray:
+    def quantile(self, x: np.ndarray, tau: TCond) -> np.ndarray:
         results = self._fetch(x, tau=tau, get_cdf=False)
         return to_numpy(results["quantiles"])
 

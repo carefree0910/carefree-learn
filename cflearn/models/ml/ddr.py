@@ -29,13 +29,16 @@ from ..implicit.siren import Siren
 from ...misc.toolkit import get_gradient
 
 
+TCond = Union[float, List[float], np.ndarray, Tensor]
+
+
 def all_exists(*tensors: Optional[Tensor]) -> bool:
     return all(tensor is not None for tensor in tensors)
 
 
 def _expand_element(
     n: int,
-    element: Union[float, List[float], np.ndarray, Tensor],
+    element: TCond,
     device: Optional[torch.device] = None,
 ) -> Tensor:
     if isinstance(element, Tensor):
@@ -132,8 +135,8 @@ class DDR(MLModel):
         *,
         get_cdf: bool = True,
         get_quantiles: bool = True,
-        tau: Optional[float] = None,
-        y_anchor: Optional[float] = None,
+        tau: Optional[TCond] = None,
+        y_anchor: Optional[TCond] = None,
     ) -> tensor_dict_type:
         # prepare
         device = net.device
