@@ -1757,6 +1757,7 @@ class TrainerConfig(ISerializableDataClass):
     metric_names: Optional[Union[str, List[str]]] = None
     metric_configs: configs_type = None
     metric_weights: Optional[Dict[str, float]] = None
+    metric_forward_kwargs: Optional[Dict[str, Any]] = None
     use_losses_as_metrics: Optional[bool] = None
     loss_metrics_weights: Optional[Dict[str, float]] = None
     recompute_train_losses_in_eval: bool = True

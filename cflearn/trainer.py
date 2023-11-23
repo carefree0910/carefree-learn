@@ -360,6 +360,7 @@ class Trainer(ITrainer):
             loader or self.validation_loader,
             portion=portion,
             state=self.state,
+            forward_kwargs=self.config.metric_forward_kwargs,
         )
 
     def _get_scheduler_settings(
