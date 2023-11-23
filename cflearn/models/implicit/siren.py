@@ -17,6 +17,12 @@ from ...modules.blocks import Activation
 from ...modules.blocks import ChannelPadding
 
 
+def make_grid(size: int, in_dim: int, device: Optional[torch.device] = None) -> Tensor:
+    tensors = [torch.linspace(-1.0, 1.0, steps=size, device=device)] * in_dim
+    grid = torch.stack(torch.meshgrid(*tensors, indexing="ij"), dim=-1)
+    return grid.view(1, -1, grid.shape[-1])
+
+
 class SirenLayer(nn.Module):
     def __init__(
         self,
@@ -76,12 +82,6 @@ class Modulator(nn.Module):
             nets.append(net)
             net = torch.cat((net, z), dim=1)
         return tuple(nets)
-
-
-def make_grid(size: int, in_dim: int, device: Optional[torch.device] = None) -> Tensor:
-    tensors = [torch.linspace(-1.0, 1.0, steps=size, device=device)] * in_dim
-    grid = torch.stack(torch.meshgrid(*tensors, indexing="ij"), dim=-1)
-    return grid.view(1, -1, grid.shape[-1])
 
 
 class Siren(nn.Module):
