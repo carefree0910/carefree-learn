@@ -842,7 +842,7 @@ class IDLModel(
         **kwargs: Any,
     ) -> tensor_dict_type:
         args = self.get_forward_args(batch_idx, batch, state, **kwargs)
-        forward_results = self(*args)
+        forward_results = self(*args, **kwargs)
         outputs = self.postprocess(batch_idx, batch, forward_results, state, **kwargs)
         return outputs
 
