@@ -79,7 +79,7 @@ class DDR(MLModel):
         w_sin: float = 1.0,
         w_sin_initial: float = 30.0,
         num_random_samples: int = 16,
-        use_extra_modulars: bool = True,
+        use_extra_modulars: bool = False,
         predict_quantiles: bool = True,
         predict_cdf: bool = True,
         y_min_max: Optional[Tuple[float, float]] = None,
