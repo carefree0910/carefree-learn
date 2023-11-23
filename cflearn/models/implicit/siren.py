@@ -173,7 +173,11 @@ class Siren(nn.Module):
                 net = grid.repeat(len(inp), 1, 1)  # type: ignore
         # forward process
         for block, mod in zip(self.blocks, mods):
-            net = block(net) * mod.unsqueeze(1)
+            net = block(net)
+            dim_diff = len(net.shape) - len(mod.shape)
+            if dim_diff > 0:
+                mod = mod.view(mod.shape[0], *((1,) * dim_diff), mod.shape[1])
+            net = net * mod
         return self.head(net)
 
 
