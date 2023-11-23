@@ -113,7 +113,6 @@ class DDR(MLModel):
                 w_sin=w_sin,
                 w_sin_initial=w_sin_initial,
                 bias=False,
-                keep_edge=False,
                 use_modulator=False,
             )
 
