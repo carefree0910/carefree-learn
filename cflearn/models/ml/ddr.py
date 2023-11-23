@@ -79,33 +79,24 @@ class DDR(MLModel):
         w_sin: float = 1.0,
         w_sin_initial: float = 30.0,
         num_random_samples: int = 16,
+        use_extra_modulars: bool = True,
         predict_quantiles: bool = True,
         predict_cdf: bool = True,
         y_min_max: Optional[Tuple[float, float]] = None,
         encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None,
         global_encoder_settings: Optional[MLGlobalEncoderSettings] = None,
     ):
-        super().__init__(
-            encoder_settings=encoder_settings,
-            global_encoder_settings=global_encoder_settings,
-        )
-        if self.encoder is not None:
-            input_dim += self.encoder.dim_increment
-        self.fcnn = FCNN(
-            input_dim,
-            output_dim,
-            num_history,
-            hidden_units,
-            mapping_type=mapping_type,
-            bias=bias,
-            activation=activation,
-            batch_norm=batch_norm,
-            dropout=dropout,
-        )
-        hidden_units = self.fcnn.hidden_units
-        assert hidden_units is not None
-        if not len(set(hidden_units)) == 1:
-            raise ValueError("`DDR` requires all hidden units to be identical")
+        def _make_fcnn() -> FCNN:
+            return FCNN(
+                input_dim,
+                output_dim,
+                num_history,
+                mapping_type=mapping_type,
+                bias=bias,
+                activation=activation,
+                batch_norm=batch_norm,
+                dropout=dropout,
+            )
 
         def _make_siren(_in_dim: Optional[int] = None) -> Siren:
             return Siren(
@@ -119,6 +110,23 @@ class DDR(MLModel):
                 bias=False,
                 use_modulator=False,
             )
+
+        super().__init__(
+            encoder_settings=encoder_settings,
+            global_encoder_settings=global_encoder_settings,
+        )
+        if self.encoder is not None:
+            input_dim += self.encoder.dim_increment
+        self.fcnn = _make_fcnn()
+        hidden_units = self.fcnn.hidden_units
+        assert hidden_units is not None
+        if not len(set(hidden_units)) == 1:
+            raise ValueError("`DDR` requires all hidden units to be identical")
+
+        use_q_mod = predict_quantiles and use_extra_modulars
+        use_cdf_mod = predict_cdf and use_extra_modulars
+        self.q_mod = None if not use_q_mod else _make_fcnn()
+        self.cdf_mod = None if not use_cdf_mod else _make_fcnn()
 
         self.predict_quantiles = predict_quantiles
         self.predict_cdf = predict_cdf
@@ -146,11 +154,29 @@ class DDR(MLModel):
             net = net.contiguous().view(num_samples, -1)
         get_quantiles = get_quantiles and self.predict_quantiles
         get_cdf = get_cdf and self.predict_cdf
-        # median forward
+        # median / modulator forward
         mods = []
-        for block in self.fcnn.net:
+        q_mods = []
+        cdf_mods = []
+        q_net = None
+        cdf_net = None
+        for i, block in enumerate(self.fcnn.net):
+            is_last = i == len(self.fcnn.net) - 1
+            if not is_last and self.q_mod is not None:
+                q_net = net if q_net is None else q_net + net
+            if not is_last and self.cdf_mod is not None:
+                cdf_net = net if cdf_net is None else cdf_net + net
             net = block(net)
             mods.append(net)
+            if not is_last:
+                if self.q_mod is not None:
+                    q_net = self.q_mod.net[i](q_net)
+                    q_mods.append(q_net)
+                if self.cdf_mod is not None:
+                    cdf_net = self.cdf_mod.net[i](cdf_net)
+                    cdf_mods.append(cdf_net)
+        q_mods = q_mods or mods
+        cdf_mods = cdf_mods or mods
         median = mods.pop()
         results = {PREDICTIONS_KEY: median}
         if not get_quantiles and not get_cdf:
@@ -169,7 +195,7 @@ class DDR(MLModel):
                     tau_tensor = _make_ddr_grid(self.num_random_samples, device)
                     tau_tensor = tau_tensor.repeat(num_samples, 1, 1)
             tau_tensor.requires_grad_(True)
-            q_increment, quantiles = self._get_quantiles(tau_tensor, mods, median)
+            q_increment, quantiles = self._get_quantiles(tau_tensor, q_mods, median)
             results.update(
                 {
                     "tau": tau_tensor,
@@ -190,7 +216,7 @@ class DDR(MLModel):
                     y_raw_ratio = 0.5 * (y_raw_ratio + 1.0)
                     ya_tensor = (y_raw_ratio * y_span + y_min).repeat(num_samples, 1, 1)
             ya_tensor.requires_grad_(True)
-            y_ratio, logit, cdf = self._get_cdf(ya_tensor, median, y_span, mods)
+            _, logit, cdf = self._get_cdf(ya_tensor, median, y_span, cdf_mods)
             pdf = get_gradient(cdf, ya_tensor, True, True)  # type: ignore
             results.update(
                 {
@@ -203,7 +229,7 @@ class DDR(MLModel):
         # dual forward
         if get_quantiles and get_cdf:
             dual_y = results["quantiles"].detach()
-            results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, mods)[-1]
+            results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, cdf_mods)[-1]
         return results
 
     def init_with_trainer(self, trainer: ITrainer) -> None:
