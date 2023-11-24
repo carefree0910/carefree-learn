@@ -83,7 +83,7 @@ class DDR(MLModel):
         predict_quantiles: bool = True,
         predict_cdf: bool = True,
         dual_period: Optional[int] = 2,
-        use_dual_quantiles: bool = True,
+        use_dual_quantiles: bool = False,
         y_min_max: Optional[Tuple[float, float]] = None,
         encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None,
         global_encoder_settings: Optional[MLGlobalEncoderSettings] = None,
