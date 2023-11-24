@@ -242,6 +242,8 @@ class DDR(MLModel):
         ):
             dual_y = results["quantiles"].detach()
             results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, cdf_mods)[-1]
+            dual_tau = results["cdf"]
+            _, results["dual_quantiles"] = self._get_quantiles(dual_tau, q_mods, median)
         return results
 
     def get_forward_args(
@@ -319,6 +321,7 @@ class DDRLoss(ILoss):
         logit = forward_results.get("logit")
         y_anchor = forward_results.get("y_anchor")
         dual_cdf = forward_results.get("dual_cdf")
+        dual_quantiles = forward_results.get("dual_quantiles")
         median = forward_results[PREDICTIONS_KEY]
         labels = batch[LABEL_KEY]
         losses = {}
@@ -352,11 +355,14 @@ class DDRLoss(ILoss):
             weighted_losses.append(self.lb_ddr * cdf_loss)
             weighted_losses.append(self.lb_monotonous * pdf_loss)
         # dual
-        if all_exists(dual_cdf):
+        if all_exists(dual_cdf, dual_quantiles):
             tau_raw = 0.5 * (tau.detach() + 1.0)  # type: ignore
             tau_recover_loss = F.l1_loss(tau_raw, dual_cdf)  # type: ignore
+            y_raw = y_anchor.detach()
+            y_recover_loss = F.l1_loss(y_raw, dual_quantiles)
             losses["tau_recover"] = tau_recover_loss
-            weighted_losses.append(self.lb_dual * tau_recover_loss)
+            losses["y_recover"] = y_recover_loss
+            weighted_losses.append(self.lb_dual * (tau_recover_loss + y_recover_loss))
         # aggregate
         losses[LOSS_KEY] = sum(weighted_losses)  # type: ignore
         return losses
