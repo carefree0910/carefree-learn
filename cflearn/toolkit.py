@@ -43,6 +43,7 @@ from cftool.misc import DownloadProgressBar
 from cftool.array import to_torch
 from cftool.array import is_string
 from cftool.array import to_standard
+from cftool.types import arr_type
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 from safetensors.torch import load_file
@@ -586,6 +587,19 @@ def tensor_batch_to_np(tensor_batch: np_dict_type) -> np_dict_type:
 def safe_clip_(net: Tensor) -> None:
     finfo = torch.finfo(net.dtype)
     net.clamp_(finfo.min, finfo.max)
+
+
+def insert_intermediate_dims(net: arr_type, ref: arr_type) -> arr_type:
+    net_dim = len(net.shape)
+    if net_dim != 2:
+        raise ValueError(f"only 2-dim tensor is supported, but got {net_dim}")
+    dim_diff = len(ref.shape) - net_dim
+    if dim_diff == 0:
+        return net
+    new_shape = net.shape[0], *((1,) * dim_diff), net.shape[1]
+    if isinstance(net, Tensor):
+        return net.view(*new_shape)
+    return net.reshape(new_shape)
 
 
 def fix_denormal_states(
