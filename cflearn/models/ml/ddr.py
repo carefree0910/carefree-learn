@@ -277,7 +277,7 @@ class DDR(MLModel):
         y_span: float,
         mods: List[Tensor],
     ) -> Tuple[Tensor, Tensor, Tensor]:
-        y_residual = y_anchor - median.unsqueeze(1)
+        y_residual = y_anchor - median.detach().unsqueeze(1)
         y_ratio = y_residual / y_span
         logit = self.cdf_siren(mods, init=y_ratio)  # type: ignore
         cdf = torch.sigmoid(logit)
