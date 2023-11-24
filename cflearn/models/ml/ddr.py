@@ -1,7 +1,6 @@
 import torch
 
 import numpy as np
-import torch.nn as nn
 import torch.nn.functional as F
 
 from torch import Tensor
@@ -22,6 +21,7 @@ from ...schema import TrainerState
 from ...schema import MLEncoderSettings
 from ...schema import MLGlobalEncoderSettings
 from ...constants import LOSS_KEY
+from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ..implicit.siren import make_grid
@@ -82,6 +82,7 @@ class DDR(MLModel):
         use_extra_modulars: bool = False,
         predict_quantiles: bool = True,
         predict_cdf: bool = True,
+        dual_period: Optional[int] = 2,
         y_min_max: Optional[Tuple[float, float]] = None,
         encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None,
         global_encoder_settings: Optional[MLGlobalEncoderSettings] = None,
@@ -127,6 +128,7 @@ class DDR(MLModel):
         use_cdf_mod = predict_cdf and use_extra_modulars
         self.q_mod = None if not use_q_mod else _make_fcnn()
         self.cdf_mod = None if not use_cdf_mod else _make_fcnn()
+        self.dual_period = dual_period
 
         self.predict_quantiles = predict_quantiles
         self.predict_cdf = predict_cdf
@@ -141,6 +143,7 @@ class DDR(MLModel):
     def forward(
         self,
         net: Tensor,
+        state: Optional[TrainerState] = None,
         *,
         get_cdf: bool = True,
         get_quantiles: bool = True,
@@ -227,10 +230,28 @@ class DDR(MLModel):
                 }
             )
         # dual forward
-        if get_quantiles and get_cdf:
+        if (
+            get_quantiles
+            and get_cdf
+            and (
+                state is None
+                or not self.training
+                or self.dual_period is None
+                or state.step % self.dual_period == 0
+            )
+        ):
             dual_y = results["quantiles"].detach()
             results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, cdf_mods)[-1]
         return results
+
+    def get_forward_args(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> Tuple[Any, ...]:
+        return batch[INPUT_KEY], state
 
     def init_with_trainer(self, trainer: ITrainer) -> None:
         if self._y_min_max is None:
