@@ -194,8 +194,8 @@ class DDR(MLModel):
             if tau is not None:
                 tau_tensor = _expand_element(num_samples, tau, device) * 2.0 - 1.0
             else:
-                shape = num_samples, self.num_random_samples, 1
                 if self.training:
+                    shape = num_samples, self.num_random_samples, 1
                     tau_tensor = torch.rand(*shape, device=device) * 2.0 - 1.0
                 else:
                     tau_tensor = _make_ddr_grid(self.num_random_samples, device)
