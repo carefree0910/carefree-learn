@@ -38,7 +38,7 @@ class DDRPredictor:
             return self.m(net, **kwargs)
 
     def median(self, x: np.ndarray) -> np.ndarray:
-        results = self._fetch(x, get_quantiles=False)
+        results = self._fetch(x, get_quantiles=False, get_cdf=False)
         return to_numpy(results[PREDICTIONS_KEY])
 
     def quantile(self, x: np.ndarray, tau: TCond) -> np.ndarray:
