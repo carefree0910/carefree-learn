@@ -165,7 +165,7 @@ class DDR(MLModel):
         *,
         get_quantiles: bool = True,
         get_cdf: bool = True,
-        get_mean: bool = False,
+        get_mean: Optional[bool] = None,
         tau: Optional[TCond] = None,
         y_anchor: Optional[TCond] = None,
     ) -> tensor_dict_type:
@@ -176,7 +176,10 @@ class DDR(MLModel):
             net = net.contiguous().view(num_samples, -1)
         get_quantiles = get_quantiles and self.predict_quantiles
         get_cdf = get_cdf and self.predict_cdf
-        if self.training:
+        if not self.training:
+            if get_mean is None and get_quantiles and self.use_mean_correction:
+                get_mean = True
+        else:
             if (
                 state is not None
                 and self.use_mean_correction
