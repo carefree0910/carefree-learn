@@ -87,6 +87,7 @@ class DDR(MLModel):
         use_dual_quantiles: bool = False,
         correction_period: Optional[int] = 2,
         use_mean_correction: bool = False,
+        num_mean_samples: int = 64,
         y_min_max: Optional[Tuple[float, float]] = None,
         encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None,
         global_encoder_settings: Optional[MLGlobalEncoderSettings] = None,
@@ -145,6 +146,7 @@ class DDR(MLModel):
             use_mean_correction = False
         self.correction_period = correction_period
         self.use_mean_correction = use_mean_correction
+        self.num_mean_samples = num_mean_samples
 
         self.predict_quantiles = predict_quantiles
         self.predict_cdf = predict_cdf
@@ -240,16 +242,12 @@ class DDR(MLModel):
             )
             ## mean forward
             if get_mean:
-                tau_mu = _make_ddr_grid(self.num_random_samples + 1, device)
+                tau_mu = _make_ddr_grid(self.num_mean_samples, device)
                 tau_mu = tau_mu.repeat(num_samples, 1, 1)
                 _, quantiles_mu = self._get_quantiles(tau_mu, q_mods, median.detach())
-                tau_normalized = 0.5 * (tau_mu + 1.0)
-                sort_indices = tau_normalized.argsort(dim=1)
-                sorted_tau = tau_normalized.gather(1, sort_indices)
-                sorted_quantiles = quantiles_mu.gather(1, sort_indices)
-                sliding_sum = sorted_quantiles[:, 1:] + sorted_quantiles[:, :-1]
-                sliding_delta_tau = sorted_tau[:, 1:] - sorted_tau[:, :-1]
-                results["mean"] = (sliding_sum * sliding_delta_tau).sum(1)
+                delta = 0.5 / self.num_mean_samples
+                sliding_sum = quantiles_mu[:, 1:] + quantiles_mu[:, :-1]
+                results["mean"] = delta * sliding_sum.sum(1)
         # cdf forward
         if get_cdf:
             if y_anchor is not None:
