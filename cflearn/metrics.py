@@ -25,8 +25,13 @@ except:
 
 @IMetric.register("acc")
 class Accuracy(IMetric):
-    def __init__(self, threshold: float = 0.5):
-        super().__init__()
+    def __init__(
+        self,
+        threshold: float = 0.5,
+        *,
+        predictions_key: Optional[str] = PREDICTIONS_KEY
+    ):
+        super().__init__(predictions_key=predictions_key)
         self.threshold = threshold
 
     @property
@@ -40,8 +45,8 @@ class Accuracy(IMetric):
 
 @IMetric.register("quantile")
 class Quantile(IMetric):
-    def __init__(self, q: Any, predictions_key: Optional[str] = PREDICTIONS_KEY):
-        super().__init__()
+    def __init__(self, q: Any, *, predictions_key: Optional[str] = PREDICTIONS_KEY):
+        super().__init__(predictions_key=predictions_key)
         if not isinstance(q, float):
             q = np.asarray(q, np.float32).reshape([1, -1])
         self.q = q
@@ -69,8 +74,13 @@ class Quantile(IMetric):
 
 @IMetric.register("f1")
 class F1Score(IMetric):
-    def __init__(self, average: str = "macro"):
-        super().__init__()
+    def __init__(
+        self,
+        average: str = "macro",
+        *,
+        predictions_key: Optional[str] = PREDICTIONS_KEY
+    ):
+        super().__init__(predictions_key=predictions_key)
         self.average = average
         if metrics is None:
             print_warning("`scikit-learn` needs to be installed for `F1Score`")
@@ -97,8 +107,8 @@ class F1Score(IMetric):
 
 @IMetric.register("r2")
 class R2Score(IMetric):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, *, predictions_key: Optional[str] = PREDICTIONS_KEY) -> None:
+        super().__init__(predictions_key=predictions_key)
         if metrics is None:
             print_warning("`scikit-learn` needs to be installed for `R2Score`")
 
@@ -114,8 +124,8 @@ class R2Score(IMetric):
 
 @IMetric.register("auc")
 class AUC(IMetric):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, *, predictions_key: Optional[str] = PREDICTIONS_KEY) -> None:
+        super().__init__(predictions_key=predictions_key)
         if metrics is None:
             print_warning("`scikit-learn` needs to be installed for `AUC`")
 
@@ -161,8 +171,8 @@ class MSE(IMetric):
 
 @IMetric.register("ber")
 class BER(IMetric):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, *, predictions_key: Optional[str] = PREDICTIONS_KEY) -> None:
+        super().__init__(predictions_key=predictions_key)
         if metrics is None:
             print_warning("`scikit-learn` needs to be installed for `AUC`")
 

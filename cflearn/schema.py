@@ -1389,8 +1389,13 @@ class IInference(WithRegister["IInference"], metaclass=ABCMeta):
 class IMetric(WithRegister["IMetric"], metaclass=ABCMeta):
     d = metric_dict
 
-    def __init__(self, *args: Any, **kwargs: Any):
-        pass
+    def __init__(
+        self,
+        *args: Any,
+        predictions_key: Optional[str] = PREDICTIONS_KEY,
+        **kwargs: Any,
+    ):
+        self.predictions_key = predictions_key
 
     # abstract
 
@@ -1423,7 +1428,7 @@ class IMetric(WithRegister["IMetric"], metaclass=ABCMeta):
         np_outputs: np_dict_type,
         loader: Optional[IDataLoader] = None,
     ) -> Tuple[Any, ...]:
-        return np_outputs[PREDICTIONS_KEY], np_batch[LABEL_KEY]
+        return np_outputs[self.predictions_key], np_batch[LABEL_KEY]
 
     # api
 
