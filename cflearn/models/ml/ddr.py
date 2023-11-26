@@ -148,8 +148,9 @@ class DDR(MLModel):
         net: Tensor,
         state: Optional[TrainerState] = None,
         *,
-        get_cdf: bool = True,
         get_quantiles: bool = True,
+        get_cdf: bool = True,
+        get_mean: bool = False,
         tau: Optional[TCond] = None,
         y_anchor: Optional[TCond] = None,
     ) -> tensor_dict_type:
@@ -160,6 +161,12 @@ class DDR(MLModel):
             net = net.contiguous().view(num_samples, -1)
         get_quantiles = get_quantiles and self.predict_quantiles
         get_cdf = get_cdf and self.predict_cdf
+        if get_mean and not get_quantiles:
+            print_warning(
+                "`get_mean` is set to `True` but `get_quantiles` is `False`, "
+                "so `get_mean` will fallback to `False`"
+            )
+            get_mean = False
         # median / modulator forward
         mods = []
         q_mods = []
@@ -209,6 +216,18 @@ class DDR(MLModel):
                     "quantiles": quantiles,
                 }
             )
+            ## mean forward
+            if get_mean:
+                tau_mu = _make_ddr_grid(self.num_random_samples + 1, device)
+                tau_mu = tau_mu.repeat(num_samples, 1, 1)
+                _, quantiles_mu = self._get_quantiles(tau_mu, q_mods, median.detach())
+                tau_normalized = 0.5 * (tau_mu + 1.0)
+                sort_indices = tau_normalized.argsort(dim=1)
+                sorted_tau = tau_normalized.gather(1, sort_indices)
+                sorted_quantiles = quantiles_mu.gather(1, sort_indices)
+                sliding_sum = sorted_quantiles[:, 1:] + sorted_quantiles[:, :-1]
+                sliding_delta_tau = sorted_tau[:, 1:] - sorted_tau[:, :-1]
+                results["mean"] = (sliding_sum * sliding_delta_tau).sum(1)
         # cdf forward
         if get_cdf:
             if y_anchor is not None:
