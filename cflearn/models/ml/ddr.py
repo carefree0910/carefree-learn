@@ -10,6 +10,7 @@ from typing import List
 from typing import Tuple
 from typing import Union
 from typing import Optional
+from cftool.misc import print_warning
 from cftool.types import tensor_dict_type
 
 from .base import MLModel
@@ -84,6 +85,8 @@ class DDR(MLModel):
         predict_cdf: bool = True,
         dual_period: Optional[int] = 2,
         use_dual_quantiles: bool = False,
+        correction_period: Optional[int] = 2,
+        use_mean_correction: bool = False,
         y_min_max: Optional[Tuple[float, float]] = None,
         encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None,
         global_encoder_settings: Optional[MLGlobalEncoderSettings] = None,
@@ -133,6 +136,16 @@ class DDR(MLModel):
         self.dual_period = dual_period
         self.use_dual_quantiles = use_dual_quantiles
 
+        if use_mean_correction and not predict_quantiles:
+            print_warning(
+                "`use_mean_correction` is set to `True` but "
+                "`predict_quantiles` is `False`, so `use_mean_correction` "
+                "will fallback to `False`"
+            )
+            use_mean_correction = False
+        self.correction_period = correction_period
+        self.use_mean_correction = use_mean_correction
+
         self.predict_quantiles = predict_quantiles
         self.predict_cdf = predict_cdf
         self.q_siren = None if not predict_quantiles else _make_siren()
@@ -161,6 +174,15 @@ class DDR(MLModel):
             net = net.contiguous().view(num_samples, -1)
         get_quantiles = get_quantiles and self.predict_quantiles
         get_cdf = get_cdf and self.predict_cdf
+        if self.training:
+            if (
+                state is not None
+                and self.use_mean_correction
+                and (self.dual_period is None or state.step % self.dual_period == 0)
+            ):
+                get_mean = True
+            else:
+                get_mean = False
         if get_mean and not get_quantiles:
             print_warning(
                 "`get_mean` is set to `True` but `get_quantiles` is `False`, "
@@ -316,11 +338,13 @@ class DDRLoss(ILoss):
         *,
         lb_ddr: float = 1.0,
         lb_dual: float = 1.0,
+        lb_correction: float = 1.0,
         lb_monotonous: float = 1.0,
     ):
         super().__init__()
         self.lb_ddr = lb_ddr
         self.lb_dual = lb_dual
+        self.lb_correction = lb_correction
         self.lb_monotonous = lb_monotonous
 
     def get_forward_args(
@@ -345,6 +369,7 @@ class DDRLoss(ILoss):
         y_anchor = forward_results.get("y_anchor")
         dual_cdf = forward_results.get("dual_cdf")
         dual_quantiles = forward_results.get("dual_quantiles")
+        mean = forward_results.get("mean")
         median = forward_results[PREDICTIONS_KEY]
         labels = batch[LABEL_KEY]
         losses = {}
@@ -353,8 +378,14 @@ class DDRLoss(ILoss):
         mae = F.l1_loss(median, labels, reduction="none")
         losses["mae"] = mae
         weighted_losses.append(mae)
-        # quantiles
+        # mean correction
+        if all_exists(mean):
+            mean_loss = F.mse_loss(mean, labels, reduction="none")
+            losses["mse"] = mean_loss
+            weighted_losses.append(self.lb_correction * mean_loss)
+        # unsqueeze labels
         labels = labels[:, None]
+        # quantiles
         if all_exists(tau, quantiles, q_increment):
             quantile_error = labels - quantiles
             tau_raw = 0.5 * (tau.detach() + 1.0)  # type: ignore
