@@ -74,6 +74,26 @@ def timestep_embedding(
     return embedding
 
 
+def _before_forward(
+    self: nn.Module,
+    net: Tensor,
+    timesteps: Tensor,
+    context: Optional[Tensor],
+    is_controlnet: bool,
+) -> None:
+    walk_spatial_transformer_hooks(
+        self,
+        lambda current, all_hooks: current.before_unet_forward(
+            net,
+            self,
+            all_hooks,
+            timesteps=timesteps,
+            context=context,
+            is_controlnet=is_controlnet,
+        ),
+    )
+
+
 class UNetDiffuser(nn.Module):
     def __init__(
         self,
@@ -274,10 +294,7 @@ class UNetDiffuser(nn.Module):
         if (labels is None) ^ (self.num_classes is None):
             raise ValueError("`labels` should be given iff `num_classes` is specified")
 
-        # hooks
-        for m in self.modules():
-            if isinstance(m, SpatialTransformerBlock):
-                m.hooks.before_unet_forward(net)
+        _before_forward(self, net, timesteps, context, False)
 
         # timenet
         time_net = timestep_embedding(
@@ -498,10 +515,7 @@ class ControlNet(nn.Module):
         timesteps: Tensor,
         context: Optional[Tensor] = None,
     ) -> List[Tensor]:
-        # hooks
-        for m in self.modules():
-            if isinstance(m, SpatialTransformerBlock):
-                m.hooks.before_unet_forward(net)
+        _before_forward(self, net, timesteps, context, True)
 
         # timenet
         time_net = timestep_embedding(

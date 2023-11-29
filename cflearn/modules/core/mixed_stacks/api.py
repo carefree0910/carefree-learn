@@ -651,7 +651,16 @@ class SpatialTransformerHooks:
 
     # callbacks
 
-    def before_unet_forward(self, net: Tensor) -> None:
+    def before_unet_forward(
+        self,
+        net: Tensor,
+        unet: nn.Module,
+        all_hooks: List["SpatialTransformerHooks"],
+        *,
+        timesteps: Tensor,
+        context: Optional[Tensor],
+        is_controlnet: bool,
+    ) -> None:
         if self.tome_info is not None:
             self.tome_info["size"] = net.shape[-2:]
 
