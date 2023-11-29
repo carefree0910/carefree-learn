@@ -1,8 +1,10 @@
 import math
 import torch
 
+import numpy as np
 import torch.nn as nn
 
+from enum import Enum
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -10,6 +12,9 @@ from typing import List
 from typing import Tuple
 from typing import Callable
 from typing import Optional
+from typing import Protocol
+from dataclasses import field
+from dataclasses import dataclass
 from torch.nn import Module
 from torch.nn import ModuleList
 from cftool.misc import filter_kw
@@ -609,6 +614,30 @@ def compute_merge(x: Tensor, tome_info: Dict[str, Any]) -> Tuple[Callable, ...]:
     return m_a, m_c, m_m, u_a, u_c, u_m
 
 
+class ReferenceMode(str, Enum):
+    READ = "read"
+    WRITE = "write"
+
+
+class GetRefNet(Protocol):
+    def __call__(self, step: int, total_step: int) -> Tensor:
+        pass
+
+
+@dataclass
+class StyleReferenceStates:
+    mode: ReferenceMode = ReferenceMode.READ
+    bank: List[Tensor] = field(default_factory=lambda: [])
+    style_fidelity: float = 0.5
+    reference_weight: float = 1.0
+    uncond_indices: Optional[List[int]] = None
+    get_ref_net: Optional[GetRefNet] = None
+    # runtime states
+    in_write: bool = False
+    is_written: bool = False
+    enable_write: bool = False
+
+
 class SpatialTransformerHooks:
     def __init__(self, m: "SpatialTransformerBlock"):
         self.m = m
@@ -616,7 +645,7 @@ class SpatialTransformerHooks:
 
     @property
     def enabled(self) -> bool:
-        return self.tome_info is not None
+        return self.tome_info is not None or self.style_reference_states is not None
 
     def setup(
         self,
@@ -637,6 +666,11 @@ class SpatialTransformerHooks:
             self.tome_info.setdefault("merge_attn", True)
             self.tome_info.setdefault("merge_crossattn", False)
             self.tome_info.setdefault("merge_mlp", False)
+        # style reference
+        if style_reference_states is None:
+            self.style_reference_states = None
+        else:
+            self.style_reference_states = StyleReferenceStates(**style_reference_states)
 
     def forward(self, net: Tensor, context: Optional[Tensor] = None) -> Tensor:
         if self.tome_info is not None:
@@ -644,6 +678,36 @@ class SpatialTransformerHooks:
             net = u_a(self.m.attn1(m_a(self.m.norm1(net)))) + net
             net = u_c(self.m.attn2(m_c(self.m.norm2(net)), context=context)) + net
             net = u_m(self.m.ff(m_m(self.m.norm3(net)))) + net
+            return net
+        if self.style_reference_states is not None:
+            net_norm1 = self.m.norm1(net)
+            net_attn1 = None
+            if self.style_reference_states.mode == ReferenceMode.WRITE:
+                if self.style_reference_states.enable_write:
+                    self.style_reference_states.bank.append(net_norm1.detach().clone())
+                self.style_reference_states.is_written = True
+            elif self.style_reference_states.mode == ReferenceMode.READ:
+                bank = self.style_reference_states.bank
+                if len(bank) > 0:
+                    bank_ctx = torch.cat([net_norm1] + bank, dim=1)
+                    net_attn1 = self.m.attn1(net_norm1, context=bank_ctx)
+                    style_cfg = self.style_reference_states.style_fidelity
+                    uc_indices = self.style_reference_states.uncond_indices
+                    if uc_indices and style_cfg > 1.0e-5:
+                        net_attn1_original_uc = net_attn1.clone()
+                        net_norm1_uc = net_norm1[uc_indices]
+                        net_attn1_original_uc[uc_indices] = self.m.attn1(net_norm1_uc)
+                        net_attn1 = (
+                            style_cfg * net_attn1_original_uc
+                            + (1.0 - style_cfg) * net_attn1
+                        )
+                    bank.clear()
+                self.style_reference_states.is_written = False
+            if net_attn1 is None:
+                net_attn1 = self.m.attn1(net_norm1)
+            net = net_attn1.to(net.dtype) + net
+            net = self.m.attn2(self.m.norm2(net), context=context) + net
+            net = self.m.ff(self.m.norm3(net)) + net
             return net
         raise ValueError(
             "`SpatialTransformerHooks` is not enabled, "
@@ -664,6 +728,37 @@ class SpatialTransformerHooks:
     ) -> None:
         if self.tome_info is not None:
             self.tome_info["size"] = net.shape[-2:]
+        if self.style_reference_states is not None:
+            if is_controlnet:
+                return
+            if self.style_reference_states.in_write:
+                return
+            if self.style_reference_states.is_written:
+                return
+            if self.style_reference_states.get_ref_net is None:
+                return
+
+            attn_ms = [hooks.m for hooks in all_hooks]
+            pivots = [-m.norm1.normalized_shape[0] for m in attn_ms]
+            sorted_indices: List[int] = np.argsort(pivots).tolist()
+            sorted_hooks = [all_hooks[i] for i in sorted_indices]
+            num_hooks = len(sorted_hooks)
+            for i, hooks in enumerate(sorted_hooks):
+                if hooks.style_reference_states is not None:
+                    w = i / num_hooks
+                    ref_w = hooks.style_reference_states.reference_weight
+                    hooks.style_reference_states.enable_write = ref_w > w
+                    hooks.style_reference_states.mode = ReferenceMode.WRITE
+                    hooks.style_reference_states.in_write = True
+
+            ref_net = self.style_reference_states.get_ref_net(timesteps)
+            unet.forward(ref_net, timesteps=timesteps, context=context)
+            for hooks in sorted_hooks:
+                if hooks.style_reference_states is not None:
+                    hooks.style_reference_states.mode = ReferenceMode.READ
+                    hooks.style_reference_states.in_write = False
+
+
 class SpatialTransformerBlock(Module):
     def __init__(
         self,
