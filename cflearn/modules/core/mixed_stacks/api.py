@@ -791,8 +791,40 @@ class SpatialTransformer(Module):
         return inp + net
 
 
+class HooksCallback(Protocol):
+    def __call__(
+        self,
+        current: SpatialTransformerHooks,
+        all_hooks: SpatialTransformerHooks,
+    ) -> None:
+        pass
+
+
+def walk_spatial_transformer_blocks(
+    m: nn.Module,
+    fn: Callable[[SpatialTransformerBlock], None],
+) -> None:
+    for child in m.modules():
+        if isinstance(child, SpatialTransformerBlock):
+            fn(child)
+
+
+def walk_spatial_transformer_hooks(
+    m: nn.Module,
+    fn: Optional[HooksCallback] = None,
+) -> List[SpatialTransformerHooks]:
+    all_hooks: List[SpatialTransformerHooks] = []
+    walk_spatial_transformer_blocks(m, lambda block: all_hooks.append(block.hooks))
+    if fn is not None:
+        for hooks in all_hooks:
+            fn(hooks, all_hooks)
+    return all_hooks
+
+
 __all__ = [
     "MixedStackedEncoder",
     "SpatialTransformerBlock",
     "SpatialTransformer",
+    "walk_spatial_transformer_blocks",
+    "walk_spatial_transformer_hooks",
 ]
