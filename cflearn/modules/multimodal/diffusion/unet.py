@@ -12,9 +12,9 @@ from typing import Tuple
 from typing import Optional
 
 from ...core import conv_nd
+from ...core import walk_spatial_transformer_hooks
 from ...core import HijackLinear
 from ...core import SpatialTransformer
-from ...core import SpatialTransformerBlock
 from ...core import MultiHeadSpatialAttention
 from ...core import ResidualBlockWithTimeEmbedding
 from ...core import ResUpsample
@@ -259,9 +259,7 @@ class UNetDiffuser(nn.Module):
         )
 
     def setup_hooks(self, **hooks_kwargs: Any) -> None:
-        for m in self.modules():
-            if isinstance(m, SpatialTransformer):
-                m.setup_hooks(**hooks_kwargs)
+        walk_spatial_transformer_hooks(self, lambda h, _: h.setup(**hooks_kwargs))
 
     def forward(
         self,
@@ -490,9 +488,7 @@ class ControlNet(nn.Module):
         )
 
     def setup_hooks(self, **hooks_kwargs: Any) -> None:
-        for m in self.modules():
-            if isinstance(m, SpatialTransformer):
-                m.setup_hooks(**hooks_kwargs)
+        walk_spatial_transformer_hooks(self, lambda m, _: m.setup(**hooks_kwargs))
 
     def forward(
         self,
