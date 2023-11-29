@@ -179,14 +179,17 @@ class ISampler(WithRegister):
             cond = self.model._get_cond(cond)
         inpainting_ref_one_more_step = kwargs.get("inpainting_ref_one_more_step", False)
         for step in iterator:
+            # callback
             callback = kwargs.get("step_callback")
             if callback is not None:
                 callback_kw = dict(step=step, num_steps=num_steps, image=image)
                 if not safe_execute(callback, callback_kw):
                     break
+            # sample
             kw = shallow_copy_dict(self.sample_kwargs)
             update_dict(shallow_copy_dict(kwargs), kw)
             image = self.sample_step(image, cond, step, num_steps, **kw)
+            # inpainting reference
             if ref is not None and ref_mask is not None and ref_noise is not None:
                 t_prev = num_steps - step - 1
                 if inpainting_ref_one_more_step:
