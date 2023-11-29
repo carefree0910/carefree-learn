@@ -53,7 +53,7 @@ class LDM(DDPM):
         use_linear_in_transformer: bool = False,
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
-        tome_info: Optional[Dict[str, Any]] = None,
+        hooks_kwargs: Optional[Dict[str, Any]] = None,
         # first stage
         first_stage: str,
         first_stage_config: Optional[Dict[str, Any]] = None,
@@ -117,7 +117,7 @@ class LDM(DDPM):
             use_linear_in_transformer=use_linear_in_transformer,
             use_checkpoint=use_checkpoint,
             attn_split_chunk=attn_split_chunk,
-            tome_info=tome_info,
+            hooks_kwargs=hooks_kwargs,
             ema_decay=ema_decay,
             use_num_updates_in_ema=use_num_updates_in_ema,
             parameterization=parameterization,

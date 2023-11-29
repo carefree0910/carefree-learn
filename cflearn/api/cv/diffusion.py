@@ -1397,10 +1397,10 @@ class DiffusionAPI(APIMixin):
         with self.load_context(ignore_lora=False):
             self.m.set_lora_scales(scales)
 
-    # tomesd
+    # hooks
 
-    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
-        self.m.unet.set_tome_info(tome_info)
+    def setup_hooks(self, **hooks_kwargs: Any) -> None:
+        self.m.unet.setup_hooks(**hooks_kwargs)
 
     # constructors
 
@@ -1854,14 +1854,14 @@ class ControlledDiffusionAPI(DiffusionAPI):
     def available_control_hints(self) -> List[ControlNetHints]:
         return list(self.controlnet_weights)
 
-    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
-        super().set_tome_info(tome_info)
+    def setup_hooks(self, **hooks_kwargs: Any) -> None:
+        super().setup_hooks(**hooks_kwargs)
         if self.control_model is not None:
             if isinstance(self.control_model, ControlNet):
-                self.control_model.set_tome_info(tome_info)
+                self.control_model.setup_hooks(**hooks_kwargs)
             else:
                 for m in self.control_model.values():
-                    m.set_tome_info(tome_info)
+                    m.setup_hooks(**hooks_kwargs)
 
     def prepare_control(self, hints2tags: Dict[ControlNetHints, str]) -> None:
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)

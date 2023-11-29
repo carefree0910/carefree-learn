@@ -17,6 +17,7 @@ from ....modules.blocks import HijackLinear
 from ....modules.blocks import SpatialTransformer
 from ....modules.blocks import MultiHeadSpatialAttention
 from ....modules.blocks import ResidualBlockWithTimeEmbedding
+from ....modules.blocks.mixed_stacks import walk_spatial_transformer_hooks
 from ....modules.blocks.convs.residual import ResUpsample
 from ....modules.blocks.convs.residual import ResDownsample
 
@@ -73,6 +74,26 @@ def timestep_embedding(
     return embedding
 
 
+def _before_forward(
+    self: nn.Module,
+    net: Tensor,
+    timesteps: Tensor,
+    context: Optional[Tensor],
+    is_controlnet: bool,
+) -> None:
+    walk_spatial_transformer_hooks(
+        self,
+        lambda current, all_hooks: current.before_unet_forward(
+            net,
+            self,
+            all_hooks,
+            timesteps=timesteps,
+            context=context,
+            is_controlnet=is_controlnet,
+        ),
+    )
+
+
 class UNetDiffuser(nn.Module):
     def __init__(
         self,
@@ -98,7 +119,7 @@ class UNetDiffuser(nn.Module):
         # misc
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
-        tome_info: Optional[Dict[str, Any]] = None,
+        hooks_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -169,7 +190,7 @@ class UNetDiffuser(nn.Module):
                 use_linear=use_linear_in_transformer,
                 use_checkpoint=use_checkpoint,
                 attn_split_chunk=attn_split_chunk,
-                tome_info=tome_info,
+                hooks_kwargs=hooks_kwargs,
             )
 
         def make_downsample(in_c: int, out_c: int) -> TimestepAttnSequential:
@@ -257,10 +278,8 @@ class UNetDiffuser(nn.Module):
             zero_module(head_conv),
         )
 
-    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
-        for m in self.modules():
-            if isinstance(m, SpatialTransformer):
-                m.set_tome_info(tome_info)
+    def setup_hooks(self, **hooks_kwargs: Any) -> None:
+        walk_spatial_transformer_hooks(self, lambda h, _: h.setup(**hooks_kwargs))
 
     def forward(
         self,
@@ -275,12 +294,7 @@ class UNetDiffuser(nn.Module):
         if (labels is None) ^ (self.num_classes is None):
             raise ValueError("`labels` should be given iff `num_classes` is specified")
 
-        # tomesd
-        for m in self.modules():
-            if isinstance(m, SpatialTransformer):
-                for block in m.blocks:
-                    if block.tome_info is not None:
-                        block.tome_info["size"] = net.shape[-2:]
+        _before_forward(self, net, timesteps, context, False)
 
         # timenet
         time_net = timestep_embedding(
@@ -337,7 +351,7 @@ class ControlNet(nn.Module):
         # misc
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
-        tome_info: Optional[Dict[str, Any]] = None,
+        hooks_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -408,7 +422,7 @@ class ControlNet(nn.Module):
                 use_linear=use_linear_in_transformer,
                 use_checkpoint=use_checkpoint,
                 attn_split_chunk=attn_split_chunk,
-                tome_info=tome_info,
+                hooks_kwargs=hooks_kwargs,
             )
 
         def make_downsample(in_c: int, out_c: int) -> TimestepAttnSequential:
@@ -490,10 +504,8 @@ class ControlNet(nn.Module):
             zero_module(conv_nd(self.signal_dim, channels, channels, 1, padding=0))
         )
 
-    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
-        for m in self.modules():
-            if isinstance(m, SpatialTransformer):
-                m.set_tome_info(tome_info)
+    def setup_hooks(self, **hooks_kwargs: Any) -> None:
+        walk_spatial_transformer_hooks(self, lambda m, _: m.setup(**hooks_kwargs))
 
     def forward(
         self,
@@ -503,12 +515,7 @@ class ControlNet(nn.Module):
         timesteps: Tensor,
         context: Optional[Tensor] = None,
     ) -> List[Tensor]:
-        # tomesd
-        for m in self.modules():
-            if isinstance(m, SpatialTransformer):
-                for block in m.blocks:
-                    if block.tome_info is not None:
-                        block.tome_info["size"] = net.shape[-2:]
+        _before_forward(self, net, timesteps, context, True)
 
         # timenet
         time_net = timestep_embedding(
