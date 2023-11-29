@@ -14,6 +14,7 @@ from typing import Optional
 from ...core import conv_nd
 from ...core import HijackLinear
 from ...core import SpatialTransformer
+from ...core import SpatialTransformerBlock
 from ...core import MultiHeadSpatialAttention
 from ...core import ResidualBlockWithTimeEmbedding
 from ...core import ResUpsample
@@ -98,7 +99,7 @@ class UNetDiffuser(nn.Module):
         # misc
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
-        tome_info: Optional[Dict[str, Any]] = None,
+        hooks_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -169,7 +170,7 @@ class UNetDiffuser(nn.Module):
                 use_linear=use_linear_in_transformer,
                 use_checkpoint=use_checkpoint,
                 attn_split_chunk=attn_split_chunk,
-                tome_info=tome_info,
+                hooks_kwargs=hooks_kwargs,
             )
 
         def make_downsample(in_c: int, out_c: int) -> TimestepAttnSequential:
@@ -257,10 +258,10 @@ class UNetDiffuser(nn.Module):
             zero_module(head_conv),
         )
 
-    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
+    def setup_hooks(self, **hooks_kwargs: Any) -> None:
         for m in self.modules():
             if isinstance(m, SpatialTransformer):
-                m.set_tome_info(tome_info)
+                m.setup_hooks(**hooks_kwargs)
 
     def forward(
         self,
@@ -275,12 +276,10 @@ class UNetDiffuser(nn.Module):
         if (labels is None) ^ (self.num_classes is None):
             raise ValueError("`labels` should be given iff `num_classes` is specified")
 
-        # tomesd
+        # hooks
         for m in self.modules():
-            if isinstance(m, SpatialTransformer):
-                for block in m.blocks:
-                    if block.tome_info is not None:
-                        block.tome_info["size"] = net.shape[-2:]
+            if isinstance(m, SpatialTransformerBlock):
+                m.hooks.before_unet_forward(net)
 
         # timenet
         time_net = timestep_embedding(
@@ -337,7 +336,7 @@ class ControlNet(nn.Module):
         # misc
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
-        tome_info: Optional[Dict[str, Any]] = None,
+        hooks_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -408,7 +407,7 @@ class ControlNet(nn.Module):
                 use_linear=use_linear_in_transformer,
                 use_checkpoint=use_checkpoint,
                 attn_split_chunk=attn_split_chunk,
-                tome_info=tome_info,
+                hooks_kwargs=hooks_kwargs,
             )
 
         def make_downsample(in_c: int, out_c: int) -> TimestepAttnSequential:
@@ -490,10 +489,10 @@ class ControlNet(nn.Module):
             zero_module(conv_nd(self.signal_dim, channels, channels, 1, padding=0))
         )
 
-    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
+    def setup_hooks(self, **hooks_kwargs: Any) -> None:
         for m in self.modules():
             if isinstance(m, SpatialTransformer):
-                m.set_tome_info(tome_info)
+                m.setup_hooks(**hooks_kwargs)
 
     def forward(
         self,
@@ -503,12 +502,10 @@ class ControlNet(nn.Module):
         timesteps: Tensor,
         context: Optional[Tensor] = None,
     ) -> List[Tensor]:
-        # tomesd
+        # hooks
         for m in self.modules():
-            if isinstance(m, SpatialTransformer):
-                for block in m.blocks:
-                    if block.tome_info is not None:
-                        block.tome_info["size"] = net.shape[-2:]
+            if isinstance(m, SpatialTransformerBlock):
+                m.hooks.before_unet_forward(net)
 
         # timenet
         time_net = timestep_embedding(

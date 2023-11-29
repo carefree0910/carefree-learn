@@ -12,7 +12,6 @@ from typing import Callable
 from typing import Optional
 from torch.nn import Module
 from torch.nn import ModuleList
-from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 
 from .common import build_token_mixer
@@ -610,6 +609,53 @@ def compute_merge(x: Tensor, tome_info: Dict[str, Any]) -> Tuple[Callable, ...]:
     return m_a, m_c, m_m, u_a, u_c, u_m
 
 
+class SpatialTransformerHooks:
+    def __init__(self, m: "SpatialTransformerBlock"):
+        self.m = m
+        self.setup()
+
+    @property
+    def enabled(self) -> bool:
+        return self.tome_info is not None
+
+    def setup(
+        self,
+        *,
+        tome_info: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        # tomesd (https://github.com/dbolya/tomesd)
+        if tome_info is None:
+            self.tome_info = None
+        else:
+            self.tome_info = shallow_copy_dict(tome_info)
+            self.tome_info.setdefault("ratio", 0.5)
+            self.tome_info.setdefault("max_downsample", 1)
+            self.tome_info.setdefault("sx", 2)
+            self.tome_info.setdefault("sy", 2)
+            self.tome_info.setdefault("use_rand", True)
+            self.tome_info.setdefault("merge_attn", True)
+            self.tome_info.setdefault("merge_crossattn", False)
+            self.tome_info.setdefault("merge_mlp", False)
+
+    def forward(self, net: Tensor, context: Optional[Tensor] = None) -> Tensor:
+        if self.tome_info is not None:
+            m_a, m_c, m_m, u_a, u_c, u_m = compute_merge(net, self.tome_info)
+            net = u_a(self.m.attn1(m_a(self.m.norm1(net)))) + net
+            net = u_c(self.m.attn2(m_c(self.m.norm2(net)), context=context)) + net
+            net = u_m(self.m.ff(m_m(self.m.norm3(net)))) + net
+            return net
+        raise ValueError(
+            "`SpatialTransformerHooks` is not enabled, "
+            "so its `forward` method should not be called."
+        )
+
+    # callbacks
+
+    def before_unet_forward(self, net: Tensor) -> None:
+        if self.tome_info is not None:
+            self.tome_info["size"] = net.shape[-2:]
+
+
 class SpatialTransformerBlock(Module):
     def __init__(
         self,
@@ -623,7 +669,7 @@ class SpatialTransformerBlock(Module):
         feedforward_activation: str = "geglu",
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
-        tome_info: Optional[Dict[str, Any]] = None,
+        hooks_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.attn1 = CrossAttention(
@@ -653,22 +699,11 @@ class SpatialTransformerBlock(Module):
         self.norm2 = nn.LayerNorm(query_dim)
         self.norm3 = nn.LayerNorm(query_dim)
         self.use_checkpoint = use_checkpoint
-        self.set_tome_info(tome_info)
+        self.hooks = SpatialTransformerHooks(self)
+        self.setup_hooks(**(hooks_kwargs or {}))
 
-    # tomesd (https://github.com/dbolya/tomesd)
-    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
-        if tome_info is None:
-            self.tome_info = None
-        else:
-            self.tome_info = shallow_copy_dict(tome_info)
-            self.tome_info.setdefault("ratio", 0.5)
-            self.tome_info.setdefault("max_downsample", 1)
-            self.tome_info.setdefault("sx", 2)
-            self.tome_info.setdefault("sy", 2)
-            self.tome_info.setdefault("use_rand", True)
-            self.tome_info.setdefault("merge_attn", True)
-            self.tome_info.setdefault("merge_crossattn", False)
-            self.tome_info.setdefault("merge_mlp", False)
+    def setup_hooks(self, **hooks_kwargs: Any) -> None:
+        self.hooks.setup(**hooks_kwargs)
 
     def forward(self, net: Tensor, context: Optional[Tensor] = None) -> Tensor:
         inputs = (net,) if context is None else (net, context)
@@ -680,15 +715,11 @@ class SpatialTransformerBlock(Module):
         )
 
     def _forward(self, net: Tensor, context: Optional[Tensor] = None) -> Tensor:
-        if self.tome_info is None:
-            net = self.attn1(self.norm1(net)) + net
-            net = self.attn2(self.norm2(net), context=context) + net
-            net = self.ff(self.norm3(net)) + net
-        else:
-            m_a, m_c, m_m, u_a, u_c, u_m = compute_merge(net, self.tome_info)
-            net = u_a(self.attn1(m_a(self.norm1(net)))) + net
-            net = u_c(self.attn2(m_c(self.norm2(net)), context=context)) + net
-            net = u_m(self.ff(m_m(self.norm3(net)))) + net
+        if self.hooks.enabled:
+            return self.hooks.forward(net, context)
+        net = self.attn1(self.norm1(net)) + net
+        net = self.attn2(self.norm2(net), context=context) + net
+        net = self.ff(self.norm3(net)) + net
         return net
 
 
@@ -705,7 +736,7 @@ class SpatialTransformer(Module):
         use_linear: bool = False,
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
-        tome_info: Optional[Dict[str, Any]] = None,
+        hooks_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.norm = nn.GroupNorm(32, in_channels, 1.0e-6, affine=True)
@@ -725,7 +756,7 @@ class SpatialTransformer(Module):
                     context_dim=context_dim,
                     use_checkpoint=use_checkpoint,
                     attn_split_chunk=attn_split_chunk,
-                    tome_info=tome_info,
+                    hooks_kwargs=hooks_kwargs,
                 )
                 for _ in range(num_layers)
             ]
@@ -736,9 +767,9 @@ class SpatialTransformer(Module):
             else HijackLinear(in_channels, latent_channels)
         )
 
-    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
+    def setup_hooks(self, **hooks_kwargs: Any) -> None:
         for block in self.blocks:
-            block.set_tome_info(tome_info)
+            block.setup_hooks(**hooks_kwargs)
 
     def forward(self, net: Tensor, context: Optional[Tensor]) -> Tensor:
         inp = net
@@ -762,5 +793,6 @@ class SpatialTransformer(Module):
 
 __all__ = [
     "MixedStackedEncoder",
+    "SpatialTransformerBlock",
     "SpatialTransformer",
 ]
