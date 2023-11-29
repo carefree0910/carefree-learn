@@ -620,7 +620,7 @@ class ReferenceMode(str, Enum):
 
 
 class GetRefNet(Protocol):
-    def __call__(self, step: int, total_step: int) -> Tensor:
+    def __call__(self, timesteps: Tensor) -> Tensor:
         pass
 
 
@@ -898,7 +898,7 @@ class HooksCallback(Protocol):
     def __call__(
         self,
         current: SpatialTransformerHooks,
-        all_hooks: SpatialTransformerHooks,
+        all_hooks: List[SpatialTransformerHooks],
     ) -> None:
         pass
 
