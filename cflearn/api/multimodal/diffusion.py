@@ -1673,8 +1673,12 @@ class ControlledDiffusionAPI(DiffusionAPI):
     def available_control_hints(self) -> List[ControlNetHints]:
         return list(self.controlnet_weights)
 
-    def setup_hooks(self, **hooks_kwargs: Any) -> None:
-        super().setup_hooks(**hooks_kwargs)
+    def setup_hooks(
+        self,
+        style_reference_image: Optional[Union[str, Image.Image]] = None,
+        **hooks_kwargs: Any,
+    ) -> None:
+        super().setup_hooks(style_reference_image=style_reference_image, **hooks_kwargs)
         if self.control_model is not None:
             if isinstance(self.control_model, ControlNet):
                 self.control_model.setup_hooks(**hooks_kwargs)
