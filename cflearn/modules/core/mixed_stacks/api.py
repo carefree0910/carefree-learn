@@ -926,6 +926,7 @@ def walk_spatial_transformer_hooks(
 
 __all__ = [
     "MixedStackedEncoder",
+    "SpatialTransformerHooks",
     "SpatialTransformerBlock",
     "SpatialTransformer",
     "walk_spatial_transformer_blocks",
