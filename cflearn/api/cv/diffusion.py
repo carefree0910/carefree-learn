@@ -73,7 +73,9 @@ from ...misc.toolkit import download_model
 from ...misc.toolkit import download_static
 from ...misc.toolkit import seed_everything
 from ...misc.toolkit import eval_context
+from ...modules.blocks import walk_spatial_transformer_hooks
 from ...modules.blocks import Conv2d
+from ...modules.blocks import SpatialTransformerHooks
 from ...models.cv.diffusion import LDM
 from ...models.cv.diffusion import DDPM
 from ...models.cv.diffusion import ISampler
@@ -443,6 +445,12 @@ def inject_inpainting_sampler_settings(kwargs: Dict[str, Any]) -> None:
     kwargs["discretize"] = "uniform_ensure_start"
 
 
+def inject_uncond_indices(hooks: SpatialTransformerHooks, num_samples: int) -> None:
+    states = hooks.style_reference_states
+    if states is not None:
+        states.uncond_indices = list(range(num_samples, num_samples * 2))
+
+
 class DiffusionAPI(APIMixin):
     m: DDPM
     sampler: ISampler
@@ -722,6 +730,10 @@ class DiffusionAPI(APIMixin):
             self.sampler.uncond = uncond.clone()
             self.sampler.unconditional_cond = uncond.clone()
         highres_info = kwargs.get("highres_info")
+        walk_spatial_transformer_hooks(
+            self.m.unet,
+            lambda h, _: inject_uncond_indices(h, num_samples),
+        )
         with eval_context(self.m, use_inference=self._use_inference_mode):
             with self.amp_context:
                 for i, batch in enumerate(iterator):
@@ -1399,8 +1411,26 @@ class DiffusionAPI(APIMixin):
 
     # hooks
 
-    def setup_hooks(self, **hooks_kwargs: Any) -> None:
-        self.m.unet.setup_hooks(**hooks_kwargs)
+    def setup_hooks(
+        self,
+        *,
+        style_reference_image: Optional[Union[str, Image.Image]] = None,
+        **hooks_kwargs: Any,
+    ) -> None:
+        def mutate_states(hooks: SpatialTransformerHooks) -> None:
+            if style_reference_image is None:
+                return
+            if hooks.style_reference_states is None:
+                return
+            def get_ref_net(timesteps: Tensor) -> Tensor:
+                timesteps = torch.round(timesteps.float()).long()
+                return self.m.q_sampler.q_sample(ref_z, timesteps)
+            ref_image = read_image(style_reference_image, None, anchor=64).image
+            ref_z = self._get_z(ref_image)
+            hooks.style_reference_states.get_ref_net = get_ref_net
+        unet = self.m.unet
+        unet.setup_hooks(**hooks_kwargs)
+        walk_spatial_transformer_hooks(unet, lambda hooks, _: mutate_states(hooks))
 
     # constructors
 
