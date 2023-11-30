@@ -448,7 +448,7 @@ def inject_inpainting_sampler_settings(kwargs: Dict[str, Any]) -> None:
 def inject_uncond_indices(hooks: SpatialTransformerHooks, num_samples: int) -> None:
     states = hooks.style_reference_states
     if states is not None:
-        states.uncond_indices = list(range(num_samples, num_samples * 2))
+        states.uncond_indices = list(range(num_samples))
 
 
 class DiffusionAPI(APIMixin):
