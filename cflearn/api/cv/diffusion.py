@@ -1422,12 +1422,15 @@ class DiffusionAPI(APIMixin):
                 return
             if hooks.style_reference_states is None:
                 return
+
             def get_ref_net(timesteps: Tensor) -> Tensor:
                 timesteps = torch.round(timesteps.float()).long()
                 return self.m.q_sampler.q_sample(ref_z, timesteps)
+
             ref_image = read_image(style_reference_image, None, anchor=64).image
             ref_z = self._get_z(ref_image)
             hooks.style_reference_states.get_ref_net = get_ref_net
+
         unet = self.m.unet
         unet.setup_hooks(**hooks_kwargs)
         walk_spatial_transformer_hooks(unet, lambda hooks, _: mutate_states(hooks))
@@ -1884,8 +1887,12 @@ class ControlledDiffusionAPI(DiffusionAPI):
     def available_control_hints(self) -> List[ControlNetHints]:
         return list(self.controlnet_weights)
 
-    def setup_hooks(self, **hooks_kwargs: Any) -> None:
-        super().setup_hooks(**hooks_kwargs)
+    def setup_hooks(
+        self,
+        style_reference_image: Optional[Union[str, Image.Image]] = None,
+        **hooks_kwargs: Any,
+    ) -> None:
+        super().setup_hooks(style_reference_image=style_reference_image, **hooks_kwargs)
         if self.control_model is not None:
             if isinstance(self.control_model, ControlNet):
                 self.control_model.setup_hooks(**hooks_kwargs)
