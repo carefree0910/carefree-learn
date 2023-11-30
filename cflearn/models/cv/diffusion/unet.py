@@ -505,7 +505,7 @@ class ControlNet(nn.Module):
         )
 
     def setup_hooks(self, **hooks_kwargs: Any) -> None:
-        walk_spatial_transformer_hooks(self, lambda m, _: m.setup(**hooks_kwargs))
+        walk_spatial_transformer_hooks(self, lambda h, _: h.setup(**hooks_kwargs))
 
     def forward(
         self,
