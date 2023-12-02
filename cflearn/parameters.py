@@ -26,6 +26,11 @@ class OPTClass(OPTBase):
     def data_cache_dir(self) -> Path:
         return self.cache_dir / "data"
 
+    def update_from_env(self) -> None:
+        super().update_from_env()
+        self._opt["cache_dir"] = Path(self._opt["cache_dir"])
+        self._opt["external_dir"] = Path(self._opt["external_dir"])
+
 
 OPT = OPTClass()
 
