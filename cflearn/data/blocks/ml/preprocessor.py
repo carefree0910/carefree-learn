@@ -1,0 +1,223 @@
+import numpy as np
+
+from enum import Enum
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+from dataclasses import dataclass
+from cftool.misc import safe_execute
+from cftool.misc import shallow_copy_dict
+from cftool.array import normalize
+from cftool.array import normalize_from
+from cftool.array import recover_normalize_from
+from cftool.array import min_max_normalize
+from cftool.array import min_max_normalize_from
+from cftool.array import recover_min_max_normalize_from
+from cftool.array import quantile_normalize
+from cftool.array import quantile_normalize_from
+from cftool.array import recover_quantile_normalize_from
+
+from .file import FileParserBlock
+from .recognizer import RecognizerBlock
+from ....schema import DataBundle
+from ....schema import ColumnTypes
+from ....schema import INoInitDataBlock
+
+
+class PreProcessMethods(str, Enum):
+    MIN_MAX = "min_max"
+    NORMALIZE = "normalize"
+    QUANTILE_NORMALIZE = "quantile_normalize"
+
+
+fn_mapping = {
+    PreProcessMethods.MIN_MAX: min_max_normalize,
+    PreProcessMethods.NORMALIZE: normalize,
+    PreProcessMethods.QUANTILE_NORMALIZE: quantile_normalize,
+}
+fn_with_stats_mapping = {
+    PreProcessMethods.MIN_MAX: min_max_normalize_from,
+    PreProcessMethods.NORMALIZE: normalize_from,
+    PreProcessMethods.QUANTILE_NORMALIZE: quantile_normalize_from,
+}
+recover_fn_mapping = {
+    PreProcessMethods.MIN_MAX: recover_min_max_normalize_from,
+    PreProcessMethods.NORMALIZE: recover_normalize_from,
+    PreProcessMethods.QUANTILE_NORMALIZE: recover_quantile_normalize_from,
+}
+
+
+@dataclass
+class MLPreProcessConfig:
+    auto_preprocess: bool = True
+    preprocess_methods: Optional[Dict[str, PreProcessMethods]] = None
+    preprocess_configs: Optional[Dict[str, Dict[str, Any]]] = None
+    label_preprocess_methods: Optional[Dict[str, PreProcessMethods]] = None
+    label_preprocess_configs: Optional[Dict[str, Dict[str, Any]]] = None
+
+
+def _fit_transform(
+    data: np.ndarray,
+    target: List[int],
+    auto_preprocess: bool,
+    preprocess_methods: Dict[str, PreProcessMethods],
+    preprocess_configs: Dict[str, Dict[str, Any]],
+    methods: Dict[str, PreProcessMethods],
+    all_stats: Dict[str, Dict[str, float]],
+) -> None:
+    for idx in target:
+        str_idx = str(idx)
+        method = preprocess_methods.get(str_idx)
+        if method is None and not auto_preprocess:
+            continue
+        if method is None:
+            method = PreProcessMethods.NORMALIZE
+        fn = fn_mapping.get(method)
+        if fn is None:
+            raise ValueError(f"unrecognized method '{method}' occurred")
+        kw = shallow_copy_dict(preprocess_configs.get(str_idx, {}))
+        kw["arr"] = data[..., idx]
+        kw["return_stats"] = True
+        array, stats = safe_execute(fn, kw)
+        data[..., idx] = array
+        methods[str_idx] = method
+        all_stats[str_idx] = stats
+
+
+def _transform(
+    data: np.ndarray,
+    methods: Dict[str, PreProcessMethods],
+    all_stats: Dict[str, Dict[str, float]],
+    mapping: Dict[PreProcessMethods, Any],
+) -> None:
+    for str_idx, stats in all_stats.items():
+        idx = int(str_idx)
+        fn = mapping[methods[str_idx]]
+        data[..., idx] = fn(data[..., idx], stats)
+
+
+@INoInitDataBlock.register("ml_preprocessor")
+class PreProcessorBlock(INoInitDataBlock):
+    config: MLPreProcessConfig  # type: ignore
+    methods: Dict[str, PreProcessMethods]
+    stats: Dict[str, Dict[str, float]]
+    label_methods: Dict[str, PreProcessMethods]
+    label_stats: Dict[str, Dict[str, float]]
+
+    # inheritance
+
+    def to_info(self) -> Dict[str, Any]:
+        return dict(
+            methods=self.methods,
+            stats=self.stats,
+            label_methods=self.label_methods,
+            label_stats=self.label_stats,
+        )
+
+    def transform(self, bundle: DataBundle, for_inference: bool) -> DataBundle:
+        self._transform_x(bundle.x_train)  # type: ignore
+        if bundle.y_train is not None:
+            self._transform_y(bundle.y_train)  # type: ignore
+        if bundle.x_valid is not None:
+            self._transform_x(bundle.x_valid)  # type: ignore
+        if bundle.y_valid is not None:
+            self._transform_y(bundle.y_valid)  # type: ignore
+        return bundle
+
+    def fit_transform(self, bundle: DataBundle) -> DataBundle:
+        x_train = bundle.x_train
+        y_train = bundle.y_train
+        if not isinstance(x_train, np.ndarray):
+            raise ValueError("`PreProcessorBlock` should be used on numpy features.")
+        if not isinstance(y_train, np.ndarray):
+            raise ValueError("`PreProcessorBlock` should be used on numpy labels.")
+        recognizer = self.recognizer
+        if recognizer is None:
+            x_target = list(range(x_train.shape[-1]))
+            y_target = list(range(y_train.shape[-1]))
+        else:
+            mapping = recognizer.index_mapping
+            x_target = [
+                mapping[str_idx]
+                for str_idx, column_type in recognizer.feature_types.items()
+                if column_type == ColumnTypes.NUMERICAL
+            ]
+            y_target = [
+                int(str_idx)
+                for str_idx, column_type in recognizer.label_types.items()
+                if column_type == ColumnTypes.NUMERICAL
+            ]
+        preprocess_methods = self._convert_keys(self.config.preprocess_methods)
+        preprocess_configs = self._convert_keys(self.config.preprocess_configs)
+        l_preprocess_methods = self._convert_keys(self.config.label_preprocess_methods)
+        l_preprocess_configs = self._convert_keys(self.config.label_preprocess_configs)
+
+        self.methods = {}
+        self.stats = {}
+        self.label_methods = {}
+        self.label_stats = {}
+        _fit_transform(
+            x_train,
+            x_target,
+            self.config.auto_preprocess,
+            preprocess_methods,
+            preprocess_configs,
+            self.methods,
+            self.stats,
+        )
+        _fit_transform(
+            y_train,
+            y_target,
+            self.config.auto_preprocess,
+            l_preprocess_methods,
+            l_preprocess_configs,
+            self.label_methods,
+            self.label_stats,
+        )
+        if bundle.x_valid is not None:
+            self._transform_x(bundle.x_valid)  # type: ignore
+        if bundle.y_valid is not None:
+            self._transform_y(bundle.y_valid)  # type: ignore
+        return bundle
+
+    def recover_labels(self, y: np.ndarray) -> np.ndarray:
+        _transform(y, self.label_methods, self.label_stats, recover_fn_mapping)
+        return y
+
+    # api
+
+    @property
+    def file_parser(self) -> Optional[FileParserBlock]:
+        return self.try_get_previous(FileParserBlock)
+
+    @property
+    def recognizer(self) -> Optional[RecognizerBlock]:
+        return self.try_get_previous(RecognizerBlock)
+
+    # internal
+
+    def _convert_keys(self, d: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if d is None:
+            return {}
+        file_parser = self.file_parser
+        recognizer = self.recognizer
+        if file_parser is None or recognizer is None:
+            return d
+        mapping = recognizer.index_mapping
+        header = file_parser.feature_header
+        header2str_idx = {name: str(i) for i, name in enumerate(header)}
+        return {str(mapping[header2str_idx[k]]): v for k, v in d.items()}
+
+    def _transform_x(self, x: np.ndarray) -> None:
+        _transform(x, self.methods, self.stats, fn_with_stats_mapping)
+
+    def _transform_y(self, y: np.ndarray) -> None:
+        _transform(y, self.label_methods, self.label_stats, fn_with_stats_mapping)
+
+
+__all__ = [
+    "PreProcessMethods",
+    "MLPreProcessConfig",
+    "PreProcessorBlock",
+]
