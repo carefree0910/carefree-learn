@@ -56,6 +56,7 @@ device_type = Optional[Union[int, str, device]]
 d_inp_type = Union[str, Path, tensor_dict_type]
 
 TData = TypeVar("TData", bound="IData", covariant=True)
+TPath = Union[str, Path]
 TSplitSW = Tuple[Optional[np.ndarray], Optional[np.ndarray]]
 TDataLoaders = Tuple["IDataLoader", Optional["IDataLoader"]]
 TDataBundleItem = Optional[Union[data_type, np_dict_type, tensor_dict_type, Any]]

@@ -18,13 +18,13 @@ from cftool.misc import ISerializable
 from cftool.misc import PureFromInfoMixin
 from cftool.array import is_float
 
+from ....schema import TPath
 from ....schema import DataTypes
 from ....schema import DataBundle
 from ....schema import TDataBundleItem
 from ....schema import INoInitDataBlock
 
 
-TFile = Union[str, Path]
 TArrayPair = Tuple[np.ndarray, Optional[np.ndarray]]
 
 
@@ -225,7 +225,7 @@ get_x_column_name = lambda idx: f"f{idx}"
 get_y_column_name = lambda idx: f"l{idx}"
 
 
-def _validate_file(x: Optional[Union[TFile, Any]]) -> None:
+def _validate_file(x: Optional[Union[TPath, Any]]) -> None:
     if not isinstance(x, str) and not isinstance(x, Path):
         msg = f"`FileParserBlock` expected `str` or `Path`, but got {type(x)}"
         raise TypeError(msg)
@@ -418,7 +418,7 @@ class FileParserBlock(INoInitDataBlock):
         for h in self.label_header:
             self.converters[h] = Converter.get_placeholder(h, True)
 
-    def _read(self, file: TFile) -> Tuple[Optional[List[str]], List[List[str]]]:
+    def _read(self, file: TPath) -> Tuple[Optional[List[str]], List[List[str]]]:
         with open(file, "r") as f:
             data = list(csv.reader(f, delimiter=self.delimiter))
             for i in range(len(data) - 1, -1, -1):
