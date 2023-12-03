@@ -1821,6 +1821,19 @@ class MLConfig(DLConfig):
     def model(self, value: str) -> None:
         pass
 
+    @property
+    def mapped_encoder_settings(self) -> Optional[Dict[str, MLEncoderSettings]]:
+        encoder_settings = self.encoder_settings
+        if encoder_settings is None:
+            return None
+        index_mapping = self.index_mapping
+        if index_mapping is None:
+            return encoder_settings
+        mapped_settings = {}
+        for k, v in encoder_settings.items():
+            mapped_settings[str(index_mapping[k])] = v
+        return mapped_settings
+
     def from_info(self, info: Dict[str, Any]) -> None:
         super().from_info(info)
         if self.encoder_settings is not None:

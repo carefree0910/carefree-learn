@@ -26,11 +26,12 @@ class CommonMLModel(CommonDLModel):
     encoder: Optional[Encoder]
 
     def build_encoder(self, config: MLConfig) -> None:
-        if config.encoder_settings is None:
+        mapped_encoder_settings = config.mapped_encoder_settings
+        if mapped_encoder_settings is None:
             self.encoder = None
         else:
             self.encoder = Encoder(
-                config.encoder_settings,
+                mapped_encoder_settings,
                 config.global_encoder_settings,
             )
 

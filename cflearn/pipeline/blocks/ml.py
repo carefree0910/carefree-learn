@@ -28,7 +28,9 @@ class SetMLDefaultsBlock(SetDefaultsBlock):
         self._infer_encoder_settings(config)
         b_recognizer = self.b_recognizer
         if b_recognizer is not None:
-            config.index_mapping = shallow_copy_dict(b_recognizer.index_mapping)
+            index_mapping = shallow_copy_dict(b_recognizer.index_mapping)
+            config.index_mapping = index_mapping
+            self._defaults["index_mapping"] = index_mapping
 
     @property
     def b_recognizer(self) -> Optional[RecognizerBlock]:
