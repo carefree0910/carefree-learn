@@ -1,30 +1,28 @@
 import torch
 
 from torch import Tensor
+from typing import Any
+from typing import Dict
 
 from .common import CommonMLModel
 from .common import register_ml_model
 from ...schema import forward_results_type
-from ...schema import MLConfig
 
 
 @register_ml_model("wnd")
 class WideAndDeepModel(CommonMLModel):
-    def build(self, config: MLConfig) -> None:
-        self.build_encoder(config)
+    def mutate_module_config(self, module_config: Dict[str, Any]) -> None:
         encoder = self.encoder
-        module_config = config.module_config or {}
         input_dim = module_config["input_dim"]
+        num_history = module_config.get("num_history", 1)
         if encoder is None or encoder.is_empty:
             wide_dim = deep_dim = input_dim
         else:
             wide_dim = encoder.categorical_dim
             numerical_dim = input_dim - encoder.num_one_hot - encoder.num_embedding
             deep_dim = numerical_dim + encoder.embedding_dim
-        module_config["wide_dim"] = wide_dim
-        module_config["deep_dim"] = deep_dim
-        config.module_config = module_config
-        self.build_others(config)
+        module_config["wide_dim"] = wide_dim * num_history
+        module_config["deep_dim"] = deep_dim * num_history
 
     def forward(self, net: Tensor) -> forward_results_type:
         if len(net.shape) > 2:

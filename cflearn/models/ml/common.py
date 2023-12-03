@@ -3,8 +3,10 @@ import torch
 from torch import nn
 from torch import Tensor
 from typing import Any
+from typing import Dict
 from typing import Callable
 from typing import Optional
+from cftool.misc import shallow_copy_dict
 
 from ..common import CommonDLModel
 from ...schema import forward_results_type
@@ -35,16 +37,26 @@ class CommonMLModel(CommonDLModel):
                 config.global_encoder_settings,
             )
 
-    def build_others(self, config: MLConfig) -> None:
+    def mutate_module_config(self, module_config: Dict[str, Any]) -> None:
+        input_dim = module_config["input_dim"]
+        num_history = module_config.get("num_history", 1)
+        if self.encoder is not None:
+            input_dim += self.encoder.dim_increment
+        input_dim *= num_history
+        module_config["input_dim"] = input_dim
+
+    def build_others(self, config: MLConfig, module_config: Dict[str, Any]) -> None:
         if config.loss_name is None:
             raise ValueError("`loss_name` should be specified for `CommonDLModel`")
-        self.core = build_ml_module(config.module_name, config=config.module_config)
+        self.core = build_ml_module(config.module_name, config=module_config)
         self.m = nn.ModuleDict({"module": self.core, "encoder": self.encoder})
         self.loss = build_loss(config.loss_name, config=config.loss_config)
 
     def build(self, config: MLConfig) -> None:
         self.build_encoder(config)
-        self.build_others(config)
+        module_config = shallow_copy_dict(config.module_config or {})
+        self.mutate_module_config(module_config)
+        self.build_others(config, module_config)
 
     def encode(self, net: Tensor) -> MLEncodePack:
         if self.encoder is None or self.encoder.is_empty:
