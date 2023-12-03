@@ -70,7 +70,7 @@ class DataSplitter:
     --------
     >>> import numpy as np
     >>>
-    >>> from cflearn.data.ml.utils import DataSplitter
+    >>> from cflearn.data import DataSplitter
     >>>
     >>> x = np.arange(12).reshape([6, 2])
     >>> # create an imbalance dataset

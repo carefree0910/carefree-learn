@@ -284,7 +284,7 @@ def run_accelerate(
     tmp_path = _rewrite(
         path,
         f"""
-from cflearn.misc.toolkit import _set_environ_workspace
+from cflearn.toolkit import _set_environ_workspace
 
 _set_environ_workspace("{workspace}")
     """,
@@ -331,9 +331,9 @@ def run_multiple(
         path,
         """
 import os
-from cflearn.misc.toolkit import _set_environ_workspace
-from cflearn.dist.ml.runs._utils import get_info
+from cflearn.toolkit import _set_environ_workspace
 from cflearn.parameters import OPT
+from cflearn.dist.ml.runs._utils import get_info
 
 info = get_info(requires_data=False)
 os.environ["CUDA_VISIBLE_DEVICES"] = str(info.meta["cuda"])
