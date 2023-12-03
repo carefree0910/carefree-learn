@@ -31,6 +31,7 @@ class WideAndDeepModel(CommonMLModel):
         numerical = encoded.numerical
         # wide
         if one_hot is None and embedding is None:
+            assert numerical is not None
             wide_net = numerical
         else:
             if one_hot is None:
@@ -43,9 +44,9 @@ class WideAndDeepModel(CommonMLModel):
             wide_net = wide_net.contiguous().view(len(wide_net), -1)
         # deep
         if embedding is None:
-            deep_net = numerical
+            deep_net = numerical if numerical is not None else wide_net
         elif numerical is None:
-            deep_net = embedding
+            deep_net = embedding if embedding is not None else wide_net
         else:
             deep_net = torch.cat([numerical, embedding], dim=-1)
         if len(deep_net.shape) > 2:
