@@ -4,6 +4,8 @@ from .parameters import *
 
 from .data import *
 from .modules import *
+from .optimizers import *
+from .schedulers import *
 from .zoo import *
 
 from .api import cv
