@@ -14,11 +14,11 @@ from ..modules.common import build_module
 
 def build_predefined_module(config: str, **kwargs: Any) -> Module:
     parsed = parse_config(config)
-    model_name = parsed.get("model_name")
-    if model_name is None:
-        raise ValueError(f"model name not found in '{parsed}'")
-    model_config = parsed.get("model_config", {})
-    return build_module(model_name, config=model_config, **kwargs)
+    module_name = parsed.get("module_name")
+    if module_name is None:
+        raise ValueError(f"module name not found in '{parsed}'")
+    module_config = parsed.get("module_config", {})
+    return build_module(module_name, config=module_config, **kwargs)
 
 
 def load_pretrained_weights(

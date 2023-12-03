@@ -1,5 +1,5 @@
 {
-  "model_name": "clip",
-  "model_config": {},
+  "module_name": "clip",
+  "module_config": {},
   "allow_no_loss": true
 }

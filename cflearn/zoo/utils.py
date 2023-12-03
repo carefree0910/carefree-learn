@@ -21,11 +21,11 @@ class ParsedInfo(NamedTuple):
 
 def parse_config_info(config: str) -> ParsedInfo:
     tag = DEFAULT_ZOO_TAG
-    model_type, model_name = config.split("/")
-    download_name = model_name
-    if "." in model_name:
-        model_name, tag = model_name.split(".")
-    json_folder = configs_root / model_type / model_name
+    module_type, module_name = config.split("/")
+    download_name = module_name
+    if "." in module_name:
+        module_name, tag = module_name.split(".")
+    json_folder = configs_root / module_type / module_name
     json_path = json_folder / f"{tag}.json"
     if not json_path.is_file():
         print_warning(f"cannot find '{tag}', fallback to '{DEFAULT_ZOO_TAG}'")

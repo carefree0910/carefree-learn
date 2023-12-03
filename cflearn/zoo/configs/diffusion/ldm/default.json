@@ -1,7 +1,9 @@
 {
-  "__bases__": ["diffusion/ddpm"],
+  "__bases__": [
+    "diffusion/ddpm"
+  ],
   "__requires__": {
-    "model_config": [
+    "module_config": [
       "img_size",
       "in_channels",
       "out_channels",
@@ -12,8 +14,8 @@
       "linear_end"
     ]
   },
-  "model_name": "ldm",
-  "model_config": {
+  "module_name": "ldm",
+  "module_config": {
     "in_channels": 4,
     "out_channels": 4,
     "first_stage": "ae/kl.f8",

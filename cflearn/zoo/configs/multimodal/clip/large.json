@@ -1,6 +1,8 @@
 {
-  "__bases__": ["multimodal/clip"],
-  "model_config": {
+  "__bases__": [
+    "multimodal/clip"
+  ],
+  "module_config": {
     "latent_dim": 768,
     "vision_latent_dim": 1024,
     "vision_patch_size": 14,

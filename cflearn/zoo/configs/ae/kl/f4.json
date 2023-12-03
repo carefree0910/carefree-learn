@@ -1,14 +1,20 @@
 {
   "__requires__": {
-    "model_config": ["img_size"]
+    "module_config": [
+      "img_size"
+    ]
   },
-  "model_name": "ae_kl",
-  "model_config": {
+  "module_name": "ae_kl",
+  "module_config": {
     "in_channels": 3,
     "out_channels": 3,
     "inner_channels": 128,
     "latent_channels": 3,
-    "channel_multipliers": [1, 2, 4],
+    "channel_multipliers": [
+      1,
+      2,
+      4
+    ],
     "embedding_channels": 3,
     "num_res_blocks": 2
   },
@@ -18,7 +24,10 @@
       "scheduler": null,
       "optimizer_config": {
         "lr": 4.5e-6,
-        "betas": [0.5, 0.9]
+        "betas": [
+          0.5,
+          0.9
+        ]
       },
       "scheduler_config": {}
     },
@@ -27,7 +36,10 @@
       "scheduler": null,
       "optimizer_config": {
         "lr": 4.5e-6,
-        "betas": [0.5, 0.9]
+        "betas": [
+          0.5,
+          0.9
+        ]
       },
       "scheduler_config": {}
     }

@@ -1,6 +1,8 @@
 {
-  "__bases__": ["diffusion/ldm.sd"],
-  "model_config": {
+  "__bases__": [
+    "diffusion/ldm.sd"
+  ],
+  "module_config": {
     "in_channels": 9,
     "condition_type": "hybrid"
   }

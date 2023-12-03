@@ -1,7 +1,9 @@
 {
-  "__bases__": ["diffusion/ldm"],
-  "model_name": "sd",
-  "model_config": {
+  "__bases__": [
+    "diffusion/ldm"
+  ],
+  "module_name": "sd",
+  "module_config": {
     "context_dim": 768,
     "attn_split_chunk": 4,
     "first_stage_config": {
@@ -13,7 +15,9 @@
     },
     "sampler": "k_euler",
     "sampler_config": {
-      "unconditional_cond": [""],
+      "unconditional_cond": [
+        ""
+      ],
       "unconditional_guidance_scale": 7.5
     }
   }
