@@ -12,6 +12,7 @@ from .monitors import *
 from .callbacks import *
 from .optimizers import *
 from .schedulers import *
+from .trainer import *
 from .zoo import *
 
 from .api import cv
