@@ -11,8 +11,8 @@ from .fcnn import FCNN
 class WideAndDeep(nn.Module):
     def __init__(
         self,
+        wide_dim: int,
         deep_dim: int,
-        wide_dim: Optional[int],
         output_dim: int,
         hidden_units: Optional[List[int]] = None,
         *,
@@ -23,6 +23,7 @@ class WideAndDeep(nn.Module):
         dropout: float = 0.0,
     ):
         super().__init__()
+        self.linear = nn.Linear(wide_dim, output_dim, bias=bias)
         self.fcnn = FCNN(
             deep_dim,
             output_dim,
@@ -33,21 +34,11 @@ class WideAndDeep(nn.Module):
             batch_norm=batch_norm,
             dropout=dropout,
         )
-        if wide_dim is None:
-            self.linear = None
-        else:
-            self.linear = nn.Linear(wide_dim, output_dim, bias=bias)
 
-    def forward(self, deep_net: Tensor, wide_net: Optional[Tensor] = None) -> Tensor:
-        deep_net = self.fcnn(deep_net)
-        if wide_net is None:
-            if self.linear is not None:
-                raise ValueError("`wide_net` is required since `wide_dim` is provided")
-            return deep_net
-        if self.linear is None:
-            raise ValueError("`wide_net` is provided but `wide_dim` is not")
+    def forward(self, wide_net: Tensor, deep_net: Tensor) -> Tensor:
         wide_net = self.linear(wide_net)
-        return deep_net + wide_net
+        deep_net = self.fcnn(deep_net)
+        return wide_net + deep_net
 
 
 __all__ = [
