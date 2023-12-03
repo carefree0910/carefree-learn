@@ -57,6 +57,10 @@ class PrefixModules:
     def __init__(self, prefix: str) -> None:
         self._prefix = prefix
 
+    @property
+    def all(self) -> List[str]:
+        return sorted([k for k in module_dict if k.startswith(self._prefix)])
+
     def has(self, name: str) -> bool:
         return self._prefix_name(name) in module_dict
 
