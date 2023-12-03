@@ -25,10 +25,7 @@ def register_ml_model(name: str) -> Callable:
 class CommonMLModel(CommonDLModel):
     encoder: Optional[Encoder]
 
-    def build(self, config: MLConfig) -> None:
-        if config.loss_name is None:
-            raise ValueError("`loss_name` should be specified for `CommonDLModel`")
-        self.core = build_ml_module(config.module_name, config=config.module_config)
+    def build_encoder(self, config: MLConfig) -> None:
         if config.encoder_settings is None:
             self.encoder = None
         else:
@@ -36,8 +33,17 @@ class CommonMLModel(CommonDLModel):
                 config.encoder_settings,
                 config.global_encoder_settings,
             )
+
+    def build_others(self, config: MLConfig) -> None:
+        if config.loss_name is None:
+            raise ValueError("`loss_name` should be specified for `CommonDLModel`")
+        self.core = build_ml_module(config.module_name, config=config.module_config)
         self.m = nn.ModuleDict({"module": self.core, "encoder": self.encoder})
         self.loss = build_loss(config.loss_name, config=config.loss_config)
+
+    def build(self, config: MLConfig) -> None:
+        self.build_encoder(config)
+        self.build_others(config)
 
     def encode(self, net: Tensor) -> MLEncodePack:
         if self.encoder is None or self.encoder.is_empty:
