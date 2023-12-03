@@ -723,22 +723,23 @@ def scheduler_requires_metric(scheduler: Any) -> bool:
 # This is a modified version of https://github.com/sksq96/pytorch-summary
 #  So it can summary `carefree-learn` model structures better
 def summary(
-    model: nn.Module,
+    m: nn.Module,
     sample_batch: tensor_dict_type,
     *,
     return_only: bool = False,
+    summary_forward: Optional[Callable[[tensor_dict_type], None]] = None,
 ) -> str:
-    def _get_param_counts(module_: nn.Module) -> Tuple[int, int]:
+    def _get_param_counts(m: nn.Module) -> Tuple[int, int]:
         num_params = 0
         num_trainable_params = 0
-        for p in module_.parameters():
+        for p in m.parameters():
             local_num_params = int(round(prod(p.data.shape)))
             num_params += local_num_params
             if p.requires_grad:
                 num_trainable_params += local_num_params
         return num_params, num_trainable_params
 
-    def register_hook(module: nn.Module) -> None:
+    def register_hook(m: nn.Module) -> None:
         def inject_output_shape(output: Any, res: Dict[int, Any]) -> None:
             idx = 0 if not res else max(res)
             if isinstance(output, Tensor):
@@ -752,8 +753,8 @@ def summary(
                 for o in output:
                     inject_output_shape(o, o_res)
 
-        def hook(module_: nn.Module, inp: Any, output: Any) -> None:
-            m_name = module_names.get(module_)
+        def hook(m: nn.Module, inp: Any, output: Any) -> None:
+            m_name = module_names.get(m)
             if m_name is None:
                 return
 
@@ -770,13 +771,13 @@ def summary(
             output_shape_res = m_dict["output_shape"] = {}
             inject_output_shape(output, output_shape_res)
 
-            num_params_, num_trainable_params_ = _get_param_counts(module_)
+            num_params_, num_trainable_params_ = _get_param_counts(m)
             m_dict["num_params"] = num_params_
             m_dict["num_trainable_params"] = num_trainable_params_
             raw_summary_dict[m_name] = m_dict
 
-        if not isinstance(module, torch.jit.ScriptModule):
-            hooks.append(module.register_forward_hook(hook))
+        if not isinstance(m, torch.jit.ScriptModule):
+            hooks.append(m.register_forward_hook(hook))
 
     # get names
     def _inject_names(m: nn.Module, previous_names: List[str]) -> None:
@@ -812,24 +813,21 @@ def summary(
         existing_names.add(final_name)
         return final_name
 
-    model_name = _get_name(type(model).__name__)
-    module_names[model] = model_name
-    _inject_names(model, [model_name])
+    model_name = _get_name(type(m).__name__)
+    module_names[m] = model_name
+    _inject_names(m, [model_name])
 
     # create properties
     raw_summary_dict: OrderedDict[str, Any] = OrderedDict()
     hooks: List[Any] = []
 
     # register hook
-    model.apply(register_hook)
+    m.apply(register_hook)
 
     # make a forward pass
-    with eval_context(model, use_grad=None):
-        if not hasattr(model, "summary_forward"):
-            model.run(0, sample_batch)
-        else:
-            model.summary_forward(sample_batch)  # type: ignore
-        for param in model.parameters():
+    with eval_context(m, use_grad=None):
+        (summary_forward or m)(sample_batch)
+        for param in m.parameters():
             param.grad = None
 
     # remove these hooks
@@ -913,7 +911,7 @@ def summary(
             for shape in all_output_shapes:
                 total_output += prod(shape)
 
-    total_params, trainable_params = _get_param_counts(model)
+    total_params, trainable_params = _get_param_counts(m)
     # assume 4 bytes/number (float on cuda).
     x_batch = sample_batch[INPUT_KEY]
     get_size = lambda t: abs(prod(t.shape[1:]) * 4.0 / (1024**2.0))
