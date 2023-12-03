@@ -6,7 +6,9 @@ from .data import *
 from .modules import *
 from .zoo import *
 
-from .api import *
+from .api import cv
+from .api import api
+from .api import multimodal
 
 from . import scripts
 
