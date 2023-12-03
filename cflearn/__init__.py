@@ -7,6 +7,7 @@ from .modules import *
 from .losses import *
 from .models import *
 from .metrics import *
+from .inference import *
 from .optimizers import *
 from .schedulers import *
 from .zoo import *
