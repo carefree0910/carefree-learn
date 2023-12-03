@@ -82,9 +82,9 @@ class CommonMLModel(CommonDLModel):
         )
 
     def forward(self, net: Tensor) -> forward_results_type:
+        net = self.encode(net).merged_all
         if len(net.shape) > 2:
             net = net.contiguous().view(len(net), -1)
-        net = self.encode(net).merged_all
         return self.core(net)
 
 

@@ -25,8 +25,6 @@ class WideAndDeepModel(CommonMLModel):
         module_config["deep_dim"] = deep_dim * num_history
 
     def forward(self, net: Tensor) -> forward_results_type:
-        if len(net.shape) > 2:
-            net = net.contiguous().view(len(net), -1)
         encoded = self.encode(net)
         one_hot = encoded.one_hot
         embedding = encoded.embedding
@@ -41,6 +39,8 @@ class WideAndDeepModel(CommonMLModel):
                 wide_net = one_hot
             else:
                 wide_net = torch.cat([one_hot, embedding], dim=-1)
+        if len(wide_net.shape) > 2:
+            wide_net = wide_net.contiguous().view(len(wide_net), -1)
         # deep
         if embedding is None:
             deep_net = numerical
@@ -48,6 +48,8 @@ class WideAndDeepModel(CommonMLModel):
             deep_net = embedding
         else:
             deep_net = torch.cat([numerical, embedding], dim=-1)
+        if len(deep_net.shape) > 2:
+            deep_net = deep_net.contiguous().view(len(deep_net), -1)
         return self.core(wide_net, deep_net)
 
 
