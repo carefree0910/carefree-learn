@@ -13,6 +13,7 @@ from .callbacks import *
 from .optimizers import *
 from .schedulers import *
 from .trainer import *
+from .pipeline import *
 from .zoo import *
 
 from .api import cv
