@@ -5,6 +5,7 @@ from .parameters import *
 from .data import *
 from .modules import *
 from .losses import *
+from .models import *
 from .optimizers import *
 from .schedulers import *
 from .zoo import *
