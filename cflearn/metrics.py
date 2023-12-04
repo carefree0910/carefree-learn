@@ -47,7 +47,7 @@ class Accuracy(IMetric):
 class Quantile(IMetric):
     def __init__(self, q: Any, *, predictions_key: Optional[str] = PREDICTIONS_KEY):
         super().__init__(predictions_key=predictions_key)
-        if not isinstance(q, float):
+        if not isinstance(q, np.ndarray):
             q = np.asarray(q, np.float32).reshape([1, -1])
         self.q = q
         self.predictions_key = predictions_key
