@@ -302,7 +302,7 @@ class FileParserBlock(INoInitDataBlock):
             valid_data = None
         else:
             _validate_file(bundle.x_valid)
-            all_valid_header, valid_data = self._read(bundle.x_valid)
+            all_valid_header, valid_data = self._read(bundle.x_valid)  # type: ignore
             if self.config.has_header and all_header != all_valid_header:
                 raise ValueError(
                     "train header does not match valid header:\n"  # type: ignore
@@ -472,7 +472,7 @@ class FileParserBlock(INoInitDataBlock):
             if bundle.x_valid is None:
                 valid_T = None
             else:
-                valid_T = list(zip(*self._read(bundle.x_valid)[1]))
+                valid_T = list(zip(*self._read(bundle.x_valid)[1]))  # type: ignore
         if len(train_T) != len(self.all_header):
             if for_inference and len(train_T) + 1 == len(self.all_header):
                 if self.is_local_rank_0:

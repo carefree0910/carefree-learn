@@ -7,21 +7,17 @@ from typing import Dict
 from typing import List
 from typing import Union
 from typing import Optional
-from cftool.misc import filter_kw
 from cftool.misc import shallow_copy_dict
 from cftool.array import to_numpy
 from cftool.array import to_device
 from cftool.types import np_dict_type
 
-from .schema import ILoss
 from .schema import IMetric
 from .schema import IDLModel
 from .schema import IInference
 from .schema import IDataLoader
-from .schema import TrainerState
 from .schema import MetricsOutputs
 from .schema import InferenceOutputs
-from .toolkit import eval_context
 from .toolkit import ONNX
 from .toolkit import get_device
 from .toolkit import np_batch_to_tensor
@@ -131,7 +127,7 @@ class DLInference(IInference):
                             continue
                         if k != LABEL_KEY and len(v.shape) > 2:  # type: ignore
                             continue
-                        labels.setdefault(k, []).append(v)
+                        labels.setdefault(k, []).append(v)  # type: ignore
                 # metrics
                 if requires_metrics:
                     sub_outputs = metrics.evaluate(np_batch, np_outputs, loader)  # type: ignore

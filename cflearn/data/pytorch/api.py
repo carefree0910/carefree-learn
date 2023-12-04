@@ -242,7 +242,7 @@ class TorchData(IData):
         processor_config: Optional[DataProcessorConfig] = None,
     ) -> "TorchData":
         self: TorchData = cls.init(config, processor_config)
-        self.fit(x_train, x_valid=x_valid)
+        self.fit(x_train, x_valid=x_valid)  # type: ignore
         return self
 
 
