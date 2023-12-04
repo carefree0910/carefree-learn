@@ -1042,6 +1042,13 @@ class TrainStep(ABC):
 class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
     d = dl_models
 
+    def __str__(self) -> str:
+        module_str = str(nn.ModuleList(self.all_modules))
+        module_str = "\n".join(["["] + module_str.split("\n")[1:-1] + ["]"])
+        return f"{self.__class__.__name__}({module_str})"
+
+    __repr__ = __str__
+
     # abstract
 
     m: nn.Module
@@ -1133,7 +1140,6 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
         batch_idx: int,
         batch: tensor_dict_type,
         state: Optional["TrainerState"] = None,
-        **kwargs: Any,
     ) -> Tuple[Any, ...]:
         return (batch[INPUT_KEY],)
 
@@ -1204,7 +1210,7 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        args = self.get_forward_args(batch_idx, batch, state, **kwargs)
+        args = self.get_forward_args(batch_idx, batch, state)
         forward_results = self.forward(*args, **kwargs)
         outputs = self.postprocess(batch_idx, batch, forward_results, state, **kwargs)
         return outputs
