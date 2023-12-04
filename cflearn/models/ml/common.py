@@ -25,49 +25,53 @@ def register_ml_model(name: str) -> Callable:
 
 @register_ml_model("common")
 class CommonMLModel(CommonDLModel):
-    encoder: Optional[Encoder]
+    def get_encoder(self) -> Optional[Encoder]:
+        return self.m["encoder"]
+
+    def get_module(self) -> nn.Module:
+        return self.m["module"]
 
     def build_encoder(self, config: MLConfig) -> None:
         mapped_encoder_settings = config.mapped_encoder_settings
         if mapped_encoder_settings is None:
-            self.encoder = None
+            self.m["encoder"] = None
         else:
-            self.encoder = Encoder(
+            self.m["encoder"] = Encoder(
                 mapped_encoder_settings,
                 config.global_encoder_settings,
             )
 
     def mutate_module_config(self, module_config: Dict[str, Any]) -> None:
+        encoder = self.get_encoder()
         input_dim = module_config["input_dim"]
         num_history = module_config.get("num_history", 1)
-        if self.encoder is not None:
-            input_dim += self.encoder.dim_increment
+        if encoder is not None:
+            input_dim += encoder.dim_increment
         input_dim *= num_history
         module_config["input_dim"] = input_dim
 
     def build_others(self, config: MLConfig, module_config: Dict[str, Any]) -> None:
         if config.loss_name is None:
             raise ValueError("`loss_name` should be specified for `CommonDLModel`")
-        self.core = build_module(config.module_name, config=module_config)
-        self.m = nn.ModuleDict({"module": self.core, "encoder": self.encoder})
+        self.m["module"] = build_module(config.module_name, config=module_config)
         self.loss = build_loss(config.loss_name, config=config.loss_config)
 
     def build(self, config: MLConfig) -> None:
+        self.m = nn.ModuleDict()
         self.build_encoder(config)
         module_config = shallow_copy_dict(config.module_config or {})
         self.mutate_module_config(module_config)
         self.build_others(config, module_config)
 
     def encode(self, net: Tensor) -> MLEncodePack:
-        if self.encoder is None or self.encoder.is_empty:
+        encoder = self.get_encoder()
+        if encoder is None or encoder.is_empty:
             return MLEncodePack(None, None, net, None, net)
         numerical_columns = [
-            index
-            for index in range(net.shape[-1])
-            if index not in self.encoder.tgt_columns
+            index for index in range(net.shape[-1]) if index not in encoder.tgt_columns
         ]
         numerical = net[..., numerical_columns]
-        res: EncodingResult = self.encoder(net)
+        res: EncodingResult = encoder(net)
         merged_categorical = res.merged
         if merged_categorical is None:
             merged_all = numerical
@@ -85,7 +89,7 @@ class CommonMLModel(CommonDLModel):
         net = self.encode(net).merged_all
         if len(net.shape) > 2:
             net = net.contiguous().view(len(net), -1)
-        return self.core(net)
+        return self.get_module()(net)
 
 
 __all__ = [
