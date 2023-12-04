@@ -117,6 +117,9 @@ class CommonDLModel(IDLModel):
             loss_kwargs = loss_kwargs or {}
             forward_kwargs = forward_kwargs or {}
             get_fw = lambda: self.run(batch_idx, batch, None, **forward_kwargs)
+            train_steps = self.train_steps
+            if not train_steps:
+                return StepOutputs(get_fw(), {})
             for i, train_step in enumerate(self.train_steps):
                 if train_step.should_skip(self, None):
                     continue

@@ -73,6 +73,8 @@ def get_sorted_checkpoints(checkpoint_folder: str) -> List[str]:
 
 def weighted_loss_score(config: TrainerConfig, loss_items: Dict[str, float]) -> float:
     if not config.loss_metrics_weights:
+        if not loss_items:
+            return 0.0
         loss = loss_items.get(LOSS_KEY)
         if loss is not None:
             return -loss
