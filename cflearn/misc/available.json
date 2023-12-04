@@ -240,6 +240,11 @@
       "sha": "5696f168eb2c30d4374bbfd45436f7415bb4d88da29bea97eea0101520fba082",
       "st_size": 6341481,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/mlsd_large_512_fp32.pt"
+    },
+    "ControlNetHED": {
+      "sha": "5ca93762ffd68a29fee1af9d495bf6aab80ae86f08905fb35472a083a4c7a8fa",
+      "st_size": 29444406,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ControlNetHED.pth"
     }
   },
   "references": {

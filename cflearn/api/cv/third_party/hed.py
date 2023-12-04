@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 
+from ....toolkit import download_checkpoint
 from ....parameters import OPT
 
 try:
@@ -93,10 +94,8 @@ class HedAPI:
             raise ValueError("`cv2` is needed for `HedAPI`")
         if rearrange is None:
             raise ValueError("`einops` is needed for `HedAPI`")
-        model_path = os.path.join(OPT.external_dir, "annotators", "ControlNetHED.pth")
-        if not os.path.isfile(model_path):
-            raise ValueError(f"cannot find `ControlNetHED.pth` at {model_path}")
         self.model = ControlNetHED_Apache2()
+        model_path = download_checkpoint("ControlNetHED")
         self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
         self.device = device
 
