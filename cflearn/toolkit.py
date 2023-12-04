@@ -1147,6 +1147,14 @@ class Initializer:
         return custom_initializer(self, param)
 
     @classmethod
+    def register(cls, name: str) -> Callable[[Callable], Callable]:
+        def _register(f: Callable) -> Callable:
+            cls.add_initializer(f, name)
+            return f
+
+        return _register
+
+    @classmethod
     def add_initializer(cls, f: Callable, name: str) -> None:
         if name in cls.defined_initialization:
             print_warning(f"'{name}' initializer is already defined")
