@@ -25,6 +25,7 @@ class SetMLDefaultsBlock(SetDefaultsBlock):
         super().build(config)
         if not isinstance(config, MLConfig):
             return
+        self._defaults["model"] = config.model
         self._infer_encoder_settings(config)
         b_recognizer = self.b_recognizer
         if b_recognizer is not None:
