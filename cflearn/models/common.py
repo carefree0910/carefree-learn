@@ -300,18 +300,33 @@ class DLEnsembleModel(CommonDLModel):
     def __init__(self, m: IDLModel, num_repeat: int) -> None:
         super().__init__()
         self.m = get_clones(m.m, num_repeat)
+        self.model = m
+        self.config = m.config.copy()
         self.ensemble_fn = None
         self.__identifier__ = m.__identifier__
+
+    @property
+    def train_steps(self) -> List[TrainStep]:
+        return self.model.train_steps
+
+    @property
+    def all_modules(self) -> List[nn.Module]:
+        return [self.m]
 
     def build(self, config: DLConfig) -> None:
         raise ValueError("`build` should not be called for `DLEnsembleModel`")
 
-    def forward(self, *args: Any, **kwargs: Any) -> forward_results_type:
+    def run(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
         outputs: Dict[str, List[Tensor]] = {}
         for m in self.m:
-            m_outputs = m(*args, **kwargs)
-            if isinstance(m_outputs, Tensor):
-                m_outputs = {PREDICTIONS_KEY: m_outputs}
+            self.model.m = m
+            m_outputs = self.model.run(batch_idx, batch, state, **kwargs)
             for k, v in m_outputs.items():
                 outputs.setdefault(k, []).append(v)
         final_results: tensor_dict_type = {}
