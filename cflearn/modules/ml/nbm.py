@@ -10,8 +10,8 @@ from typing import Tuple
 from typing import Optional
 from itertools import combinations
 
-from .utils import register_ml_module
 from ..core import build_activation
+from ..common import register_module
 from ...toolkit import eval_context
 
 
@@ -120,7 +120,7 @@ class NBMBlock(nn.Module):
         return net.transpose(1, 2).contiguous()
 
 
-@register_ml_module("nbm")
+@register_module("nbm")
 class NBM(nn.Module):
     def __init__(
         self,

@@ -1,10 +1,10 @@
 from torch import nn
 from torch import Tensor
 
-from .utils import register_ml_module
+from ..common import register_module
 
 
-@register_ml_module("linear")
+@register_module("linear")
 class LinearModule(nn.Module):
     def __init__(self, input_dim: int, output_dim: int, *, bias: bool = True):
         super().__init__()

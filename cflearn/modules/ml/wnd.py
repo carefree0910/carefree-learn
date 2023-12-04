@@ -3,11 +3,11 @@ from torch import Tensor
 from typing import List
 from typing import Optional
 
-from .utils import register_ml_module
 from .fcnn import FCNN
+from ..common import register_module
 
 
-@register_ml_module("wnd")
+@register_module("wnd")
 class WideAndDeep(nn.Module):
     def __init__(
         self,

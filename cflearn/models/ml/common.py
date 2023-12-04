@@ -13,7 +13,7 @@ from ...schema import forward_results_type
 from ...schema import to_ml_model
 from ...schema import MLConfig
 from ...losses import build_loss
-from ...modules import build_ml_module
+from ...modules import build_module
 from ...modules.core.ml_encoder import Encoder
 from ...modules.core.ml_encoder import MLEncodePack
 from ...modules.core.ml_encoder import EncodingResult
@@ -48,7 +48,7 @@ class CommonMLModel(CommonDLModel):
     def build_others(self, config: MLConfig, module_config: Dict[str, Any]) -> None:
         if config.loss_name is None:
             raise ValueError("`loss_name` should be specified for `CommonDLModel`")
-        self.core = build_ml_module(config.module_name, config=module_config)
+        self.core = build_module(config.module_name, config=module_config)
         self.m = nn.ModuleDict({"module": self.core, "encoder": self.encoder})
         self.loss = build_loss(config.loss_name, config=config.loss_config)
 

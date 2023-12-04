@@ -5,11 +5,11 @@ from typing import List
 from typing import Optional
 from cftool.misc import safe_execute
 
-from .utils import register_ml_module
+from ..common import register_module
 from ..core.mappings import mappings
 
 
-@register_ml_module("fcnn")
+@register_module("fcnn")
 class FCNN(nn.Module):
     def __init__(
         self,

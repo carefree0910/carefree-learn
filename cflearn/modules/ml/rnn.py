@@ -7,9 +7,7 @@ from typing import List
 from typing import Optional
 
 from .fcnn import FCNN
-from typing import Optional
-
-from .utils import register_ml_module
+from ..common import register_module
 
 
 rnn_dict = {
@@ -19,7 +17,7 @@ rnn_dict = {
 }
 
 
-@register_ml_module("rnn")
+@register_module("ml_rnn")
 class RNN(nn.Module):
     def __init__(
         self,

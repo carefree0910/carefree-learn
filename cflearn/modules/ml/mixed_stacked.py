@@ -5,11 +5,9 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from .utils import register_ml_module
 from ..core import Linear
 from ..core import MixedStackedEncoder
-from ...schema import MLEncoderSettings
-from ...schema import MLGlobalEncoderSettings
+from ..common import register_module
 
 
 class MixedStackedModel(nn.Module):
@@ -61,7 +59,7 @@ class MixedStackedModel(nn.Module):
         return net
 
 
-@register_ml_module("fnet")
+@register_module("ml_fnet")
 class FNet(MixedStackedModel):
     def __init__(
         self,
@@ -89,7 +87,7 @@ class FNet(MixedStackedModel):
         )
 
 
-@register_ml_module("mixer")
+@register_module("ml_mixer")
 class Mixer(MixedStackedModel):
     def __init__(
         self,
@@ -117,7 +115,7 @@ class Mixer(MixedStackedModel):
         )
 
 
-@register_ml_module("transformer")
+@register_module("ml_transformer")
 class Transformer(MixedStackedModel):
     def __init__(
         self,
@@ -152,7 +150,7 @@ class Transformer(MixedStackedModel):
         )
 
 
-@register_ml_module("pool_former")
+@register_module("ml_pool_former")
 class PoolFormer(MixedStackedModel):
     def __init__(
         self,

@@ -9,9 +9,9 @@ from typing import Iterator
 from cftool.array import to_numpy
 from cftool.array import to_torch
 
-from .utils import register_ml_module
 from ..core import build_activation
 from ..core import Linear
+from ..common import register_module
 
 try:
     from sklearn.tree import _tree
@@ -37,7 +37,7 @@ def export_structure(tree: DecisionTreeClassifier) -> tuple:
     return tuple(recurse(0, 0))
 
 
-@register_ml_module("ndt")
+@register_module("ndt")
 class NDT(nn.Module):
     def __init__(
         self,
