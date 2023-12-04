@@ -1,5 +1,6 @@
+from abc import abstractmethod
+from abc import ABCMeta
 from torch import nn
-from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
@@ -39,7 +40,9 @@ def build_loss(
     return losses.build(name, config=config, **kwargs)
 
 
-class _MultiLoss(ILoss):
+class _MultiLoss(ILoss, metaclass=ABCMeta):
+    loss_weights: Dict[str, float]
+
     def __init__(
         self,
         reduction: str = "mean",
@@ -49,18 +52,21 @@ class _MultiLoss(ILoss):
         loss_weights: Optional[Dict[str, float]] = None,
     ):
         super().__init__(reduction)
-        loss_configs = loss_configs or {}
-        loss_weights = loss_weights or {}
-        self.loss_weights = {k: loss_weights.get(k, 1.0) for k in loss_names}
-        self.base_losses = nn.ModuleList(
-            [build_loss(name, config=loss_configs.get(name, {})) for name in loss_names]
-        )
+        configs = loss_configs or {}
+        weights = loss_weights or {}
+        loss_list = [build_loss(n, config=configs.get(n, {})) for n in loss_names]
+        self.base_losses = nn.ModuleList(loss_list)
+        self.init_loss_weights(loss_names, weights)
+
+    @abstractmethod
+    def init_loss_weights(self, names: List[str], weights: Dict[str, float]) -> None:
+        pass
 
     @staticmethod
-    def _inject(key: str, base_losses: losses_type, all_losses: losses_type) -> None:
-        if isinstance(base_losses, dict):
-            base_losses = base_losses[LOSS_KEY]
-        all_losses[key] = base_losses
+    def _inject(key: str, new_losses: losses_type, all_losses: losses_type) -> None:
+        if isinstance(new_losses, dict):
+            new_losses = new_losses[LOSS_KEY]
+        all_losses[key] = new_losses
 
     def _merge(self, losses: tensor_dict_type) -> None:
         merged = 0.0
@@ -73,6 +79,11 @@ class _MultiLoss(ILoss):
 
 @register_loss("multi_task")
 class MultiTaskLoss(_MultiLoss):
+    def init_loss_weights(self, names: List[str], weights: Dict[str, float]) -> None:
+        if len(names) != len(set(names)):
+            raise ValueError("`loss_names` should be unique")
+        self.loss_weights = {k: weights.get(k, 1.0) for k in names}
+
     def run(
         self,
         forward_results: tensor_dict_type,
@@ -92,6 +103,10 @@ class MultiTaskLoss(_MultiLoss):
 
 @register_loss("multi_stage")
 class MultiStageLoss(_MultiLoss):
+    def init_loss_weights(self, names: List[str], weights: Dict[str, float]) -> None:
+        loss_weights = {f"{i}_{k}": weights.get(k, 1.0) for i, k in enumerate(names)}
+        self.loss_weights = loss_weights
+
     def run(
         self,
         forward_results: tensor_dict_type,
