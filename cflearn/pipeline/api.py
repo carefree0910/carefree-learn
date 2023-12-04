@@ -656,10 +656,10 @@ class DLPipelineSerializer:
                 ckpt_folder = os.path.join(i_folder, SerializeModelBlock.__identifier__)
                 checkpoints = get_sorted_checkpoints(ckpt_folder)
                 checkpoint_path = os.path.join(ckpt_folder, checkpoints[0])
-                states = torch.load(checkpoint_path, map_location=cuda)
+                states = torch.load(checkpoint_path, map_location=cuda)["states"]
             current_keys = list(states.keys())
             for k, v in list(states.items()):
-                states[f"ms.{i}.{k}"] = v
+                states[f"{i}.{k}"] = v
             for k in current_keys:
                 states.pop(k)
             if states_callback is not None:
