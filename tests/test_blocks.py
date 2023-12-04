@@ -11,6 +11,7 @@ from cflearn.schema import MLEncoderSettings
 from cflearn.constants import LATENT_KEY
 from cflearn.toolkit import eval_context
 from cflearn.toolkit import inject_parameters
+from cflearn.modules import get_latent_resolution
 from cflearn.modules import BN
 from cflearn.modules import EMA
 from cflearn.modules import DNDF
@@ -18,6 +19,7 @@ from cflearn.modules import Conv2d
 from cflearn.modules import Linear
 from cflearn.modules import Lambda
 from cflearn.modules import Attention
+from cflearn.modules import BackboneEncoder
 from cflearn.modules.core.ml_encoder import Encoder
 
 
@@ -266,6 +268,65 @@ class TestBlocks(unittest.TestCase):
         for dim in [4, 16]:
             dims = [dim] * 16 + [dim * 2] * 12 + [dim * 3] * 8
             _test_case(dims)
+
+    def test_cv_backbone(self) -> None:
+        def _check(name: str) -> None:
+            is_rep_vgg = name.startswith("rep_vgg")
+            if not is_rep_vgg:
+                key = name
+                check_rep_vgg_deploy = False
+            else:
+                check_rep_vgg_deploy = name.endswith("_deploy")
+                if not check_rep_vgg_deploy:
+                    key = name
+                else:
+                    key = "_".join(name.split("_")[:-1])
+            encoder = BackboneEncoder(key, in_channels)
+            results = encoder(inp)
+            backbone = encoder.net
+            if check_rep_vgg_deploy:
+                backbone.original.switch_to_deploy()
+            return_nodes = list(backbone.return_nodes.values())
+            latent_resolution = get_latent_resolution(encoder, img_size)
+            for i, (k, v) in enumerate(results.items()):
+                if k == LATENT_KEY:
+                    self.assertEqual(v.shape[1], backbone.latent_channels)
+                    self.assertEqual(v.shape[-1], latent_resolution)
+                else:
+                    self.assertEqual(k, return_nodes[i])
+                    self.assertEqual(v.shape[1], backbone.out_channels[i])
+
+        img_size = 37
+        batch_size = 11
+        in_channels = 3
+
+        inp = torch.randn(batch_size, in_channels, img_size, img_size)
+        list(
+            map(
+                _check,
+                [
+                    "mobilenet_v2",
+                    "vgg16",
+                    "vgg19",
+                    "vgg19_lite",
+                    "vgg19_large",
+                    "vgg_style",
+                    "rep_vgg",
+                    "rep_vgg_deploy",
+                    "rep_vgg_lite",
+                    "rep_vgg_lite_deploy",
+                    "rep_vgg_large",
+                    "rep_vgg_large_deploy",
+                    "mix_vit",
+                    "mix_vit_lite",
+                    "mix_vit_large",
+                    "resnet18",
+                    "resnet50",
+                    "resnet101",
+                    "resnet152",
+                ],
+            )
+        )
 
 
 if __name__ == "__main__":
