@@ -85,11 +85,11 @@ class CommonMLModel(CommonDLModel):
             merged_all,
         )
 
-    def forward(self, net: Tensor) -> forward_results_type:
+    def forward(self, net: Tensor, **kwargs: Any) -> forward_results_type:
         net = self.encode(net).merged_all
         if len(net.shape) > 2:
             net = net.contiguous().view(len(net), -1)
-        return self.get_module()(net)
+        return self.get_module()(net, **kwargs)
 
 
 @register_ml_model("ml_rnn")
@@ -105,9 +105,9 @@ class TemporalMLModel(CommonMLModel):
             input_dim += encoder.dim_increment
         module_config["input_dim"] = input_dim
 
-    def forward(self, net: Tensor) -> forward_results_type:
+    def forward(self, net: Tensor, **kwargs: Any) -> forward_results_type:
         net = self.encode(net).merged_all
-        return self.get_module()(net)
+        return self.get_module()(net, **kwargs)
 
 
 __all__ = [

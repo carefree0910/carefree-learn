@@ -24,7 +24,7 @@ class WideAndDeepModel(CommonMLModel):
         module_config["wide_dim"] = wide_dim * num_history
         module_config["deep_dim"] = deep_dim * num_history
 
-    def forward(self, net: Tensor) -> forward_results_type:
+    def forward(self, net: Tensor) -> forward_results_type:  # type: ignore
         encoded = self.encode(net)
         one_hot = encoded.one_hot
         embedding = encoded.embedding
