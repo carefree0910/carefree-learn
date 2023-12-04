@@ -515,14 +515,6 @@ class BuildOptimizersBlock(Block):
         parameters: Any
         if pack.scope == "all":
             parameters = model.params_groups()
-            if len(parameters) == 1:
-                parameters = parameters[0]
-            elif self.config.use_zero and self.is_local_rank_0:
-                print_warning(
-                    "currently PyTorch does not support "
-                    "using ZeRO with parameter groups, so ZeRO will be disabled"
-                )
-                self.config.use_zero = False
         else:
             attr = model
             scopes = pack.scope.split(".")

@@ -1114,7 +1114,7 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
     # optional callbacks
 
     def params_groups(self) -> List[Dict[str, Any]]:
-        return [p for p in self.parameters() if p.requires_grad]
+        return [{"params": [p for p in self.parameters() if p.requires_grad]}]
 
     def build(self, config: "DLConfig") -> None:
         pass
