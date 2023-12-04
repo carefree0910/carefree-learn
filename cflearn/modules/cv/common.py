@@ -5,6 +5,7 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Type
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -14,8 +15,8 @@ from cftool.types import tensor_dict_type
 from ..common import PrefixModules
 
 
-TEncoder = Type["IEncoder"]
-TDecoder = Type["IDecoder"]
+TEncoder = TypeVar("TEncoder", bound=Type["IEncoder"])
+TDecoder = TypeVar("TDecoder", bound=Type["IDecoder"])
 
 encoders = PrefixModules("encoders")
 decoders = PrefixModules("decoders")

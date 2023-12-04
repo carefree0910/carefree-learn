@@ -94,6 +94,7 @@ TDataLoaders = Tuple["IDataLoader", Optional["IDataLoader"]]
 TDataBundleItem = Optional[Union[data_type, np_dict_type, tensor_dict_type, Any]]
 TDataBlock = TypeVar("TDataBlock", bound="IDataBlock", covariant=True)
 TDataProcessor = TypeVar("TDataProcessor", bound="DataProcessor", covariant=True)
+TDLModel = TypeVar("TDLModel", bound=Type["IDLModel"])
 
 
 # collections

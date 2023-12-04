@@ -5,6 +5,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from cftool.array import tensor_dict_type
@@ -17,7 +18,7 @@ from ..constants import PREDICTIONS_KEY
 from ..modules.common import PrefixModules
 
 
-TLoss = Type[ILoss]
+TLoss = TypeVar("TLoss", bound=Type[ILoss])
 
 losses = PrefixModules("loss")
 

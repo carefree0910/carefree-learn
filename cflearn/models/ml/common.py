@@ -9,6 +9,7 @@ from typing import Optional
 from cftool.misc import shallow_copy_dict
 
 from ..common import CommonDLModel
+from ...schema import TDLModel
 from ...schema import forward_results_type
 from ...schema import to_ml_model
 from ...schema import MLConfig
@@ -19,7 +20,7 @@ from ...modules.core.ml_encoder import MLEncodePack
 from ...modules.core.ml_encoder import EncodingResult
 
 
-def register_ml_model(name: str) -> Callable:
+def register_ml_model(name: str) -> Callable[[TDLModel], TDLModel]:
     return CommonDLModel.register(to_ml_model(name))
 
 

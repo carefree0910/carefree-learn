@@ -3,6 +3,7 @@ from torch import Tensor
 from typing import Any
 from typing import Type
 from typing import Tuple
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from torch.nn import Module
@@ -10,8 +11,8 @@ from torch.nn import Module
 from ...common import PrefixModules
 
 
-TTMixer = Type["ITokenMixer"]
-TCMixer = Type["IChannelMixer"]
+TTMixer = TypeVar("TTMixer", bound=Type["ITokenMixer"])
+TCMixer = TypeVar("TCMixer", bound=Type["IChannelMixer"])
 
 token_mixers = PrefixModules("token_mixer")
 channel_mixers = PrefixModules("channel_mixer")
