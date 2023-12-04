@@ -111,6 +111,7 @@ class TemporalMLModel(CommonMLModel):
 
 
 __all__ = [
+    "register_ml_model",
     "CommonMLModel",
     "TemporalMLModel",
 ]

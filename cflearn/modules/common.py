@@ -196,6 +196,7 @@ __all__ = [
     "build_module",
     "PrefixModules",
     "Lambda",
+    "EMA",
     "Residual",
     "zero_module",
     "avg_pool_nd",
