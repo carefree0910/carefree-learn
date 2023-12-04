@@ -26,11 +26,9 @@ from ..schema import IInference
 from ..schema import IDataLoader
 from ..schema import StepOutputs
 from ..schema import TrainerState
-from ..schema import PrecisionType
 from ..schema import TrainerConfig
 from ..schema import MetricsOutputs
 from ..schema import TrainStepLoss
-from ..schema import forward_results_type
 from ..modules import build_module
 from ..toolkit import get_clones
 from ..toolkit import get_device
@@ -39,7 +37,6 @@ from ..toolkit import no_grad_context
 from ..toolkit import toggle_optimizer
 from ..trainer import weighted_loss_score
 from ..constants import LOSS_KEY
-from ..constants import PREDICTIONS_KEY
 
 
 def get_update_fn(trainer: ITrainer) -> Callable[[Tensor, Optimizer, bool], None]:
@@ -229,9 +226,7 @@ class CommonDLModel(IDLModel):
             with toggle_optimizer(
                 self.m, optimizer, enabled=train_step.enable_toggle_optimizer
             ):
-                with autocast(
-                    enabled=trainer.config.mixed_precision != PrecisionType.NO
-                ):
+                with autocast(enabled=trainer.config.mixed_precision != "no"):
                     loss_res = train_step.loss_fn(
                         self, state, batch, forward, **loss_kwargs
                     )

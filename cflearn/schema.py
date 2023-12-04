@@ -1672,13 +1672,6 @@ class TqdmSettings(DataClassBase):
     desc: str = "epoch"
 
 
-class PrecisionType(str, Enum):
-    NO = "no"
-    FP8 = "fp8"
-    FP16 = "fp16"
-    BF16 = "bf16"
-
-
 @dataclass
 class TrainerConfig(ISerializableDataClass):
     state_config: Optional[Dict[str, Any]] = None
@@ -1690,7 +1683,7 @@ class TrainerConfig(ISerializableDataClass):
     fixed_steps: Optional[int] = None
     log_steps: Optional[int] = None
     valid_portion: float = 1.0
-    mixed_precision: Union[str, PrecisionType] = PrecisionType.NO
+    mixed_precision: str = "no"
     clip_norm: float = 0.0
     grad_accumulate: int = 1
     metric_names: Optional[Union[str, List[str]]] = None
@@ -1896,7 +1889,6 @@ __all__ = [
     "TrainerCallback",
     "ITrainer",
     "TqdmSettings",
-    "PrecisionType",
     "TrainerConfig",
     "Config",
     "DLConfig",
