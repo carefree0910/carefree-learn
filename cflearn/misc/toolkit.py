@@ -1067,20 +1067,20 @@ class eval_context(mode_context):
         )
 
 
-class no_grad_context(torch.no_grad):
+class no_grad_context:
     def __init__(self, *, enabled: bool):
-        super().__init__()
         self.enabled = enabled
+        self._context = torch.no_grad()
 
     def __enter__(self) -> None:
         if not self.enabled:
             return
-        super().__enter__()
+        self._context.__enter__()
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if not self.enabled:
             return
-        super().__exit__(exc_type, exc_val, exc_tb)
+        self._context.__exit__(exc_type, exc_val, exc_tb)
 
 
 class Initializer:
