@@ -4,10 +4,9 @@ import torch
 from torch import Tensor
 from typing import Dict
 from typing import List
-from typing import Union
 from typing import Optional
 from cftool.misc import shallow_copy_dict
-from cftool.array import tensor_dict_type
+from cftool.types import tensor_dict_type
 
 from ..schema import d_inp_type
 from ..toolkit import get_tensors
