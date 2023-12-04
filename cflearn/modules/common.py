@@ -62,13 +62,13 @@ class PrefixModules:
         return sorted([k for k in module_dict if k.startswith(self._prefix)])
 
     def has(self, name: str) -> bool:
-        return self._prefix_name(name) in module_dict
+        return self.prefix(name) in module_dict
 
     def get(self, name: str) -> Optional[Type[Module]]:
-        return module_dict.get(self._prefix_name(name))
+        return module_dict.get(self.prefix(name))
 
     def register(self, name: str, **kwargs: Any) -> Callable[[TModule], TModule]:
-        return register_module(self._prefix_name(name), **kwargs)
+        return register_module(self.prefix(name), **kwargs)
 
     def build(
         self,
@@ -77,9 +77,9 @@ class PrefixModules:
         config: Optional[Union[str, Dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> Module:
-        return build_module(self._prefix_name(name), config=config, **kwargs)
+        return build_module(self.prefix(name), config=config, **kwargs)
 
-    def _prefix_name(self, name: str) -> str:
+    def prefix(self, name: str) -> str:
         return f"{self._prefix}.{name}"
 
 
