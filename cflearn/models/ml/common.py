@@ -92,6 +92,25 @@ class CommonMLModel(CommonDLModel):
         return self.get_module()(net)
 
 
+@register_ml_model("ml_rnn")
+@register_ml_model("ml_fnet")
+@register_ml_model("ml_mixer")
+@register_ml_model("ml_transformer")
+@register_ml_model("ml_pool_former")
+class TemporalMLModel(CommonMLModel):
+    def mutate_module_config(self, module_config: Dict[str, Any]) -> None:
+        encoder = self.get_encoder()
+        input_dim = module_config["input_dim"]
+        if encoder is not None:
+            input_dim += encoder.dim_increment
+        module_config["input_dim"] = input_dim
+
+    def forward(self, net: Tensor) -> forward_results_type:
+        net = self.encode(net).merged_all
+        return self.get_module()(net)
+
+
 __all__ = [
     "CommonMLModel",
+    "TemporalMLModel",
 ]
