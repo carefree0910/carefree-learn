@@ -769,6 +769,8 @@ DataConfig.register("base")(DataConfig)
 
 
 class ILoss(nn.Module, metaclass=ABCMeta):
+    __identifier__: str
+
     def __init__(self, reduction: str = "mean"):
         super().__init__()
         self.reduction = reduction

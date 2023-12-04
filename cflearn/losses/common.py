@@ -22,6 +22,11 @@ losses = PrefixModules("loss")
 
 
 def register_loss(name: str, **kwargs: Any) -> Callable[[TLoss], TLoss]:
+    def before_register(cls: TLoss) -> TLoss:
+        cls.__identifier__ = name
+        return cls
+
+    kwargs.setdefault("before_register", before_register)
     return losses.register(name, **kwargs)
 
 
