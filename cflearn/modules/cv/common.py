@@ -13,6 +13,8 @@ from torch.nn import Module
 from cftool.types import tensor_dict_type
 
 from ..common import PrefixModules
+from ...toolkit import get_device
+from ...toolkit import eval_context
 
 
 TEncoder = TypeVar("TEncoder", bound=Type["IEncoder"])
@@ -23,6 +25,8 @@ decoders = PrefixModules("decoders")
 
 
 class IEncoder(Module):
+    in_channels: int
+
     def encode(self, net: Tensor) -> Tensor:
         return self(net)
 
@@ -56,6 +60,13 @@ def build_decoder(
     **kwargs: Any,
 ) -> IDecoder:
     return decoders.build(name, config=config, **kwargs)
+
+
+def get_latent_resolution(encoder: IEncoder, img_size: int) -> int:
+    shape = 1, encoder.in_channels, img_size, img_size
+    with eval_context(encoder):
+        net = encoder.encode(torch.zeros(*shape, device=get_device(encoder)))
+    return net.shape[2]
 
 
 class EncoderDecoder(Module):
@@ -128,6 +139,7 @@ __all__ = [
     "register_decoder",
     "build_encoder",
     "build_decoder",
+    "get_latent_resolution",
     "EncoderDecoder",
     "VQCodebookOut",
     "VQCodebook",
