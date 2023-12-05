@@ -1279,7 +1279,7 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
         class ONNXWrapper(nn.Module):
             def __init__(self) -> None:
                 super().__init__()
-                self.model = model
+                self.m = model.m
 
             def forward(self, batch: Dict[str, Any]) -> Dict[str, Any]:
                 rs = onnx_forward(batch)
