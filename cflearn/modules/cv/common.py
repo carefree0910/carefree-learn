@@ -342,6 +342,10 @@ class VQCodebook(nn.Module):
 
 
 __all__ = [
+    "encoders",
+    "decoders",
+    "generators",
+    "discriminators",
     "IEncoder",
     "DecoderInputs",
     "IDecoder",
