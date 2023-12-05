@@ -70,7 +70,6 @@ class AttentionAutoEncoderKL(IAttentionAutoEncoder):
         return GaussianDistribution(net)
 
     def decode(self, inputs: DecoderInputs) -> Tensor:
-        inputs = inputs.copy()
         inputs.z = self.from_embedding(inputs.z)
         net = self.generator.decoder.decode(inputs)
         return net

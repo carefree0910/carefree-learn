@@ -249,7 +249,6 @@ class VanillaDecoder1D(IDecoder):
         )
 
     def forward(self, inputs: DecoderInputs) -> Tensor:
-        inputs = inputs.copy()
         inputs.z = self.from_latent(inputs.z)
         return self.decoder(inputs)
 

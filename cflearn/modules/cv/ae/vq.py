@@ -54,7 +54,6 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
         return net
 
     def decode(self, inputs: DecoderInputs) -> Tensor:
-        inputs = inputs.copy()
         if inputs.apply_codebook:
             inputs.z = self.codebook(inputs.z).z_q
         inputs.z = self.from_embedding(inputs.z)
