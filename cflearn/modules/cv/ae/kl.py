@@ -7,6 +7,7 @@ from typing import Tuple
 from typing import Optional
 
 from .common import IAttentionAutoEncoder
+from ..common import DecoderInputs
 from ...common import register_module
 
 
@@ -76,8 +77,8 @@ class AttentionAutoEncoderKL(IAttentionAutoEncoder):
         apply_tanh: Optional[bool] = None,
     ) -> Tensor:
         net = self.from_embedding(z)
-        kw = dict(no_head=no_head, apply_tanh=apply_tanh)
-        net = self.generator.decoder.decode(net, **kw)  # type: ignore
+        inputs = DecoderInputs(net=net, no_head=no_head, apply_tanh=apply_tanh)
+        net = self.generator.decoder.decode(inputs)
         return net
 
     def get_results(

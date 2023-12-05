@@ -8,6 +8,7 @@ from typing import Tuple
 from typing import Optional
 
 from ..common import register_decoder
+from ..common import DecoderInputs
 from ..common import IDecoder
 from ...core import make_attention
 from ...core import HijackConv2d
@@ -91,31 +92,17 @@ class AttentionDecoder(IDecoder):
         self.decoder = nn.Sequential(*blocks)
         self.head = nn.Sequential(*head_blocks)
 
-    def forward(
-        self,
-        net: Tensor,
-        *,
-        no_head: bool = False,
-        apply_tanh: Optional[bool] = None,
-    ) -> Tensor:
-        net = self.decoder(net)
-        if no_head:
+    def forward(self, inputs: DecoderInputs) -> Tensor:
+        net = self.decoder(inputs.net)
+        if inputs.no_head:
             return net
         net = self.head(net)
+        apply_tanh = inputs.apply_tanh
         if apply_tanh is None:
             apply_tanh = self.apply_tanh
         if apply_tanh:
             net = torch.tanh(net)
         return net
-
-    def decode(
-        self,
-        net: Tensor,
-        *,
-        no_head: bool = False,
-        apply_tanh: Optional[bool] = None,
-    ) -> Tensor:
-        return self(net, no_head=no_head, apply_tanh=apply_tanh)
 
 
 __all__ = [

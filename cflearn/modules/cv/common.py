@@ -31,9 +31,27 @@ class IEncoder(Module):
         return self(net)
 
 
+@dataclass
+class DecoderInputs(DataClassBase):
+    """
+    A universal dataclass for decoder inputs.
+
+    > I don't know what's a better solution to make the 'abstract' class general and
+    `torch.compile` friendly at the same time.
+    """
+
+    # general
+    net: Tensor
+    labels: Optional[Tensor] = None
+    deterministic: bool = False
+    # attn
+    no_head: bool = False
+    apply_tanh: Optional[bool] = None
+
+
 class IDecoder(Module):
-    def decode(self, net: Tensor) -> Tensor:
-        return self(net)
+    def decode(self, inputs: DecoderInputs) -> Tensor:
+        return self(inputs)
 
 
 def register_encoder(name: str, **kwargs: Any) -> Callable[[TEncoder], TEncoder]:
