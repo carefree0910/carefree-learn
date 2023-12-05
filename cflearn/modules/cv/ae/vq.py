@@ -53,18 +53,11 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
         net = self.to_embedding(net)
         return net
 
-    def decode(
-        self,
-        z: Tensor,
-        *,
-        apply_codebook: bool = True,
-        no_head: bool = False,
-        apply_tanh: Optional[bool] = None,
-    ) -> Tensor:
-        if apply_codebook:
-            z = self.codebook(z).z_q
-        net = self.from_embedding(z)
-        inputs = DecoderInputs(z=net, no_head=no_head, apply_tanh=apply_tanh)
+    def decode(self, inputs: DecoderInputs) -> Tensor:
+        inputs = inputs.copy()
+        if inputs.apply_codebook:
+            inputs.z = self.codebook(inputs.z).z_q
+        inputs.z = self.from_embedding(inputs.z)
         net = self.generator.decoder.decode(inputs)
         return net
 
@@ -77,12 +70,13 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
     ) -> Tuple[Tensor, VQCodebookOut]:
         net = self.encode(net)
         out = self.codebook(net, return_z_q_g=True)
-        net = self.decode(
-            out.z_q,
-            apply_codebook=False,
+        inputs = DecoderInputs(
+            z=out.z_q,
             no_head=no_head,
             apply_tanh=apply_tanh,
+            apply_codebook=False,
         )
+        net = self.decode(inputs)
         return net, out
 
     def forward(

@@ -69,15 +69,9 @@ class AttentionAutoEncoderKL(IAttentionAutoEncoder):
         net = self.to_embedding(net)
         return GaussianDistribution(net)
 
-    def decode(
-        self,
-        z: Tensor,
-        *,
-        no_head: bool = False,
-        apply_tanh: Optional[bool] = None,
-    ) -> Tensor:
-        net = self.from_embedding(z)
-        inputs = DecoderInputs(z=net, no_head=no_head, apply_tanh=apply_tanh)
+    def decode(self, inputs: DecoderInputs) -> Tensor:
+        inputs = inputs.copy()
+        inputs.z = self.from_embedding(inputs.z)
         net = self.generator.decoder.decode(inputs)
         return net
 
@@ -91,7 +85,7 @@ class AttentionAutoEncoderKL(IAttentionAutoEncoder):
     ) -> Tuple[Tensor, GaussianDistribution]:
         distribution = self.encode(net)
         z = distribution.sample() if sample_posterior else distribution.mode()
-        net = self.decode(z, no_head=no_head, apply_tanh=apply_tanh)
+        net = self.decode(DecoderInputs(z=z, no_head=no_head, apply_tanh=apply_tanh))
         return net, distribution
 
     def forward(

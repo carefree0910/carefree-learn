@@ -60,6 +60,8 @@ class DecoderInputs(DataClassBase):
     # attn
     no_head: bool = False
     apply_tanh: Optional[bool] = None
+    # vq
+    apply_codebook: bool = True
 
 
 class IDecoder(Module):

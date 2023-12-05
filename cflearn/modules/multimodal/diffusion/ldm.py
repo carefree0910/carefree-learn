@@ -15,6 +15,7 @@ from cftool.types import tensor_dict_type
 from .ddpm import make_condition_model
 from .ddpm import DDPM
 from .utils import CROSS_ATTN_TYPE
+from ...cv import DecoderInputs
 from ...core import IHook
 from ...core import LoRAManager
 from ...common import register_module
@@ -187,7 +188,7 @@ class LDM(DDPM):
 
     def _from_latent(self, latent: Tensor) -> Tensor:
         latent = latent / self.scale_factor
-        return self.first_stage.decode(latent)
+        return self.first_stage.decode(DecoderInputs(z=latent))
 
     def _get_cond(self, cond: Any) -> Tensor:
         if isinstance(self.condition_model, list):
