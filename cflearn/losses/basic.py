@@ -65,7 +65,11 @@ class ReconstructionLoss(ILoss):
     base_loss: ILoss
 
     def __init__(
-        self, reduction: str = "mean", *, base_loss: str = "mae", **kwargs: Any
+        self,
+        reduction: str = "mean",
+        *,
+        base_loss: str = "mae",
+        **kwargs: Any,
     ):
         super().__init__(reduction)
         self.base_loss = ILoss.make(base_loss, kwargs)
@@ -91,8 +95,13 @@ class ReconstructionLoss(ILoss):
 
 @register_loss("quantile")
 class QuantileLoss(ILoss):
-    def __init__(self, q: Union[float, List, Tuple, np.ndarray]):
-        super().__init__()
+    def __init__(
+        self,
+        reduction: str = "mean",
+        *,
+        q: Union[float, List, Tuple, np.ndarray],
+    ):
+        super().__init__(reduction)
         if isinstance(q, float):
             self.register_buffer("q", torch.tensor([q], torch.float32))
         else:
@@ -127,8 +136,8 @@ class CrossEntropyLoss(ILoss):
 
 @register_loss("label_smooth_cross_entropy")
 class LabelSmoothCrossEntropyLoss(ILoss):
-    def __init__(self, eps: float = 0.1):
-        super().__init__()
+    def __init__(self, reduction: str = "mean", *, eps: float = 0.1):
+        super().__init__(reduction)
         self._eps = eps
 
     def forward(self, predictions: Tensor, labels: Tensor) -> Tensor:
@@ -142,13 +151,14 @@ class LabelSmoothCrossEntropyLoss(ILoss):
 class FocalLoss(ILoss):
     def __init__(
         self,
+        reduction: str = "mean",
         *,
         input_logits: bool = True,
         eps: float = 1.0e-6,
         gamma: float = 2.0,
         alpha: Optional[Union[int, float, List, Tuple]] = None,
     ):
-        super().__init__()
+        super().__init__(reduction)
         self._input_logits = input_logits
         self._eps = eps
         self._gamma = gamma
