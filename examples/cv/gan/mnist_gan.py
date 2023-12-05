@@ -21,7 +21,7 @@ data = cflearn.mnist_data(data_config, processor_config)
 
 config = cflearn.DLConfig(
     model="gan",
-    module_name="vanilla_gan",
+    module_name="gan",
     module_config=dict(
         img_size=28,
         in_channels=1,

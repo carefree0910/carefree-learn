@@ -10,8 +10,8 @@ from ..common import DecoderInputs
 from ..common import IGaussianGenerator
 
 
-@register_generator("vanilla_gan")
-class VanillaGAN(IGaussianGenerator):
+@register_generator("gan")
+class GAN(IGaussianGenerator):
     def __init__(
         self,
         img_size: int,
@@ -52,5 +52,5 @@ class VanillaGAN(IGaussianGenerator):
 
 
 __all__ = [
-    "VanillaGAN",
+    "GAN",
 ]

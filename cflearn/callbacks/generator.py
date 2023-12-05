@@ -16,7 +16,7 @@ from ..constants import LABEL_KEY
 @TrainerCallback.register("ddpm")
 @TrainerCallback.register("ae_kl")
 @TrainerCallback.register("ae_vq")
-@TrainerCallback.register("vanilla_gan")
+@TrainerCallback.register("gan")
 class GeneratorCallback(ImageCallback):
     def __init__(self, num_keep: int = 25, num_interpolations: int = 16):
         super().__init__(num_keep)
