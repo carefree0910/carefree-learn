@@ -28,6 +28,7 @@ from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.data.distributed import DistributedSampler
 
 from .schema import device_type
+from .schema import weighted_loss_score
 from .schema import IData
 from .schema import IMetric
 from .schema import IDLModel
@@ -46,7 +47,6 @@ from .schema import TrainerCallback
 from .toolkit import summary
 from .toolkit import get_ddp_info
 from .toolkit import get_torch_device
-from .constants import LOSS_KEY
 from .constants import PT_PREFIX
 from .constants import SCORES_FILE
 from .constants import CHECKPOINTS_FOLDER
@@ -70,23 +70,6 @@ def get_sorted_checkpoints(checkpoint_folder: str) -> List[str]:
     if not scores:
         return []
     return list(sort_dict_by_value(scores, reverse=True).keys())
-
-
-def weighted_loss_score(config: TrainerConfig, loss_items: Dict[str, float]) -> float:
-    if not config.loss_metrics_weights:
-        if not loss_items:
-            return 0.0
-        loss = loss_items.get(LOSS_KEY)
-        if loss is not None:
-            return -loss
-        return -sum(loss_items.values()) / len(loss_items)
-    score = 0.0
-    for k, w in config.loss_metrics_weights.items():
-        v = loss_items.get(k)
-        if v is None:
-            continue
-        score -= v * w
-    return score
 
 
 def get_input_sample(loader: IDataLoader, device: torch.device) -> tensor_dict_type:
@@ -619,7 +602,6 @@ class Trainer(ITrainer):
 __all__ = [
     "get_scores",
     "get_sorted_checkpoints",
-    "weighted_loss_score",
     "get_input_sample",
     "amp_context",
     "Trainer",
