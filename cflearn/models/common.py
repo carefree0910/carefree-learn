@@ -6,7 +6,6 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Union
 from typing import Optional
 from typing import Protocol
 from cftool.misc import safe_execute
@@ -34,7 +33,7 @@ class CommonTrainStep(TrainStep):
         m: IDLModel,
         state: Optional[TrainerState],
         batch: tensor_dict_type,
-        forward_results: Union[tensor_dict_type, List[tensor_dict_type]],
+        forward_results: tensor_dict_type,
         **kwargs: Any,
     ) -> TrainStepLoss:
         losses = self.loss.run(forward_results, batch, state)
