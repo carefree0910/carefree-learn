@@ -1,7 +1,5 @@
 from typing import List
-from typing import Union
 from typing import Optional
-from pathlib import Path
 from torchvision.datasets import MNIST
 
 from .api import TorchData
