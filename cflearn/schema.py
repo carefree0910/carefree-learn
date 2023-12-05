@@ -1051,7 +1051,7 @@ class TrainStep(ABC):
         m: "IDLModel",
         state: Optional["TrainerState"],
         batch: tensor_dict_type,
-        forward_results: Union[tensor_dict_type, List[tensor_dict_type]],
+        forward_results: Union[forward_results_type, List[forward_results_type]],
         **kwargs: Any,
     ) -> TrainStepLoss:
         pass
