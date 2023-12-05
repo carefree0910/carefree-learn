@@ -61,6 +61,7 @@ class VAE(IGaussianGenerator):
         decoder_config["out_channels"] = out_channels or in_channels
         decoder_config["num_upsample"] = num_downsample
         decoder_config["latent_dim"] = latent
+        decoder_config["num_classes"] = num_classes
         self.decoder = build_decoder(decoder, config=decoder_config)
         # output
         if output_activation is None:
