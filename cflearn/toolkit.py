@@ -554,7 +554,12 @@ def get_torch_device(device: device_type) -> torch.device:
     if device is None:
         return torch.device("cpu")
     if isinstance(device, (int, str)):
-        device = torch.device(device)
+        try:
+            device = int(device)
+        except:
+            pass
+        finally:
+            device = torch.device(device)
     return device
 
 
