@@ -1907,7 +1907,6 @@ class Config(TrainerConfig):
     loss_name: Optional[str] = None
     loss_config: Optional[Dict[str, Any]] = None
     in_loading: bool = False
-    allow_no_loss: bool = False
     cudnn_benchmark: bool = False
 
     def to_debug(self) -> None:

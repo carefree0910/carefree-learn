@@ -1,5 +1,4 @@
 {
   "module_name": "clip",
-  "module_config": {},
-  "allow_no_loss": true
+  "module_config": {}
 }

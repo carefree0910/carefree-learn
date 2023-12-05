@@ -70,13 +70,7 @@ class SetDefaultsBlock(InjectDefaultsMixin, Block):
         if loss_name is None:
             if losses.has(module_name):
                 loss_name = module_name
-            else:
-                raise ValueError(
-                    "`loss_name` should be provided when "
-                    f"`{module_name}` has not implemented its own loss "
-                    "and `allow_no_loss` is False"
-                )
-            self._defaults["loss_name"] = loss_name
+                self._defaults["loss_name"] = loss_name
         if state_config is None:
             state_config = {}
         if "max_snapshot_file" not in state_config:
