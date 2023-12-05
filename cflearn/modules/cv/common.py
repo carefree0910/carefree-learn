@@ -65,7 +65,7 @@ class DecoderInputs(DataClassBase):
 
 
 class IDecoder(Module):
-    cond: Optional[Module] = None
+    cond: Optional[Module]
     num_classes: Optional[int] = None
     img_size: Optional[int] = None
     latent_channels: Optional[int] = None
@@ -96,9 +96,10 @@ class IDecoder(Module):
             )
 
     def inject_cond(self, net: Tensor, labels: Optional[Tensor]) -> Tensor:
-        if self.cond is None:
+        cond = getattr(self, "cond", None)
+        if cond is None:
             return net
-        return self.cond(net, labels)
+        return cond(net, labels)
 
 
 class IGenerator(Module, metaclass=ABCMeta):
