@@ -1130,6 +1130,7 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
         batch_idx: int,
         batch: tensor_dict_type,
         state: Optional["TrainerState"] = None,
+        **kwargs: Any,
     ) -> Tuple[Any, ...]:
         return (batch[INPUT_KEY],)
 
@@ -1398,7 +1399,7 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        args = self.get_forward_args(batch_idx, batch, state)
+        args = self.get_forward_args(batch_idx, batch, state, **kwargs)
         forward_results = self.forward(*args, **kwargs)
         outputs = self.postprocess(batch_idx, batch, forward_results, state, **kwargs)
         return outputs

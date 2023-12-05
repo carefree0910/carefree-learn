@@ -30,6 +30,7 @@ class DDRModel(CommonMLModel):
         batch_idx: int,
         batch: tensor_dict_type,
         state: Optional[TrainerState] = None,
+        **kwargs: Any,
     ) -> Tuple[Any, ...]:
         return batch[INPUT_KEY], state
 
