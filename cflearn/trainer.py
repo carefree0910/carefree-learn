@@ -27,6 +27,7 @@ from cftool.types import tensor_dict_type
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.data.distributed import DistributedSampler
 
+from .schema import device_type
 from .schema import IData
 from .schema import IMetric
 from .schema import IDLModel
@@ -44,6 +45,7 @@ from .schema import MultipleMetrics
 from .schema import TrainerCallback
 from .toolkit import summary
 from .toolkit import get_ddp_info
+from .toolkit import get_torch_device
 from .constants import LOSS_KEY
 from .constants import PT_PREFIX
 from .constants import SCORES_FILE
@@ -240,15 +242,16 @@ class Trainer(ITrainer):
         *,
         config_export_file: Optional[str] = None,
         show_summary: Optional[bool] = None,
-        cuda: Optional[str] = None,
+        device: device_type = None,
     ) -> "Trainer":
         # accelerator
         cpu = False
         if get_ddp_info() is None:
-            if cuda is None:
+            device = get_torch_device(device)
+            if device.type == "cpu":
                 cpu = True
             else:
-                os.environ["CUDA_VISIBLE_DEVICES"] = cuda
+                os.environ["CUDA_VISIBLE_DEVICES"] = str(device.index or 0)
         self.accelerator = Accelerator(
             cpu=cpu,
             mixed_precision=self.config.mixed_precision,

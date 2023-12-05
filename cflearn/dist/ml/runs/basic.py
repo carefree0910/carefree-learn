@@ -9,4 +9,4 @@ if __name__ == "__main__":
     assert data is not None
     cuda = info.meta["cuda"]
     assert info.config is not None
-    cflearn.MLTrainingPipeline.init(info.config).fit(data, cuda=cuda)
+    cflearn.MLTrainingPipeline.init(info.config).fit(data, device=cuda)

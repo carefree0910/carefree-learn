@@ -54,6 +54,7 @@ from .blocks import SerializeModelBlock
 from .blocks import SerializeOptimizerBlock
 from .schema import IEvaluationPipeline
 from ..data import MLData
+from ..schema import device_type
 from ..schema import sample_weights_type
 from ..schema import states_callback_type
 from ..schema import IData
@@ -62,6 +63,7 @@ from ..schema import IDataLoader
 from ..schema import MetricsOutputs
 from ..toolkit import get_device
 from ..toolkit import is_local_rank_0
+from ..toolkit import get_torch_device
 from ..trainer import get_scores
 from ..trainer import get_input_sample
 from ..trainer import get_sorted_checkpoints
@@ -288,7 +290,7 @@ class TrainingPipeline(
         data: IData,
         *,
         sample_weights: sample_weights_type = None,
-        cuda: Optional[Union[int, str]] = None,
+        device: device_type = None,
     ) -> "TrainingPipeline":
         # build pipeline
         self.prepare(data, sample_weights)
@@ -302,7 +304,7 @@ class TrainingPipeline(
                 save_npd=False,
             )
         # run pipeline
-        self.run(data, cuda=cuda)
+        self.run(data, device=device)
         # save pipeline
         if workspace is not None:
             pipeline_folder = DLPipelineSerializer.pipeline_folder
@@ -486,14 +488,14 @@ class DLPipelineSerializer:
         cls,
         src_folders: List[str],
         *,
-        cuda: Optional[str] = None,
+        device: device_type = None,
         num_picked: Optional[Union[int, float]] = None,
         states_callback: states_callback_type = None,
     ) -> DLInferencePipeline:
         return cls._fuse_multiple(
             src_folders,
             PackType.INFERENCE,
-            cuda,
+            device,
             num_picked,
             states_callback,
         )
@@ -503,14 +505,14 @@ class DLPipelineSerializer:
         cls,
         src_folders: List[str],
         *,
-        cuda: Optional[str] = None,
+        device: device_type = None,
         num_picked: Optional[Union[int, float]] = None,
         states_callback: states_callback_type = None,
     ) -> DLEvaluationPipeline:
         return cls._fuse_multiple(
             src_folders,
             PackType.EVALUATION,
-            cuda,
+            device,
             num_picked,
             states_callback,
         )
@@ -601,12 +603,13 @@ class DLPipelineSerializer:
         cls,
         src_folders: List[str],
         pack_type: PackType,
-        cuda: Optional[str] = None,
+        device: device_type = None,
         num_picked: Optional[Union[int, float]] = None,
         states_callback: states_callback_type = None,
     ) -> DLInferencePipeline:
         if pack_type == PackType.TRAINING:
             raise ValueError("should not pack to training pipeline when fusing")
+        device = get_torch_device(device)
         # get num picked
         num_total = num_repeat = len(src_folders)
         if num_picked is not None:
@@ -656,7 +659,7 @@ class DLPipelineSerializer:
                 ckpt_folder = os.path.join(i_folder, SerializeModelBlock.__identifier__)
                 checkpoints = get_sorted_checkpoints(ckpt_folder)
                 checkpoint_path = os.path.join(ckpt_folder, checkpoints[0])
-                states = torch.load(checkpoint_path, map_location=cuda)["states"]
+                states = torch.load(checkpoint_path, map_location=device)["states"]
             current_keys = list(states.keys())
             for k, v in list(states.items()):
                 states[f"{i}.{k}"] = v
@@ -667,7 +670,7 @@ class DLPipelineSerializer:
             merged_states.update(states)
         # load state dict
         model = m.build_model.model
-        model.to(cuda)
+        model.to(device)
         model.load_state_dict(merged_states)
         return m
 

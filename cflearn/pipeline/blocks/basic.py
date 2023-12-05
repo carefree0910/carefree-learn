@@ -29,6 +29,8 @@ from torch.optim.lr_scheduler import _LRScheduler
 from .utils import TryLoadBlock
 from .utils import InjectDefaultsMixin
 from ..common import Block
+from ...schema import device_type
+from ...schema import trainer_callbacks
 from ...schema import IData
 from ...schema import IMetric
 from ...schema import IDLModel
@@ -38,7 +40,6 @@ from ...schema import IInference
 from ...schema import OptimizerPack
 from ...schema import TrainerMonitor
 from ...schema import TrainerCallback
-from ...schema import trainer_callbacks
 from ...losses import losses
 from ...models import DLEnsembleModel
 from ...toolkit import _get_environ_workspace
@@ -707,11 +708,9 @@ class TrainingBlock(Block):
         data: IData,
         _defaults: OrderedDictType,
         *,
-        cuda: Optional[Union[int, str]] = None,
+        device: device_type = None,
         **kwargs: Any,
     ) -> None:
-        if cuda is not None:
-            cuda = str(cuda)
         self.build_trainer.trainer.fit(
             data,
             self.build_model.model,
@@ -723,7 +722,7 @@ class TrainingBlock(Block):
             self.build_callbacks.callbacks,
             self.build_optimizers.schedulers_requires_metric,
             config_export_file=self.trainer_config_file,
-            cuda=cuda,
+            device=device,
         )
 
 

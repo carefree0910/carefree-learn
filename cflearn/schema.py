@@ -1655,7 +1655,7 @@ class ITrainer(ABC):
         *,
         config_export_file: Optional[str] = None,
         show_summary: Optional[bool] = None,
-        cuda: Optional[str] = None,
+        device: device_type = None,
     ) -> "ITrainer":
         pass
 

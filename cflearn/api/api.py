@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 import math
 import shutil
 
@@ -26,6 +25,7 @@ from cftool.types import tensor_dict_type
 
 from ..data import MLData
 from ..schema import data_type
+from ..schema import device_type
 from ..schema import sample_weights_type
 from ..schema import states_callback_type
 from ..schema import metrics
@@ -424,13 +424,13 @@ def pack_scripted(workplace: str, export_file: str = "model.pt") -> DLInferenceP
 def fuse_inference(
     src_folders: List[str],
     *,
-    cuda: Optional[str] = None,
+    device: device_type = None,
     num_picked: Optional[Union[int, float]] = None,
     states_callback: states_callback_type = None,
 ) -> DLInferencePipeline:
     return DLPipelineSerializer.fuse_inference(
         src_folders,
-        cuda=cuda,
+        device=device,
         num_picked=num_picked,
         states_callback=states_callback,
     )
@@ -439,13 +439,13 @@ def fuse_inference(
 def fuse_evaluation(
     src_folders: List[str],
     *,
-    cuda: Optional[str] = None,
+    device: device_type = None,
     num_picked: Optional[Union[int, float]] = None,
     states_callback: states_callback_type = None,
 ) -> DLEvaluationPipeline:
     return DLPipelineSerializer.fuse_evaluation(
         src_folders,
-        cuda=cuda,
+        device=device,
         num_picked=num_picked,
         states_callback=states_callback,
     )
@@ -512,7 +512,7 @@ def fit_ml(
     processor_config: Optional[DataProcessorConfig] = None,
     # fit
     sample_weights: sample_weights_type = None,
-    cuda: Optional[Union[int, str]] = None,
+    device: device_type = None,
 ) -> MLTrainingPipeline:
     valid_config = (config or DLConfig()).copy()
     if debug:
@@ -526,7 +526,7 @@ def fit_ml(
         valid_others,
         processor_config,
     )
-    fit_kwargs = dict(sample_weights=sample_weights, cuda=cuda)
+    fit_kwargs = dict(sample_weights=sample_weights, device=device)
     return MLTrainingPipeline.init(valid_config).fit(data, **fit_kwargs)  # type: ignore
 
 
@@ -580,7 +580,7 @@ def make_toy_ml_model(
     *,
     is_classification: bool = False,
     data_tuple: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-    cuda: Optional[str] = None,
+    device: device_type = None,
     **kwargs: Any,
 ) -> MLTrainingPipeline:
     if config is None:
@@ -616,4 +616,4 @@ def make_toy_ml_model(
     # fit & return
     m = MLTrainingPipeline.init(config)
     data = MLData.init().fit(x_np, y_np)
-    return m.fit(data, cuda=cuda)
+    return m.fit(data, device=device)
