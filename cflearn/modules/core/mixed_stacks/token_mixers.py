@@ -33,7 +33,7 @@ class MLPTokenMixer(ITokenMixer):
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
         *,
-        determinate: bool = False,
+        deterministic: bool = False,
     ) -> Tensor:
         return self.net(net)
 
@@ -49,7 +49,7 @@ class FourierTokenMixer(ITokenMixer):
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
         *,
-        determinate: bool = False,
+        deterministic: bool = False,
     ) -> Tensor:
         return self.net(net)
 
@@ -76,10 +76,10 @@ class AttentionTokenMixer(ITokenMixer):
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
         *,
-        determinate: bool = False,
+        deterministic: bool = False,
         mask: Optional[Tensor] = None,
     ) -> Tensor:
-        kw = dict(hw=hw, mask=mask, determinate=determinate)
+        kw = dict(hw=hw, mask=mask, deterministic=deterministic)
         return self.net(net, net, net, **kw).output
 
 
@@ -99,7 +99,7 @@ class PoolTokenMixer(ITokenMixer):
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
         *,
-        determinate: bool = False,
+        deterministic: bool = False,
     ) -> Tensor:
         return self.pool(net) - net
 
@@ -172,7 +172,7 @@ class RWKVTokenMixer(ITokenMixer):
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
         *,
-        determinate: bool = False,
+        deterministic: bool = False,
     ) -> Tensor:
         # B, T, C
         t = net.shape[1]

@@ -1338,13 +1338,13 @@ def interpolate(
     factor: Optional[Union[float, Tuple[float, float]]] = None,
     size: Optional[Union[int, Tuple[int, int]]] = None,
     anchor: Optional[Tensor] = None,
-    determinate: bool = False,
+    deterministic: bool = False,
     **kwargs: Any,
 ) -> Tensor:
     if "linear" in mode or mode == "bicubic":
         kwargs.setdefault("align_corners", False)
     c, h, w = src.shape[1:]
-    if determinate:
+    if deterministic:
         c, h, w = map(int, [c, h, w])
     if factor is not None:
         template = "`{}` will take no affect because `factor` is provided"
@@ -1354,7 +1354,7 @@ def interpolate(
             print_warning(template.format("anchor"))
         if factor == 1.0 or factor == (1.0, 1.0):
             return src
-        if not determinate:
+        if not deterministic:
             return F.interpolate(
                 src,
                 mode=mode,
@@ -1369,14 +1369,14 @@ def interpolate(
         if anchor is None:
             raise ValueError("either `size` or `anchor` should be provided")
         size = anchor.shape[2:]
-        if determinate:
+        if deterministic:
             size = tuple(map(int, size))  # type: ignore
     if not isinstance(size, tuple):
         size = size, size
     if h == size[0] and w == size[1]:
         return src
     net = F.interpolate(src, size=size, mode=mode, **kwargs)
-    if not determinate:
+    if not deterministic:
         return net
     return net.view(-1, c, *size)
 
@@ -1385,10 +1385,10 @@ def mean_std(
     latent_map: Tensor,
     eps: float = 1.0e-5,
     *,
-    determinate: bool = False,
+    deterministic: bool = False,
 ) -> Tuple[Tensor, Tensor]:
     c, h, w = latent_map.shape[1:]
-    if determinate:
+    if deterministic:
         c, h, w = map(int, [c, h, w])
     spatial_dim = h * w
     latent_var = latent_map.view(-1, c, spatial_dim).var(dim=2) + eps
@@ -1402,16 +1402,21 @@ def adain_with_params(
     mean: Tensor,
     std: Tensor,
     *,
-    determinate: bool = False,
+    deterministic: bool = False,
 ) -> Tensor:
-    src_mean, src_std = mean_std(src, determinate=determinate)
+    src_mean, src_std = mean_std(src, deterministic=deterministic)
     src_normalized = (src - src_mean) / src_std
     return src_normalized * std + mean
 
 
-def adain_with_tensor(src: Tensor, tgt: Tensor, *, determinate: bool = False) -> Tensor:
-    tgt_mean, tgt_std = mean_std(tgt, determinate=determinate)
-    return adain_with_params(src, tgt_mean, tgt_std, determinate=determinate)
+def adain_with_tensor(
+    src: Tensor,
+    tgt: Tensor,
+    *,
+    deterministic: bool = False,
+) -> Tensor:
+    tgt_mean, tgt_std = mean_std(tgt, deterministic=deterministic)
+    return adain_with_params(src, tgt_mean, tgt_std, deterministic=deterministic)
 
 
 def make_indices_visualization_map(indices: Tensor) -> Tensor:

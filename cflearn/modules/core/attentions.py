@@ -177,9 +177,9 @@ class Attention(Module, IAttention, IHijackMixin):
 
     # internal
 
-    def _to_heads(self, tensor: Tensor, determinate: bool) -> Tensor:
+    def _to_heads(self, tensor: Tensor, deterministic: bool) -> Tensor:
         seq_len = tensor.shape[1]
-        if determinate:
+        if deterministic:
             seq_len = int(seq_len)
         tensor = tensor.view(-1, seq_len, self.num_heads, self.head_dim)
         return tensor.permute(0, 2, 1, 3)
@@ -204,7 +204,7 @@ class Attention(Module, IAttention, IHijackMixin):
         hw: Optional[Tuple[int, int]] = None,
         mask: Optional[Tensor] = None,
         require_weights: bool = False,
-        determinate: bool = False,
+        deterministic: bool = False,
     ) -> AttentionOutput:
         qkv_inp = q, k, v
         if self.hook is not None:
@@ -212,7 +212,7 @@ class Attention(Module, IAttention, IHijackMixin):
         # `mask` represents slots which will be zeroed
         if self.qkv_same:
             qkv = F.linear(q, self.in_w, self.qkv_bias)
-            if not determinate:
+            if not deterministic:
                 q, k, v = qkv.chunk(3, dim=-1)
             else:
                 qkv = qkv.view(-1, int(q.shape[1]), 3, self.embed_dim)
@@ -246,7 +246,7 @@ class Attention(Module, IAttention, IHijackMixin):
             q, k, v = self.hook.after_forward(qkv_inp, (q, k, v))
         q, k, v = map(self.activation, [q, k, v])
         # B, N*, D -> B * N_head, N*, D_head
-        q, k, v = map(self._to_heads, [q, k, v], [determinate] * 3)
+        q, k, v = map(self._to_heads, [q, k, v], [deterministic] * 3)
         if mask is not None:
             # B, Nq, Nk -> B, N_head, Nq, Nk
             mask = mask.repeat(self.num_heads, 1, 1)
@@ -274,7 +274,7 @@ class Attention(Module, IAttention, IHijackMixin):
         output = output.transpose(1, 2).contiguous()
         # B, Nq, N_head, D_head -> B, Nq, D
         seq_len = output.shape[1]
-        if determinate:
+        if deterministic:
             seq_len = int(seq_len)
         output = output.view(-1, seq_len, self.embed_dim)
         # B, Nq, D -> B, Nq, Din

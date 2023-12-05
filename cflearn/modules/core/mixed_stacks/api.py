@@ -114,13 +114,17 @@ class MixingBlock(Module):
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
         *,
-        determinate: bool = False,
+        deterministic: bool = False,
         **kwargs: Any,
     ) -> Tensor:
         if self.norm_position == "pre_norm":
-            return self._pre_norm_forward(net, hw, determinate=determinate, **kwargs)
+            return self._pre_norm_forward(
+                net, hw, deterministic=deterministic, **kwargs
+            )
         if self.norm_position == "post_norm":
-            return self._post_norm_forward(net, hw, determinate=determinate, **kwargs)
+            return self._post_norm_forward(
+                net, hw, deterministic=deterministic, **kwargs
+            )
         raise ValueError(f"unrecognized norm_position '{self.norm_position}' occurred")
 
     def _pre_norm_forward(
@@ -128,11 +132,11 @@ class MixingBlock(Module):
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
         *,
-        determinate: bool = False,
+        deterministic: bool = False,
         **kwargs: Any,
     ) -> Tensor:
         # token mixing
-        token_mixing_kw = dict(hw=hw, determinate=determinate)
+        token_mixing_kw = dict(hw=hw, deterministic=deterministic)
         token_mixing_kw.update(kwargs)
         token_mixing_net = self.token_norm(net)
         token_mixing_net = self.token_mixing(token_mixing_net, **token_mixing_kw)
@@ -158,11 +162,11 @@ class MixingBlock(Module):
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
         *,
-        determinate: bool = False,
+        deterministic: bool = False,
         **kwargs: Any,
     ) -> Tensor:
         # token mixing
-        token_mixing_kw = dict(hw=hw, determinate=determinate)
+        token_mixing_kw = dict(hw=hw, deterministic=deterministic)
         token_mixing_kw.update(kwargs)
         token_mixing_net = self.token_mixing(net, **token_mixing_kw)
         token_mixing_net = self.token_mixing_dropout(token_mixing_net)
@@ -417,14 +421,14 @@ class MixedStackedEncoder(Module):
         net: Tensor,
         *,
         hwp: Optional[Tuple[int, int, int]] = None,
-        determinate: bool = False,
+        deterministic: bool = False,
     ) -> Tensor:
         n, t, d = net.shape
         if self.head_token is not None:
             head_tokens = self.head_token.repeat([n, 1, 1])
             net = torch.cat([head_tokens, net], dim=1)
             t += 1
-        if determinate:
+        if deterministic:
             net = net.view(-1, *map(int, [t, d]))
         net = self.pos_encoding(net, hwp=hwp)
         if self.embedding_norm is not None:
@@ -445,11 +449,11 @@ class MixedStackedEncoder(Module):
         *,
         hw: Optional[Tuple[int, int]] = None,
         hwp: Optional[Tuple[int, int, int]] = None,
-        determinate: bool = False,
+        deterministic: bool = False,
     ) -> Tensor:
-        net = self.pre_process(net, hwp=hwp, determinate=determinate)
+        net = self.pre_process(net, hwp=hwp, deterministic=deterministic)
         for block in self.mixing_blocks:
-            net = block(net, hw, determinate=determinate)
+            net = block(net, hw, deterministic=deterministic)
         net = self.post_process(net)
         return net
 

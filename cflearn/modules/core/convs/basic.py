@@ -332,9 +332,9 @@ class Interpolate(Module):
         self.mode = mode
         self.kw = dict(mode=mode, factor=factor)
 
-    def forward(self, net: Tensor, *, determinate: bool = False) -> Tensor:
+    def forward(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
         if self.factor is not None:
-            net = interpolate(net, determinate=determinate, **self.kw)  # type: ignore
+            net = interpolate(net, deterministic=deterministic, **self.kw)  # type: ignore
         return net
 
     def extra_repr(self) -> str:
@@ -391,12 +391,12 @@ class UpsampleConv2d(Conv2d):
         style: Optional[Tensor] = None,
         *,
         transpose: bool = False,
-        determinate: bool = False,
+        deterministic: bool = False,
     ) -> Tensor:
         if self.upsample is None:
             transpose = True
         else:
-            net = self.upsample(net, determinate=determinate)
+            net = self.upsample(net, deterministic=deterministic)
             if transpose:
                 raise ValueError("should not use transpose when `upsample` is used")
         return super().forward(net, style, transpose=transpose)

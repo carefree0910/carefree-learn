@@ -212,7 +212,7 @@ class CLIP(IPerceptor):
                 "`vit` is not initialized, "
                 "please set `use_vision=True` when initializing `CLIP`"
             )
-        net = self.vit(image, determinate=True)
+        net = self.vit(image, deterministic=True)
         return l2_normalize(net)
 
     def encode_text(
@@ -220,7 +220,7 @@ class CLIP(IPerceptor):
         indices: Tensor,
         *,
         apply_pooling: bool = True,
-        determinate: bool = True,
+        deterministic: bool = True,
         clip_skip: int = 0,
     ) -> Tensor:
         fmt = (
@@ -239,7 +239,7 @@ class CLIP(IPerceptor):
         if self.token_type_embedding is not None:
             token_type = torch.zeros_like(indices)
             net = net + self.token_type_embedding(token_type)
-        kw = dict(clip_skip=clip_skip, determinate=determinate)
+        kw = dict(clip_skip=clip_skip, deterministic=deterministic)
         net = self.text_transformer(net, **kw)
         if not apply_pooling:
             return net

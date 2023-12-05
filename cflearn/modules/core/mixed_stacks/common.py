@@ -30,7 +30,7 @@ class ITokenMixer(Module):
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
         *,
-        determinate: bool = False,
+        deterministic: bool = False,
     ) -> Tensor:
         pass
 

@@ -268,7 +268,7 @@ class CLIPTextConditionModel(Module):
                 z = self.m.encode_text(
                     inp,
                     apply_pooling=False,
-                    determinate=False,
+                    deterministic=False,
                     clip_skip=clip_skip,
                 )
             # weighting

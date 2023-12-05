@@ -125,7 +125,12 @@ class ImgToPatches(Module, WithRegister["ImgToPatches"]):
         self.latent_dim = latent_dim
 
     @abstractmethod
-    def forward(self, net: Tensor, *, determinate: bool = False) -> Tuple[Tensor, Any]:
+    def forward(
+        self,
+        net: Tensor,
+        *,
+        deterministic: bool = False,
+    ) -> Tuple[Tensor, Any]:
         """should return patches and its hw"""
 
     @property
@@ -136,9 +141,9 @@ class ImgToPatches(Module, WithRegister["ImgToPatches"]):
         return net.shape[1]
 
     @staticmethod
-    def _flatten(net: Tensor, determinate: bool) -> Tuple[Tensor, Any]:
+    def _flatten(net: Tensor, deterministic: bool) -> Tuple[Tensor, Any]:
         c, h, w = net.shape[1:]
-        if determinate:
+        if deterministic:
             c, h, w = map(int, [c, h, w])
         net = net.view(-1, c, h * w).transpose(1, 2).contiguous()
         return net, (h, w)
@@ -173,9 +178,14 @@ class VanillaPatchEmbed(ImgToPatches):
             **conv_kwargs,
         )
 
-    def forward(self, net: Tensor, *, determinate: bool = False) -> Tuple[Tensor, Any]:
+    def forward(
+        self,
+        net: Tensor,
+        *,
+        deterministic: bool = False,
+    ) -> Tuple[Tensor, Any]:
         net = self.projection(net)
-        return self._flatten(net, determinate)
+        return self._flatten(net, deterministic)
 
 
 @ImgToPatches.register("overlap")
@@ -200,9 +210,14 @@ class OverlapPatchEmbed(ImgToPatches):
         )
         self.norm = nn.LayerNorm(latent_dim)
 
-    def forward(self, net: Tensor, *, determinate: bool = False) -> Tuple[Tensor, Any]:
+    def forward(
+        self,
+        net: Tensor,
+        *,
+        deterministic: bool = False,
+    ) -> Tuple[Tensor, Any]:
         net = self.conv(net)
-        net, hw = self._flatten(net, determinate)
+        net, hw = self._flatten(net, deterministic)
         net = self.norm(net)
         return net, hw
 
@@ -247,9 +262,14 @@ class ConvPatchEmbed(ImgToPatches):
             ]
         )
 
-    def forward(self, net: Tensor, *, determinate: bool = False) -> Tuple[Tensor, Any]:
+    def forward(
+        self,
+        net: Tensor,
+        *,
+        deterministic: bool = False,
+    ) -> Tuple[Tensor, Any]:
         net = self.conv(net)
-        return self._flatten(net, determinate)
+        return self._flatten(net, deterministic)
 
 
 __all__ = [

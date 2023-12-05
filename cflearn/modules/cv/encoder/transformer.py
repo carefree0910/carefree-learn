@@ -88,10 +88,10 @@ class ViTEncoder(Module):
         *,
         hw: Optional[Tuple[int, int]] = None,
         hwp: Optional[Tuple[int, int, int]] = None,
-        determinate: bool = False,
+        deterministic: bool = False,
     ) -> Tensor:
-        patches, hw = self.to_patches(net, determinate=determinate)
-        net = self.encoder(patches, hw=hw, hwp=hwp, determinate=determinate)
+        patches, hw = self.to_patches(net, deterministic=deterministic)
+        net = self.encoder(patches, hw=hw, hwp=hwp, deterministic=deterministic)
         if self.output_projection is not None:
             net = net @ self.output_projection
         return net
