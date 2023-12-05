@@ -1922,6 +1922,7 @@ class Config(TrainerConfig):
 @dataclass
 class _DLConfig:
     model: str = "common"
+    model_config: Optional[Dict[str, Any]] = None
     module_name: str = ""
     module_config: Optional[Dict[str, Any]] = None
     num_repeat: Optional[int] = None
