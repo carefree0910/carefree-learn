@@ -25,6 +25,7 @@ from typing import Callable
 from typing import Iterator
 from typing import Optional
 from typing import NamedTuple
+from typing import ContextManager
 from pathlib import Path
 from accelerate import Accelerator
 from dataclasses import dataclass
@@ -1183,6 +1184,11 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
 
     # api
 
+    def eval_context(self, **kwargs: Any) -> ContextManager:
+        from .toolkit import eval_context
+
+        return eval_context(nn.ModuleList(self.all_modules), **kwargs)
+
     def save(self, path: TPath, **kwargs: Any) -> None:
         full = dict(
             config=self.config.to_pack().asdict(),
@@ -1245,7 +1251,7 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
             if forward_fn is not None:
                 msg = "`output_names` should be provided when `forward_fn` is provided"
                 raise ValueError(msg)
-            with eval_context(model):
+            with model.eval_context():
                 forward_results = onnx_forward(shallow_copy_dict(input_sample))
             if not isinstance(forward_results, dict):
                 forward_results = {PREDICTIONS_KEY: forward_results}

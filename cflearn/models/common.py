@@ -32,7 +32,6 @@ from ..schema import TrainStepLoss
 from ..modules import build_module
 from ..toolkit import get_clones
 from ..toolkit import get_device
-from ..toolkit import eval_context
 from ..toolkit import no_grad_context
 from ..toolkit import toggle_optimizer
 from ..trainer import weighted_loss_score
@@ -109,7 +108,7 @@ class CommonDLModel(IDLModel):
         get_losses: bool = False,
         loss_kwargs: Optional[Dict[str, Any]] = None,
     ) -> StepOutputs:
-        with eval_context(nn.ModuleList(self.all_modules), use_grad=use_grad):
+        with self.eval_context(use_grad=use_grad):
             loss_dict = {}
             loss_kwargs = loss_kwargs or {}
             forward_kwargs = forward_kwargs or {}
