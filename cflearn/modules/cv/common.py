@@ -189,6 +189,7 @@ class VQCodebook(nn.Module):
 
 __all__ = [
     "IEncoder",
+    "DecoderInputs",
     "IDecoder",
     "register_encoder",
     "register_decoder",
