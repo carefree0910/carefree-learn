@@ -7,6 +7,7 @@ from .general import ImageCallback
 from ..schema import ITrainer
 from ..schema import TrainerCallback
 from ..modules import IGenerator
+from ..toolkit import np_batch_to_tensor
 from ..toolkit import eval_context
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
@@ -26,6 +27,7 @@ class GeneratorCallback(ImageCallback):
         if not self.is_local_rank_0:
             return None
         batch = next(iter(trainer.validation_loader))
+        batch = np_batch_to_tensor(batch)
         batch = to_device(batch, trainer.device)
         original = batch[INPUT_KEY]
         m = trainer.model.m
