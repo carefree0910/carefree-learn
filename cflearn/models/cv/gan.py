@@ -170,7 +170,7 @@ class GANModel(IDLModel):
         **kwargs: Any,
     ) -> Tuple[Any, ...]:
         z = self.m.generate_z(len(batch[INPUT_KEY]))
-        inputs = DecoderInputs(net=z, labels=batch.get(LABEL_KEY))
+        inputs = DecoderInputs(z=z, labels=batch.get(LABEL_KEY))
         return (inputs,)
 
     # api

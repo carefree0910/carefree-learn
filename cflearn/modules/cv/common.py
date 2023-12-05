@@ -54,7 +54,7 @@ class DecoderInputs(DataClassBase):
     """
 
     # general
-    net: Tensor
+    z: Tensor
     labels: Optional[Tensor] = None
     deterministic: bool = False
     # attn
@@ -173,7 +173,7 @@ class IGaussianGenerator(IGenerator):
         elif class_idx is not None:
             msg = "`class_idx` should not be provided when `labels` is provided"
             raise ValueError(msg)
-        return self.decode(DecoderInputs(net=z, labels=labels))
+        return self.decode(DecoderInputs(z=z, labels=labels))
 
     def interpolate(
         self,
@@ -193,7 +193,7 @@ class IGaussianGenerator(IGenerator):
         if class_idx is None and self.num_classes is not None:
             class_idx = random.randint(0, self.num_classes - 1)
         labels = self.get_sample_labels(num_samples, class_idx)
-        return self.decode(DecoderInputs(net=z, labels=labels))
+        return self.decode(DecoderInputs(z=z, labels=labels))
 
 
 class DiscriminatorOutput(NamedTuple):

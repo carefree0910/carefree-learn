@@ -93,7 +93,7 @@ class AttentionDecoder(IDecoder):
         self.head = nn.Sequential(*head_blocks)
 
     def forward(self, inputs: DecoderInputs) -> Tensor:
-        net = self.decoder(inputs.net)
+        net = self.decoder(inputs.z)
         if inputs.no_head:
             return net
         net = self.head(net)

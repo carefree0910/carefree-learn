@@ -77,7 +77,7 @@ class AttentionAutoEncoderKL(IAttentionAutoEncoder):
         apply_tanh: Optional[bool] = None,
     ) -> Tensor:
         net = self.from_embedding(z)
-        inputs = DecoderInputs(net=net, no_head=no_head, apply_tanh=apply_tanh)
+        inputs = DecoderInputs(z=net, no_head=no_head, apply_tanh=apply_tanh)
         net = self.generator.decoder.decode(inputs)
         return net
 

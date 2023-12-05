@@ -153,7 +153,7 @@ class VanillaDecoder(IDecoder):
             self.final_activation = build_activation(final_activation)
 
     def forward(self, inputs: DecoderInputs) -> Tensor:
-        net = self.inject_cond(inputs.net, inputs.labels)
+        net = self.inject_cond(inputs.z, inputs.labels)
         for block in self.decoder:
             if not isinstance(block, UpsampleConv2d):
                 net = block(net)
@@ -250,7 +250,7 @@ class VanillaDecoder1D(IDecoder):
 
     def forward(self, inputs: DecoderInputs) -> Tensor:
         inputs = inputs.copy()
-        inputs.net = self.from_latent(inputs.net)
+        inputs.z = self.from_latent(inputs.z)
         return self.decoder(inputs)
 
 
