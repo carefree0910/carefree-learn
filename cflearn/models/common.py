@@ -69,15 +69,6 @@ class CommonDLModel(IDLModel):
         self.loss = build_loss(config.loss_name, config=config.loss_config)
 
 
-@IDLModel.register("common_generator")
-class CommonGeneratorModel(CommonDLModel):
-    def build(self, config: DLConfig) -> None:
-        if config.loss_name is None:
-            raise ValueError("`loss_name` should be specified for `CommonDLModel`")
-        self.m = build_generator(config.module_name, config=config.module_config)
-        self.loss = build_loss(config.loss_name, config=config.loss_config)
-
-
 class EnsembleFn(Protocol):
     def __call__(self, key: str, tensors: List[Tensor]) -> Tensor:
         pass

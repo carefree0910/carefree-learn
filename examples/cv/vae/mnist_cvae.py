@@ -20,7 +20,7 @@ processor_config.set_blocks(
 data = cflearn.mnist_data(data_config, processor_config)
 
 config = cflearn.DLConfig(
-    model="common_generator",
+    model="vae",
     module_name="vae",
     module_config=dict(
         in_channels=1,
