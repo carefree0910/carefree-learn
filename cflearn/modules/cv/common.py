@@ -9,11 +9,14 @@ from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from dataclasses import dataclass
 from torch.nn import Module
+from cftool.misc import DataClassBase
 from cftool.types import tensor_dict_type
 
 from ..common import PrefixModules
 from ...toolkit import get_device
+from ...toolkit import interpolate
 from ...toolkit import eval_context
 
 
