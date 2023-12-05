@@ -48,6 +48,7 @@ from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 from safetensors.torch import load_file
 
+from .schema import TPath
 from .schema import data_type
 from .schema import d_inp_type
 from .schema import param_type
@@ -164,7 +165,7 @@ def get_download_root(dtype: DownloadDtype) -> Path:
 def download(
     dtype: DownloadDtype,
     tag: str,
-    download_root: Optional[Path] = None,
+    download_root: Optional[TPath] = None,
     *,
     extension: Optional[str] = None,
     check_sha: bool = False,
@@ -175,6 +176,8 @@ def download(
         raise ValueError(f"'{tag}' is currently not available at '{dtype}'")
     if download_root is None:
         download_root = get_download_root(dtype)
+    if isinstance(download_root, str):
+        download_root = Path(download_root)
     download_root.mkdir(exist_ok=True, parents=True)
     if extension is None:
         extension = download_extensions.get(dtype)
@@ -216,7 +219,7 @@ def download(
 
 def download_tokenizer(
     tag: str,
-    download_root: Optional[Path] = None,
+    download_root: Optional[TPath] = None,
     *,
     extension: Optional[str] = None,
     check_sha: bool = False,
@@ -234,7 +237,7 @@ def download_tokenizer(
 
 def download_checkpoint(
     tag: str,
-    download_root: Optional[Path] = None,
+    download_root: Optional[TPath] = None,
     *,
     extension: Optional[str] = None,
     check_sha: bool = False,
@@ -252,7 +255,7 @@ def download_checkpoint(
 
 def download_json(
     tag: str,
-    download_root: Optional[Path] = None,
+    download_root: Optional[TPath] = None,
     *,
     extension: Optional[str] = None,
     check_sha: bool = False,
