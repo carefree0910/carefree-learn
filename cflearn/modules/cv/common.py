@@ -50,8 +50,40 @@ class DecoderInputs(DataClassBase):
 
 
 class IDecoder(Module):
+    cond: Optional[Module] = None
+    num_classes: Optional[int] = None
+    img_size: Optional[int] = None
+    latent_channels: Optional[int] = None
+    latent_resolution: Optional[int] = None
+
     def decode(self, inputs: DecoderInputs) -> Tensor:
         return self(inputs)
+
+    def resize(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
+        if self.img_size is None:
+            return net
+        return interpolate(net, size=self.img_size, deterministic=deterministic)
+
+    def generate_cond(self, cond_channels: int) -> None:
+        if self.num_classes is None:
+            self.cond = None
+        else:
+            msg_fmt = "`{}` should be provided for conditional modeling"
+            if self.latent_channels is None:
+                raise ValueError(msg_fmt.format("latent_channels"))
+            if self.latent_resolution is None:
+                raise ValueError(msg_fmt.format("latent_resolution"))
+            self.cond = ChannelPadding(
+                self.latent_channels,
+                cond_channels,
+                self.latent_resolution,
+                num_classes=self.num_classes,
+            )
+
+    def inject_cond(self, net: Tensor, labels: Optional[Tensor]) -> Tensor:
+        if self.cond is None:
+            return net
+        return self.cond(net, labels)
 
 
 def register_encoder(name: str, **kwargs: Any) -> Callable[[TEncoder], TEncoder]:
