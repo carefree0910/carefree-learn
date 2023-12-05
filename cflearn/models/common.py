@@ -19,6 +19,7 @@ from ..schema import TrainStep
 from ..schema import TrainerState
 from ..schema import TrainStepLoss
 from ..modules import build_module
+from ..modules import build_generator
 from ..toolkit import get_clones
 from ..constants import LOSS_KEY
 
@@ -65,6 +66,15 @@ class CommonDLModel(IDLModel):
         if config.loss_name is None:
             raise ValueError("`loss_name` should be specified for `CommonDLModel`")
         self.m = build_module(config.module_name, config=config.module_config)
+        self.loss = build_loss(config.loss_name, config=config.loss_config)
+
+
+@IDLModel.register("common_generator")
+class CommonGeneratorModel(CommonDLModel):
+    def build(self, config: DLConfig) -> None:
+        if config.loss_name is None:
+            raise ValueError("`loss_name` should be specified for `CommonDLModel`")
+        self.m = build_generator(config.module_name, config=config.module_config)
         self.loss = build_loss(config.loss_name, config=config.loss_config)
 
 
