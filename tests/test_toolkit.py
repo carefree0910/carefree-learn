@@ -4,6 +4,7 @@ import unittest
 from cftool.array import corr
 from cftool.array import allclose
 from cflearn.toolkit import auto_num_layers
+from cflearn.toolkit import get_torch_device
 
 
 class TestToolkit(unittest.TestCase):
@@ -31,6 +32,16 @@ class TestToolkit(unittest.TestCase):
         corr12 = corr(w_target, w_pred)
         self.assertTrue(allclose(corr00, corr10, atol=1.0e-5))
         self.assertTrue(allclose(corr01, corr11, corr02.t(), corr12.t(), atol=1.0e-5))
+
+    def test_get_torch_device(self) -> None:
+        cpu = torch.device("cpu")
+        cuda1 = torch.device("cuda:1")
+        self.assertTrue(get_torch_device(None) == cpu)
+        self.assertTrue(get_torch_device("cpu") == cpu)
+        self.assertTrue(get_torch_device(1) == cuda1)
+        self.assertTrue(get_torch_device("1") == cuda1)
+        self.assertTrue(get_torch_device("cuda:1") == cuda1)
+        self.assertTrue(get_torch_device(cuda1) == cuda1)
 
 
 if __name__ == "__main__":
