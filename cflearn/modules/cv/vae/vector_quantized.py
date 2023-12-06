@@ -87,7 +87,6 @@ class VQVAE(nn.Module):
         encoder: str = "vanilla",
         decoder: str = "vanilla",
         code_dimension: int = 256,
-        latent_channels: int = 256,
         encoder_config: Optional[Dict[str, Any]] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
         latent_padding_channels: Optional[int] = None,
@@ -101,7 +100,6 @@ class VQVAE(nn.Module):
         self.out_channels = out_channels or in_channels
         self.num_classes = num_classes
         self.code_dimension = code_dimension
-        self.latent_channels = latent_channels
         self.apply_tanh = apply_tanh
         if num_downsample is None:
             args = img_size, min_size, target_downsample
@@ -112,7 +110,7 @@ class VQVAE(nn.Module):
         encoder_config["num_downsample"] = num_downsample
         encoder_config.setdefault("img_size", img_size)
         encoder_config.setdefault("in_channels", in_channels)
-        encoder_config.setdefault("latent_channels", latent_channels)
+        encoder_config.setdefault("latent_channels", code_dimension)
         self.encoder = build_encoder(encoder, config=encoder_config)
         latent_resolution = get_latent_resolution(self.encoder, img_size)
         self.latent_resolution = latent_resolution
@@ -125,7 +123,7 @@ class VQVAE(nn.Module):
         decoder_config.setdefault("img_size", img_size)
         decoder_config.setdefault("out_channels", out_channels or in_channels)
         decoder_config.setdefault("latent_resolution", latent_resolution)
-        decoder_config.setdefault("latent_channels", latent_channels)
+        decoder_config.setdefault("latent_channels", code_dimension)
         decoder_config.setdefault("num_classes", num_classes)
         self.decoder = build_decoder(decoder, config=decoder_config)
         # latent padding
@@ -133,7 +131,7 @@ class VQVAE(nn.Module):
             self.latent_padding = None
         else:
             self.latent_padding = ChannelPadding(
-                latent_channels,
+                code_dimension,
                 latent_padding_channels,
                 latent_resolution,
             )
