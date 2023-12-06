@@ -582,7 +582,7 @@ class DataProcessor(IPipeline):
         kw = dict(bundle=bundle.copy(), for_inference=for_inference)
         previous: Dict[str, IDataBlock] = {}
         for block in self.blocks:
-            block.previous = previous
+            block.previous = shallow_copy_dict(previous)
             kw["bundle"] = safe_execute(getattr(block, fn), kw)
             previous[block.__identifier__] = block
         return kw["bundle"]  # type: ignore
