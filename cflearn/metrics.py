@@ -63,14 +63,6 @@ class Quantile(IMetric):
         error = np.maximum(q * diff, (q - 1.0) * diff)
         return error.mean(0).sum().item()
 
-    def get_forward_args(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[IDataLoader] = None,
-    ) -> Tuple[Any, ...]:
-        return np_outputs[self.predictions_key], np_batch[LABEL_KEY]
-
 
 @IMetric.register("f1")
 class F1Score(IMetric):
