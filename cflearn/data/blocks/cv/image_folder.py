@@ -210,6 +210,36 @@ class LMDBItem(NamedTuple):
     labels: Dict[str, Any]
 
 
+class CollectResults(NamedTuple):
+    all_img_paths: List[str]
+    hierarchy_list: List[List[str]]
+
+
+def collect_images(
+    src_folder: str,
+    *,
+    prefix: Optional[str] = None,
+    extensions: Optional[Set[str]] = None,
+    filter_fn: Optional[Callable[[List[str]], bool]] = None,
+) -> CollectResults:
+    def hierarchy_callback(hierarchy: List[str], path: str) -> None:
+        hierarchy = hierarchy[prefix_idx:]
+        if filter_fn is not None and not filter_fn(hierarchy):
+            return None
+        hierarchy_list.append(hierarchy)
+        all_img_paths.append(path)
+
+    all_img_paths: List[str] = []
+    hierarchy_list: List[List[str]] = []
+    if extensions is None:
+        extensions = default_image_extensions
+    prefix_idx = 0
+    if prefix is not None:
+        prefix_idx = len(prefix.split(os.path.sep))
+    walk(src_folder, hierarchy_callback, extensions)
+    return CollectResults(all_img_paths, hierarchy_list)
+
+
 def prepare_image_folder(
     *,
     src_folder: str,
@@ -310,22 +340,12 @@ def prepare_image_folder(
     os.makedirs(tgt_folder, exist_ok=True)
 
     print_info("collecting hierarchies")
-
-    def hierarchy_callback(hierarchy: List[str], path: str) -> None:
-        hierarchy = hierarchy[prefix_idx:]
-        if not preparation.filter(hierarchy):
-            return None
-        hierarchy_list.append(hierarchy)
-        all_img_paths.append(path)
-
-    all_img_paths: List[str] = []
-    hierarchy_list: List[List[str]] = []
-    if extensions is None:
-        extensions = default_image_extensions
-    prefix_idx = 0
-    if prefix is not None:
-        prefix_idx = len(prefix.split(os.path.sep))
-    walk(src_folder, hierarchy_callback, extensions)
+    all_img_paths, hierarchy_list = collect_images(
+        src_folder,
+        prefix=prefix,
+        extensions=extensions,
+        filter_fn=preparation.filter,
+    )
 
     def get_labels(
         label_fn: Callable,
@@ -813,6 +833,7 @@ class ImageFolderBlock(IDataBlock):
 
 __all__ = [
     "default_image_extensions",
+    "collect_images",
     "IPreparation",
     "DefaultPreparation",
     "ResizedPreparation",
