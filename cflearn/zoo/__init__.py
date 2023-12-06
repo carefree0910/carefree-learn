@@ -9,6 +9,17 @@ from .utils import *
 from .common import *
 
 
+# translator
+
+
+def esr(pretrained: bool = True) -> Module:
+    return load_module("sr/esr", pretrained=pretrained)
+
+
+def esr_anime(pretrained: bool = True) -> Module:
+    return load_module("sr/esr.anime", pretrained=pretrained)
+
+
 # sd
 
 

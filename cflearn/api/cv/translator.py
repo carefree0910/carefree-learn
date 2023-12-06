@@ -1,6 +1,5 @@
 import torch
 
-import torch.nn as nn
 import torch.nn.functional as F
 
 from PIL import Image
@@ -12,7 +11,8 @@ from cftool.cv import read_image
 from cftool.cv import save_images
 
 from ..common import IAPI
-from ...zoo import load_module
+from ...zoo import esr
+from ...zoo import esr_anime
 from ...toolkit import eval_context
 
 
@@ -70,14 +70,6 @@ class TranslatorAPI(IAPI):
         use_half: bool = False,
     ) -> "TranslatorAPI":
         return cls(esr_anime(), device, use_amp=use_amp, use_half=use_half)
-
-
-def esr(pretrained: bool = True) -> nn.Module:
-    return load_module("sr/esr", pretrained=pretrained)
-
-
-def esr_anime(pretrained: bool = True) -> nn.Module:
-    return load_module("sr/esr.anime", pretrained=pretrained)
 
 
 __all__ = [
