@@ -3,6 +3,7 @@ import torch
 from typing import Any
 from typing import Dict
 from typing import Optional
+from typing import NamedTuple
 from pathlib import Path
 from torch.nn import Module
 
@@ -12,12 +13,22 @@ from ..toolkit import download_checkpoint
 from ..modules.common import build_module
 
 
-def build_predefined_module(config: str, **kwargs: Any) -> Module:
+class PredefinedInfo(NamedTuple):
+    module_name: str
+    module_config: Dict[str, Any]
+
+
+def load_predefined_info(config: str) -> PredefinedInfo:
     parsed = parse_config(config)
     module_name = parsed.get("module_name")
     if module_name is None:
         raise ValueError(f"module name not found in '{parsed}'")
     module_config = parsed.get("module_config", {})
+    return PredefinedInfo(module_name, module_config)
+
+
+def build_predefined_module(config: str, **kwargs: Any) -> Module:
+    module_name, module_config = load_predefined_info(config)
     return build_module(module_name, config=module_config, **kwargs)
 
 
@@ -72,6 +83,7 @@ def load_module(
 
 
 __all__ = [
+    "load_predefined_info",
     "build_predefined_module",
     "load_pretrained_weights",
     "load_pretrained_module",
