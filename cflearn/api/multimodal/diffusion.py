@@ -1797,6 +1797,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
         self,
         hint: Union[str, ControlNetHints],
         uint8_rgb: np.ndarray,
+        *,
+        binarize_threshold: Optional[int] = None,
         **kwargs: Any,
     ) -> np.ndarray:
         self.prepare_annotator(hint)
@@ -1811,6 +1813,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
             out = out[..., None]
         if out.shape[-1] == 1:
             out = np.repeat(out, 3, axis=2)
+        if binarize_threshold is not None:
+            out = np.where(out > binarize_threshold, 255, 0).astype(np.uint8)
         if self.lazy:
             self._annotator_to(annotator, "cpu")
         return out
