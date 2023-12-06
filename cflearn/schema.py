@@ -1064,6 +1064,9 @@ class TrainStep(ABC):
 
     # optional callbacks
 
+    def get_default_optimizer_settings(self) -> Optional[Dict[str, Any]]:
+        return None
+
     def should_skip(self, m: "IDLModel", state: Optional["TrainerState"]) -> bool:
         return False
 
@@ -1123,6 +1126,10 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
             opt_settings = {}
             for step in self.train_steps:
                 scope = step.scope
+                defaults = step.get_default_optimizer_settings()
+                if defaults is not None:
+                    opt_settings[scope] = defaults
+                    continue
                 opt_settings[scope] = dict(
                     optimizer=trainer_config.optimizer_name or "adam",
                     scheduler=trainer_config.scheduler_name,
