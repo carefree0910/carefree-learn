@@ -527,6 +527,7 @@ class DataProcessorConfig(ISerializableDataClass):
             b_id = b.__identifier__
             if b_id in self.block_names:
                 print_warning(f"block `{b_id}` already exists, it will be skipped")
+                continue
             self.block_names.append(b_id)
             if isinstance(b, INoInitDataBlock):
                 continue
@@ -536,6 +537,7 @@ class DataProcessorConfig(ISerializableDataClass):
 
     def set_blocks(self, *blocks: IDataBlock) -> None:
         self.block_names = []
+        self.block_configs = {}
         self.add_blocks(*blocks)
 
 
