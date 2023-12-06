@@ -20,7 +20,7 @@ from cflearn.data.blocks import HWCToCHWBlock
 from cflearn.data.blocks import ImageFolderBlock
 
 
-data_config = cflearn.DataConfig(shuffle_train=False, batch_size=4)
+data_config = cflearn.DataConfig.inference_with(batch_size=4)
 
 
 class TestDataModules(unittest.TestCase):

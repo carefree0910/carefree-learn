@@ -524,7 +524,7 @@ class DiffusionAPI(IAPI):
         unconditional = cond is None
         if unconditional:
             cond = [0] * num_samples
-        cond_data: ArrayData = ArrayData.init(DataConfig(batch_size=batch_size))
+        cond_data: ArrayData = ArrayData.init(DataConfig.inference_with(batch_size))
         cond_data.fit(cond)
         iterator = TensorBatcher(cond_data.get_loaders()[0], self.device)
         num_iter = len(iterator)

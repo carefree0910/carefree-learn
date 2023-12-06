@@ -619,6 +619,10 @@ class DataConfig(ISerializableDataClass):
     def d(cls) -> Dict[str, Type["DataConfig"]]:
         return data_configs
 
+    @classmethod
+    def inference_with(cls, batch_size: int) -> "DataConfig":
+        return cls(for_inference=True, shuffle_train=False, batch_size=batch_size)
+
 
 class IData(ISerializableArrays, Generic[TData], metaclass=ABCMeta):
     d = data_dict
