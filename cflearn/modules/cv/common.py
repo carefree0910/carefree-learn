@@ -147,11 +147,11 @@ class IGenerator(Module, metaclass=ABCMeta):
         class_idx: Optional[int] = None,
         use_slerp: bool = False,
     ) -> Tensor:
-        z1 = self.generate_z(1)
-        z2 = self.generate_z(1)
+        z1 = self.generate_z(num_samples)
+        z2 = self.generate_z(num_samples)
         shape = z1.shape
-        z1 = z1.view(1, -1)
-        z2 = z2.view(1, -1)
+        z1 = z1.view(num_samples, -1)
+        z2 = z2.view(num_samples, -1)
         ratio = torch.linspace(0.0, 1.0, num_samples, device=get_device(self))[:, None]
         z = slerp(z1, z2, ratio) if use_slerp else ratio * z1 + (1.0 - ratio) * z2
         z = z.view(num_samples, *shape[1:])
