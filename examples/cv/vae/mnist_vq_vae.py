@@ -24,13 +24,14 @@ config = cflearn.DLConfig(
     module_name="vq_vae",
     module_config=dict(
         img_size=28,
-        num_code=64,
+        num_code=32,
         in_channels=1,
         num_downsample=3,
-        code_dimension=64,
+        code_dimension=32 if is_ci else 256,
         num_classes=10,
     ),
     callback_configs=dict(vq_vae=dict(num_classes=10)),
+    loss_metrics_weights=dict(l2=1.0, commit=0.01),
 )
 if is_ci:
     config.to_debug()
