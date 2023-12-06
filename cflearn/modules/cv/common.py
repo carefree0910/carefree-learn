@@ -109,59 +109,13 @@ class IGenerator(Module, metaclass=ABCMeta):
     # abstract
 
     @abstractmethod
-    def sample(
-        self,
-        num_samples: int,
-        *,
-        class_idx: Optional[int] = None,
-        labels: Optional[Tensor] = None,
-    ) -> Tensor:
-        pass
-
-    @abstractmethod
-    def interpolate(
-        self,
-        num_samples: int,
-        *,
-        class_idx: Optional[int] = None,
-        use_slerp: bool = False,
-    ) -> Tensor:
+    def generate_z(self, num_samples: int) -> Tensor:
         pass
 
     # optional callbacks
 
-    def reconstruct(
-        self,
-        net: Tensor,
-        *,
-        labels: Optional[Tensor] = None,
-    ) -> Optional[Tensor]:
-        return None
-
-    # api
-
-    @property
-    def is_conditional(self) -> bool:
-        return self.num_classes is not None
-
-    def get_sample_labels(
-        self,
-        num_samples: int,
-        class_idx: Optional[int] = None,
-    ) -> Optional[Tensor]:
-        if self.num_classes is None:
-            return None
-        if class_idx is not None:
-            return torch.full([num_samples], class_idx, device=get_device(self))
-        return torch.randint(self.num_classes, [num_samples], device=get_device(self))
-
-
-class IGaussianGenerator(IGenerator):
     def decode(self, inputs: DecoderInputs) -> Tensor:
         return self(inputs)
-
-    def generate_z(self, num_samples: int) -> Tensor:
-        return torch.randn(num_samples, self.latent_dim, device=get_device(self))
 
     def sample(
         self,
@@ -177,6 +131,14 @@ class IGaussianGenerator(IGenerator):
             msg = "`class_idx` should not be provided when `labels` is provided"
             raise ValueError(msg)
         return self.decode(DecoderInputs(z=z, labels=labels))
+
+    def reconstruct(
+        self,
+        net: Tensor,
+        *,
+        labels: Optional[Tensor] = None,
+    ) -> Optional[Tensor]:
+        return None
 
     def interpolate(
         self,
@@ -197,6 +159,28 @@ class IGaussianGenerator(IGenerator):
             class_idx = random.randint(0, self.num_classes - 1)
         labels = self.get_sample_labels(num_samples, class_idx)
         return self.decode(DecoderInputs(z=z, labels=labels))
+
+    # api
+
+    @property
+    def is_conditional(self) -> bool:
+        return self.num_classes is not None
+
+    def get_sample_labels(
+        self,
+        num_samples: int,
+        class_idx: Optional[int] = None,
+    ) -> Optional[Tensor]:
+        if self.num_classes is None:
+            return None
+        if class_idx is not None:
+            return torch.full([num_samples], class_idx, device=get_device(self))
+        return torch.randint(self.num_classes, [num_samples], device=get_device(self))
+
+
+class IGaussianGenerator(IGenerator):
+    def generate_z(self, num_samples: int) -> Tensor:
+        return torch.randn(num_samples, self.latent_dim, device=get_device(self))
 
 
 class DiscriminatorOutput(NamedTuple):
