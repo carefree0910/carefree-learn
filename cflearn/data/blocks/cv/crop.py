@@ -33,12 +33,15 @@ class RandomCropBlock(IRuntimeDataBlock):
 
     def __init__(self, size: Union[int, List[int]] = 512) -> None:
         super().__init__(size=size)
+        self.center_crop = CenterCropBlock(size)
 
     @property
     def fields(self) -> List[str]:
         return ["size"]
 
     def postprocess_item(self, item: np_dict_type, for_inference: bool) -> np_dict_type:
+        if for_inference:
+            return self.center_crop.postprocess_item(item, True)
         tensor = torch.from_numpy(item[INPUT_KEY])
         tensor = transforms.RandomCrop(self.size)(tensor)
         item[INPUT_KEY] = tensor.numpy()
