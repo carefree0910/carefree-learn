@@ -20,6 +20,25 @@ def esr_anime(pretrained: bool = True) -> Module:
     return load_module("sr/esr.anime", pretrained=pretrained)
 
 
+# clip
+
+
+def clip(pretrained: bool = True, **kwargs: Any) -> Module:
+    return load_module("multimodal/clip", pretrained=pretrained, **kwargs)
+
+
+def chinese_clip(pretrained: bool = True, **kwargs: Any) -> Module:
+    return load_module("multimodal/clip.chinese", pretrained=pretrained, **kwargs)
+
+
+def open_clip_ViT_H_14(pretrained: bool = True, **kwargs: Any) -> Module:
+    return load_module(
+        "multimodal/clip.open_clip_ViT_H_14",
+        pretrained=pretrained,
+        **kwargs,
+    )
+
+
 # sd
 
 
