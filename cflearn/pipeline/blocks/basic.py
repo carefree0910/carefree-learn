@@ -383,7 +383,7 @@ class DefaultOptimizerSettings(NamedTuple):
 
 
 @Block.register("build_optimizers")
-class BuildOptimizersBlock(Block):
+class BuildOptimizersBlock(InjectDefaultsMixin, Block):
     config: DLConfig
     optimizers: Dict[str, Optimizer]
     schedulers: Dict[str, Optional[_LRScheduler]]
@@ -407,6 +407,7 @@ class BuildOptimizersBlock(Block):
         if config.scheduler_config is not None:
             settings["scheduler_config"] = config.scheduler_config
         default_opt_settings = DefaultOptimizerSettings(**settings)
+        self._defaults["default_optimizer_settings"] = default_opt_settings._asdict()
         # build
         optimizer_settings = config.optimizer_settings
         if optimizer_settings is None:
