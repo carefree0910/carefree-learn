@@ -39,6 +39,41 @@ def open_clip_ViT_H_14(pretrained: bool = True, **kwargs: Any) -> Module:
     )
 
 
+# ae
+
+
+def _ae(config: str, size: int, pretrained: bool, **kwargs: Any) -> Module:
+    if pretrained and size != 256:
+        raise ValueError(f"pretrained `{config}` should have `size`=256")
+    kwargs["img_size"] = size
+    kwargs["pretrained"] = pretrained
+    return load_module(config, **kwargs)
+
+
+def ae_kl_f4(size: int = 256, pretrained: bool = True, **kwargs: Any) -> Module:
+    return _ae("ae/kl.f4", size, pretrained, **kwargs)
+
+
+def ae_kl_f8(size: int = 256, pretrained: bool = True, **kwargs: Any) -> Module:
+    return _ae("ae/kl.f8", size, pretrained, **kwargs)
+
+
+def ae_kl_f16(size: int = 256, pretrained: bool = True, **kwargs: Any) -> Module:
+    return _ae("ae/kl.f16", size, pretrained, **kwargs)
+
+
+def ae_vq_f4(size: int = 256, pretrained: bool = True, **kwargs: Any) -> Module:
+    return _ae("ae/vq.f4", size, pretrained, **kwargs)
+
+
+def ae_vq_f4_no_attn(size: int = 256, pretrained: bool = True, **kwargs: Any) -> Module:
+    return _ae("ae/vq.f4_no_attn", size, pretrained, **kwargs)
+
+
+def ae_vq_f8(size: int = 256, pretrained: bool = True, **kwargs: Any) -> Module:
+    return _ae("ae/vq.f8", size, pretrained, **kwargs)
+
+
 # sd
 
 
