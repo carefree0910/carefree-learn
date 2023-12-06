@@ -28,16 +28,23 @@ from ...toolkit import get_world_size
 
 
 class TorchDataset(IDataset):
-    def __init__(self, dataset: IDataset, processor: DataProcessor) -> None:
+    def __init__(
+        self,
+        dataset: IDataset,
+        processor: DataProcessor,
+        *,
+        for_inference: bool = False,
+    ) -> None:
         self.dataset = dataset
         self.processor = processor
+        self.for_inference = for_inference
 
     def __len__(self) -> int:
         return len(self.dataset)
 
     def __getitem__(self, item: Union[int, List[int], np.ndarray]) -> np_dict_type:
         batch = self.dataset[item]
-        batch = self.processor.postprocess_item(batch)
+        batch = self.processor.postprocess_item(batch, for_inference=self.for_inference)
         return batch
 
 
@@ -213,13 +220,21 @@ class TorchData(IData):
                 "`bundle` property is not initialized, "
                 "did you forget to call the `fit` method first?"
             )
-        self.train_dataset = TorchDataset(self.bundle.x_train, self.processor)  # type: ignore
+        self.train_dataset = TorchDataset(
+            self.bundle.x_train,  # type: ignore
+            self.processor,
+            for_inference=self.config.for_inference,
+        )
         train_loader = self._make_loader(self.train_kw)
         if self.bundle.x_valid is None:
             self.valid_dataset = None
             valid_loader = None
         else:
-            self.valid_dataset = TorchDataset(self.bundle.x_valid, self.processor)  # type: ignore
+            self.valid_dataset = TorchDataset(
+                self.bundle.x_valid,  # type: ignore
+                self.processor,
+                for_inference=True,
+            )
             valid_loader = self._make_loader(self.valid_kw)
         return train_loader, valid_loader  # type: ignore
 

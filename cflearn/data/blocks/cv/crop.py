@@ -20,7 +20,7 @@ class CenterCropBlock(IRuntimeDataBlock):
     def fields(self) -> List[str]:
         return ["size"]
 
-    def postprocess_item(self, item: np_dict_type) -> np_dict_type:
+    def postprocess_item(self, item: np_dict_type, for_inference: bool) -> np_dict_type:
         tensor = torch.from_numpy(item[INPUT_KEY])
         tensor = transforms.CenterCrop(self.size)(tensor)
         item[INPUT_KEY] = tensor.numpy()
@@ -38,7 +38,7 @@ class RandomCropBlock(IRuntimeDataBlock):
     def fields(self) -> List[str]:
         return ["size"]
 
-    def postprocess_item(self, item: np_dict_type) -> np_dict_type:
+    def postprocess_item(self, item: np_dict_type, for_inference: bool) -> np_dict_type:
         tensor = torch.from_numpy(item[INPUT_KEY])
         tensor = transforms.RandomCrop(self.size)(tensor)
         item[INPUT_KEY] = tensor.numpy()

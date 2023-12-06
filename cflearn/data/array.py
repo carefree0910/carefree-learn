@@ -27,11 +27,14 @@ class ArrayDataset(IArrayDataset):
         y: Optional[arr_type],
         processor: DataProcessor,
         others: Optional[TArrayDict] = None,
+        *,
+        for_inference: bool = False,
     ):
         self.x = x
         self.y = y
         self.processor = processor
         self.others = others
+        self.for_inference = for_inference
 
     def __len__(self) -> int:
         return len(self.x)
@@ -47,7 +50,7 @@ class ArrayDataset(IArrayDataset):
         if self.others is not None:
             for k, v in self.others.items():
                 batch[k] = v[item]
-        batch = self.processor.postprocess_item(batch)
+        batch = self.processor.postprocess_item(batch, for_inference=self.for_inference)
         batch = tensor_batch_to_np(batch)
         return batch
 
@@ -58,11 +61,14 @@ class ArrayDictDataset(IArrayDictDataset):
         x: TArrayDict,
         y: Optional[arr_type],
         processor: DataProcessor,
+        *,
+        for_inference: bool = False,
     ):
         self.x = x
         self.y = y
         self.processor = processor
         self.x_keys = sorted(self.x)
+        self.for_inference = for_inference
 
     def __len__(self) -> int:
         return len(self.x[self.x_keys[0]])
@@ -72,20 +78,29 @@ class ArrayDictDataset(IArrayDictDataset):
         if self.y is not None:
             label = self.y[item]
             batch.update({LABEL_KEY: label, ORIGINAL_LABEL_KEY: label})
-        batch = self.processor.postprocess_item(batch)
+        batch = self.processor.postprocess_item(batch, for_inference=self.for_inference)
         return batch
 
 
 @IData.register("array")
 class ArrayData(IArrayDataMixin, IData):  # type: ignore
-    def get_dataset(self, data_args: DataArgs) -> ArrayDataset:
-        return ArrayDataset(*data_args.xy, self.processor, data_args.others)
+    def get_dataset(self, data_args: DataArgs, for_inference: bool) -> ArrayDataset:
+        return ArrayDataset(
+            *data_args.xy,
+            self.processor,
+            data_args.others,
+            for_inference=for_inference,
+        )
 
 
 @IData.register("array_dict")
 class ArrayDictData(IArrayDataMixin, IData):  # type: ignore
-    def get_dataset(self, data_args: DataArgs) -> ArrayDictDataset:
-        return ArrayDictDataset(*data_args.xy, self.processor)
+    def get_dataset(self, data_args: DataArgs, for_inference: bool) -> ArrayDictDataset:
+        return ArrayDictDataset(
+            *data_args.xy,
+            self.processor,
+            for_inference=for_inference,
+        )
 
 
 __all__ = [

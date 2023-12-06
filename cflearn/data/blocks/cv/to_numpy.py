@@ -13,7 +13,11 @@ from ....constants import LABEL_KEY
 
 @IRuntimeDataBlock.register("to_numpy")
 class ToNumpyBlock(IRuntimeDataBlock):
-    def postprocess_item(self, item: Dict[str, Any]) -> np_dict_type:
+    def postprocess_item(
+        self,
+        item: Dict[str, Any],
+        for_inference: bool,
+    ) -> np_dict_type:
         image = item[INPUT_KEY]
         labels = item[LABEL_KEY]
         if isinstance(image, Tensor):

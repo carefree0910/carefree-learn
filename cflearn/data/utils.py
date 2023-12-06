@@ -58,6 +58,7 @@ class IArrayDataset(IDataset):
     y: Optional[arr_type]
     processor: DataProcessor
     others: Optional[TArrayDict] = None
+    for_inference: bool = False
 
 
 class IArrayDictDataset(IDataset):
@@ -65,6 +66,7 @@ class IArrayDictDataset(IDataset):
     y: Optional[arr_type]
     processor: DataProcessor
     x_keys: List[str]
+    for_inference: bool = False
 
 
 class ArrayLoader(IDataLoader):
@@ -191,17 +193,18 @@ class IArrayDataMixin(ABC):
                 "`bundle` property is not initialized, "
                 "did you forget to call the `fit` method first?"
             )
-        self.train_dataset = self.get_dataset(self.bundle.train_args)
+        for_inference = self.config.for_inference
+        self.train_dataset = self.get_dataset(self.bundle.train_args, for_inference)
         train_loader = ArrayLoader(self.train_dataset, **self.train_kw)
         if self.bundle.x_valid is None:
             valid_loader = None
         else:
-            self.valid_dataset = self.get_dataset(self.bundle.valid_args)
+            self.valid_dataset = self.get_dataset(self.bundle.valid_args, True)
             valid_loader = ArrayLoader(self.valid_dataset, **self.valid_kw)
         return train_loader, valid_loader
 
     @abstractmethod
-    def get_dataset(self, data_args: DataArgs) -> TArrayDataset:
+    def get_dataset(self, data_args: DataArgs, for_inference: bool) -> TArrayDataset:
         pass
 
 

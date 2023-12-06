@@ -6,7 +6,7 @@ from ...constants import INPUT_KEY
 
 @IRuntimeDataBlock.register("flatten")
 class FlattenBlock(IRuntimeDataBlock):
-    def postprocess_item(self, item: np_dict_type) -> np_dict_type:
+    def postprocess_item(self, item: np_dict_type, for_inference: bool) -> np_dict_type:
         item[INPUT_KEY] = item[INPUT_KEY].ravel()
         return item
 

@@ -8,7 +8,7 @@ from ....constants import INPUT_KEY
 
 @IRuntimeDataBlock.register("hwc_to_chw")
 class HWCToCHWBlock(IRuntimeDataBlock):
-    def postprocess_item(self, item: np_dict_type) -> np_dict_type:
+    def postprocess_item(self, item: np_dict_type, for_inference: bool) -> np_dict_type:
         inp = item[INPUT_KEY].transpose([2, 0, 1])
         inp = np.ascontiguousarray(inp)
         item[INPUT_KEY] = inp

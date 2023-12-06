@@ -111,6 +111,8 @@ class MLDataset(IArrayDataset):
         y: Optional[np.ndarray],
         tag: MLDatasetTag,
         processor: MLDataProcessor,
+        *,
+        for_inference: bool = False,
         **others: np.ndarray,
     ):
         super().__init__()
@@ -119,6 +121,7 @@ class MLDataset(IArrayDataset):
         self.tag = tag
         self.processor = processor
         self.others = others
+        self.for_inference = for_inference
 
     def __len__(self) -> int:
         return self.processor.get_num_samples(self.x, self.tag)
@@ -135,7 +138,7 @@ class MLDataset(IArrayDataset):
                 batch[k] = v
         for k, v in self.others.items():
             batch[k] = v[item]
-        batch = self.processor.postprocess_item(batch)
+        batch = self.processor.postprocess_item(batch, for_inference=self.for_inference)
         return batch
 
 
@@ -182,6 +185,7 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
             self.bundle.y_train,  # type: ignore
             MLDatasetTag.TRAIN,
             self.processor,
+            for_inference=self.config.for_inference,
             **(self.bundle.train_others or {}),
         )
         if self.bundle.x_valid is None and self.bundle.y_valid is None:
@@ -192,6 +196,7 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
                 self.bundle.y_valid,  # type: ignore
                 MLDatasetTag.VALID,
                 self.processor,
+                for_inference=True,
                 **(self.bundle.valid_others or {}),
             )
         train_loader = MLLoader(

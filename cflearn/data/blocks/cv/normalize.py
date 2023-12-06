@@ -19,7 +19,7 @@ class StaticNormalizeBlock(IRuntimeDataBlock):
     def fields(self) -> List[str]:
         return ["division"]
 
-    def postprocess_item(self, item: np_dict_type) -> np_dict_type:
+    def postprocess_item(self, item: np_dict_type, for_inference: bool) -> np_dict_type:
         item[INPUT_KEY] = item[INPUT_KEY].astype(np.float64) / self.division
         return item
 
@@ -36,7 +36,7 @@ class AffineNormalizeBlock(IRuntimeDataBlock):
     def fields(self) -> List[str]:
         return ["center", "scale"]
 
-    def postprocess_item(self, item: np_dict_type) -> np_dict_type:
+    def postprocess_item(self, item: np_dict_type, for_inference: bool) -> np_dict_type:
         inp = item[INPUT_KEY].astype(np.float64)
         inp = (inp - self.center) / self.scale
         item[INPUT_KEY] = inp
@@ -59,7 +59,7 @@ class ImagenetNormalizeBlock(IRuntimeDataBlock):
     def fields(self) -> List[str]:
         return ["mean", "std"]
 
-    def postprocess_item(self, item: np_dict_type) -> np_dict_type:
+    def postprocess_item(self, item: np_dict_type, for_inference: bool) -> np_dict_type:
         inp = item[INPUT_KEY].astype(np.float64)
         inp = (inp - self.mean) / self.std
         item[INPUT_KEY] = inp

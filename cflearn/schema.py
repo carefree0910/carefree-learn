@@ -466,7 +466,7 @@ class IDataBlock(PureFromInfoMixin, IBlock, ISerializable, metaclass=ABCMeta):
     # optional callbacks
 
     # changes can happen inplace
-    def postprocess_item(self, item: Any) -> Any:
+    def postprocess_item(self, item: Any, for_inference: bool) -> Any:
         return item
 
     # changes can happen inplace
@@ -503,7 +503,7 @@ class IRuntimeDataBlock(IDataBlock, metaclass=ABCMeta):
         return bundle
 
     @abstractmethod
-    def postprocess_item(self, item: Any) -> Any:
+    def postprocess_item(self, item: Any, for_inference: bool) -> Any:
         """changes can happen inplace"""
 
 
@@ -598,9 +598,9 @@ class DataProcessor(IPipeline):
         return bundle
 
     # changes can happen inplace
-    def postprocess_item(self, item: Any) -> np_dict_type:
+    def postprocess_item(self, item: Any, *, for_inference: bool) -> np_dict_type:
         for block in self.blocks:
-            item = block.postprocess_item(item)
+            item = block.postprocess_item(item, for_inference)
         return item
 
     def recover_labels(self, y: np.ndarray) -> np.ndarray:

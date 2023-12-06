@@ -10,7 +10,11 @@ from ....constants import ORIGINAL_LABEL_KEY
 
 @IRuntimeDataBlock.register("tuple_to_batch")
 class TupleToBatchBlock(IRuntimeDataBlock):
-    def postprocess_item(self, item: Tuple[Any, Any]) -> Dict[str, Any]:
+    def postprocess_item(
+        self,
+        item: Tuple[Any, Any],
+        for_inference: bool,
+    ) -> Dict[str, Any]:
         image, labels = item
         return {
             INPUT_KEY: image,
