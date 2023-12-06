@@ -6,7 +6,7 @@ from typing import Any
 from typing import Dict
 from cftool.types import np_dict_type
 
-from ....schema import IRuntimeDataBlock
+from ..common import IRuntimeDataBlock
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 

@@ -4,7 +4,7 @@ from typing import List
 from typing import Tuple
 from cftool.types import np_dict_type
 
-from ....schema import IRuntimeDataBlock
+from ..common import IRuntimeDataBlock
 from ....constants import INPUT_KEY
 
 

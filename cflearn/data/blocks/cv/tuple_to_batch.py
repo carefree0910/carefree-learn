@@ -2,7 +2,7 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 
-from ....schema import IRuntimeDataBlock
+from ..common import IRuntimeDataBlock
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import ORIGINAL_LABEL_KEY

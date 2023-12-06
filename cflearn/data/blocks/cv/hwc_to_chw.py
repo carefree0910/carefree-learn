@@ -2,7 +2,7 @@ import numpy as np
 
 from cftool.types import np_dict_type
 
-from ....schema import IRuntimeDataBlock
+from ..common import IRuntimeDataBlock
 from ....constants import INPUT_KEY
 
 
