@@ -100,7 +100,6 @@ class VQVAE(nn.Module):
         self.out_channels = out_channels or in_channels
         self.num_classes = num_classes
         self.code_dimension = code_dimension
-        self.apply_tanh = apply_tanh
         if num_downsample is None:
             args = img_size, min_size, target_downsample
             num_downsample = auto_num_layers(*args, use_stride=encoder == "vanilla")
@@ -119,6 +118,7 @@ class VQVAE(nn.Module):
         # decoder
         if decoder_config is None:
             decoder_config = {}
+        decoder_config["apply_tanh"] = apply_tanh
         decoder_config["num_upsample"] = num_downsample
         decoder_config.setdefault("img_size", img_size)
         decoder_config.setdefault("out_channels", out_channels or in_channels)

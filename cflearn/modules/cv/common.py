@@ -120,6 +120,8 @@ class IGenerator(Module, metaclass=ABCMeta):
     # optional callbacks
 
     def decode(self, inputs: DecoderInputs) -> Tensor:
+        # since `IGenerator` often uses `IDecoder` as its generate model,
+        # we don't need to worry about post-processing here
         return self(inputs)
 
     def sample(

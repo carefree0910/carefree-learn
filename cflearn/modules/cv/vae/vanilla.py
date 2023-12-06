@@ -13,7 +13,6 @@ from ..common import build_decoder
 from ..common import register_generator
 from ..common import DecoderInputs
 from ..common import IGaussianGenerator
-from ...core import build_activation
 from ....constants import PREDICTIONS_KEY
 
 
@@ -37,7 +36,7 @@ class VAE(IGaussianGenerator):
         encoder_config: Optional[Dict[str, Any]] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
         num_classes: Optional[int] = None,
-        output_activation: Optional[str] = "tanh",
+        apply_tanh: bool = True,
     ):
         super().__init__()
         self.latent_dim = latent
@@ -62,12 +61,8 @@ class VAE(IGaussianGenerator):
         decoder_config["num_upsample"] = num_downsample
         decoder_config["latent_dim"] = latent
         decoder_config["num_classes"] = num_classes
+        decoder_config["apply_tanh"] = apply_tanh
         self.decoder = build_decoder(decoder, config=decoder_config)
-        # output
-        if output_activation is None:
-            self.out = None
-        else:
-            self.out = build_activation(output_activation)
 
     def decode(self, inputs: DecoderInputs) -> Tensor:
         z = inputs.z
@@ -75,8 +70,6 @@ class VAE(IGaussianGenerator):
             shape = z.shape[0], 1
             inputs.labels = torch.randint(self.num_classes, shape, device=z.device)
         net = self.decoder.decode(inputs)
-        if self.out is not None:
-            net = self.out(net)
         return net
 
     def forward(self, net: Tensor, labels: Optional[Tensor] = None) -> tensor_dict_type:

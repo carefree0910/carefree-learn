@@ -40,7 +40,7 @@ class VanillaDecoder(IDecoder):
         cond_channels: int = 16,
         num_classes: Optional[int] = None,
         latent_resolution: Optional[int] = None,
-        final_activation: Optional[str] = None,
+        apply_tanh: bool = False,
     ):
         super().__init__()
         self.latent_channels = latent_channels
@@ -147,10 +147,7 @@ class VanillaDecoder(IDecoder):
             in_nc = out_nc
 
         self.decoder = nn.ModuleList(blocks)
-        if final_activation is None:
-            self.final_activation = None
-        else:
-            self.final_activation = build_activation(final_activation)
+        self.apply_tanh = apply_tanh
 
     def forward(self, inputs: DecoderInputs) -> Tensor:
         net = self.inject_cond(inputs.z, inputs.labels)
@@ -160,8 +157,6 @@ class VanillaDecoder(IDecoder):
             else:
                 net = block(net, deterministic=inputs.deterministic)
         net = self.resize(net, deterministic=inputs.deterministic)
-        if self.final_activation is not None:
-            net = self.final_activation(net)
         return net
 
 
@@ -189,7 +184,7 @@ class VanillaDecoder1D(IDecoder):
         num_classes: Optional[int] = None,
         latent_resolution: Optional[int] = None,
         latent_padding_channels: Optional[int] = None,
-        final_activation: Optional[str] = None,
+        apply_tanh: bool = False,
     ):
         super().__init__()
         self.latent_dim = latent_dim
@@ -245,12 +240,12 @@ class VanillaDecoder1D(IDecoder):
             cond_channels=cond_channels,
             num_classes=num_classes,
             latent_resolution=latent_resolution,
-            final_activation=final_activation,
+            apply_tanh=apply_tanh,
         )
 
     def forward(self, inputs: DecoderInputs) -> Tensor:
         inputs.z = self.from_latent(inputs.z)
-        return self.decoder(inputs)
+        return self.decoder.decode(inputs)
 
 
 __all__ = [

@@ -25,7 +25,7 @@ config = cflearn.DLConfig(
     module_config=dict(
         img_size=28,
         in_channels=1,
-        generator_config=dict(final_activation="tanh"),
+        generator_config=dict(apply_tanh=True),
     ),
 )
 if is_ci:
