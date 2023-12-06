@@ -5,13 +5,17 @@ import numpy as np
 from torch import Tensor
 from typing import Tuple
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .common import IAttentionAutoEncoder
 from ..common import DecoderInputs
 from ....modules import register_module
+from ....constants import PREDICTIONS_KEY
 
 
 class GaussianDistribution:
+    key = "distribution"
+
     def __init__(self, net: Tensor, deterministic: bool = False):
         self.net = net
         self.device = net.device
@@ -94,14 +98,14 @@ class AttentionAutoEncoderKL(IAttentionAutoEncoder):
         sample_posterior: bool = True,
         no_head: bool = False,
         apply_tanh: Optional[bool] = None,
-    ) -> Tensor:
-        net, _ = self.get_results(
+    ) -> tensor_dict_type:
+        net, distribution = self.get_results(
             net,
             sample_posterior=sample_posterior,
             no_head=no_head,
             apply_tanh=apply_tanh,
         )
-        return net
+        return {PREDICTIONS_KEY: net, GaussianDistribution.key: distribution}
 
 
 __all__ = [
