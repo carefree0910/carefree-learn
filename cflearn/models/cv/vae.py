@@ -30,6 +30,19 @@ class VAEModel(CommonDLModel):
         return batch[INPUT_KEY], batch.get(LABEL_KEY)
 
 
+@CommonDLModel.register("vq_vae")
+class VQVAEModel(CommonDLModel):
+    def get_forward_args(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> Tuple[Any, ...]:
+        return batch[INPUT_KEY], batch.get(LABEL_KEY)
+
+
 __all__ = [
     "VAEModel",
+    "VQVAEModel",
 ]
