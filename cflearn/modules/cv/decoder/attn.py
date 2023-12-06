@@ -97,11 +97,6 @@ class AttentionDecoder(IDecoder):
         if inputs.no_head:
             return net
         net = self.head(net)
-        apply_tanh = inputs.apply_tanh
-        if apply_tanh is None:
-            apply_tanh = self.apply_tanh
-        if apply_tanh:
-            net = torch.tanh(net)
         return net
 
 

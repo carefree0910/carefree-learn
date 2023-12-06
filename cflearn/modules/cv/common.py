@@ -57,9 +57,9 @@ class DecoderInputs(DataClassBase):
     z: Tensor
     labels: Optional[Tensor] = None
     deterministic: bool = False
+    apply_tanh: Optional[bool] = None
     # attn
     no_head: bool = False
-    apply_tanh: Optional[bool] = None
     # vq
     apply_codebook: bool = True
 
@@ -70,9 +70,14 @@ class IDecoder(Module):
     img_size: Optional[int] = None
     latent_channels: Optional[int] = None
     latent_resolution: Optional[int] = None
+    apply_tanh: bool = False
 
     def decode(self, inputs: DecoderInputs) -> Tensor:
-        return self(inputs)
+        net = self(inputs)
+        apply_tanh = inputs.apply_tanh
+        if apply_tanh or (apply_tanh is None and self.apply_tanh):
+            net = torch.tanh(net)
+        return net
 
     def resize(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
         if self.img_size is None:

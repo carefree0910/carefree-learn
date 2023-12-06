@@ -164,8 +164,6 @@ class VQVAE(nn.Module):
         z = self.from_codebook(z_q)
         inputs = DecoderInputs(z=z, labels=labels, apply_tanh=apply_tanh)
         net = self.decoder.decode(inputs)
-        if apply_tanh or (apply_tanh is None and self.apply_tanh):
-            net = torch.tanh(net)
         return net
 
     def forward(

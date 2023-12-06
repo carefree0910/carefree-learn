@@ -66,7 +66,6 @@ class IAttentionAutoEncoder(IGenerator):
             1,
         )
         self.from_embedding = HijackConv2d(embedding_channels, latent_channels, 1)
-        self.apply_tanh = apply_tanh
 
 
 __all__ = [
