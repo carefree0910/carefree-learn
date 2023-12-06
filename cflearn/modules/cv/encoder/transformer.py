@@ -41,15 +41,18 @@ class ViTEncoder(Module):
         norm_after_head: bool = False,
         output_dim: Optional[int] = None,
     ):
-        super().__init__(
-            img_size=img_size,
-            patch_size=patch_size,
-            in_channels=in_channels,
-            latent_dim=latent_dim,
-            to_patches_type=to_patches_type,
-            to_patches_config=to_patches_config,
-        )
+        super().__init__()
         # to patches
+        if to_patches_config is None:
+            to_patches_config = {}
+        to_patches_config.update(
+            {
+                "img_size": img_size,
+                "patch_size": patch_size,
+                "in_channels": in_channels,
+                "latent_dim": latent_dim,
+            }
+        )
         self.to_patches = ImgToPatches.make(to_patches_type, to_patches_config)
         # transformer
         if attention_kwargs is None:
