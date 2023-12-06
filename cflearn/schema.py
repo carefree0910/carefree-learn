@@ -1101,21 +1101,12 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
         pass
 
     def permute_trainer_config(self, trainer_config: "TrainerConfig") -> None:
-        if trainer_config.optimizer_settings is None:
-            opt_settings = {}
-            for step in self.train_steps:
-                scope = step.scope
-                defaults = step.get_default_optimizer_settings()
-                if defaults is not None:
-                    opt_settings[scope] = defaults
-                    continue
-                opt_settings[scope] = dict(
-                    optimizer=trainer_config.optimizer_name or "adam",
-                    scheduler=trainer_config.scheduler_name,
-                    optimizer_config=trainer_config.optimizer_config,
-                    scheduler_config=trainer_config.scheduler_config,
-                )
-            trainer_config.optimizer_settings = opt_settings
+        opt_settings = trainer_config.optimizer_settings or {}
+        for step in self.train_steps:
+            scope = step.scope
+            if scope not in opt_settings:
+                opt_settings[scope] = step.get_default_optimizer_settings()
+        trainer_config.optimizer_settings = opt_settings
 
     def get_forward_args(
         self,
@@ -1885,7 +1876,7 @@ class TrainerConfig(ISerializableDataClass):
     optimizer_config: Optional[Dict[str, Any]] = None
     scheduler_config: Optional[Dict[str, Any]] = None
     update_scheduler_per_epoch: bool = False
-    optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None
+    optimizer_settings: Optional[Dict[str, Optional[Dict[str, Any]]]] = None
     use_zero: bool = False
     finetune_config: Optional[Dict[str, Any]] = None
     tqdm_settings: Optional[Dict[str, Any]] = None

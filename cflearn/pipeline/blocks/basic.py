@@ -414,17 +414,21 @@ class BuildOptimizersBlock(InjectDefaultsMixin, Block):
             optimizer_packs = [default_opt_settings.get_opt_pack(state_info)]
         else:
             optimizer_packs = []
-            for key, settings in optimizer_settings.items():
-                optimizer = settings.get("optimizer")
+            for scope, sub_settings in optimizer_settings.items():
+                if sub_settings is None:
+                    _, *defaults = default_opt_settings.get_opt_pack(state_info)
+                    optimizer_packs.append(OptimizerPack(scope, *defaults))  # type: ignore
+                    continue
+                optimizer = sub_settings.get("optimizer")
                 if optimizer is None:
-                    raise ValueError(f"optimizer must be provided (key={key})")
+                    raise ValueError(f"optimizer must be provided (scope={scope})")
                 optimizer_packs.append(
                     OptimizerPack(
-                        key,
+                        scope,
                         optimizer,
-                        settings.get("scheduler"),
-                        settings.get("optimizer_config"),
-                        settings.get("scheduler_config"),
+                        sub_settings.get("scheduler"),
+                        sub_settings.get("optimizer_config"),
+                        sub_settings.get("scheduler_config"),
                     )
                 )
         # initialize
