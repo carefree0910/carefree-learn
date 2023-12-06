@@ -1,13 +1,12 @@
-import torch.nn as nn
-
 from typing import Tuple
 from cftool.misc import shallow_copy_dict
 
+from ..common import IGenerator
 from ..common import EncoderDecoder
 from ...core import HijackConv2d
 
 
-class IAttentionAutoEncoder(nn.Module):
+class IAttentionAutoEncoder(IGenerator):
     enc_double_channels: bool
 
     def __init__(

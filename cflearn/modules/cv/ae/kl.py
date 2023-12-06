@@ -9,6 +9,7 @@ from cftool.types import tensor_dict_type
 
 from .common import IAttentionAutoEncoder
 from ..common import DecoderInputs
+from ....toolkit import get_device
 from ....modules import register_module
 from ....constants import PREDICTIONS_KEY
 
@@ -68,6 +69,10 @@ class GaussianDistribution:
 class AttentionAutoEncoderKL(IAttentionAutoEncoder):
     enc_double_channels = True
 
+    def generate_z(self, num_samples: int) -> Tensor:
+        shape = [num_samples, self.embedding_channels, self.z_size, self.z_size]
+        return torch.randn(shape, device=get_device(self))
+
     def encode(self, net: Tensor) -> GaussianDistribution:
         net = self.generator.encoder.encode(net)
         net = self.to_embedding(net)
@@ -77,6 +82,15 @@ class AttentionAutoEncoderKL(IAttentionAutoEncoder):
         inputs.z = self.from_embedding(inputs.z)
         net = self.generator.decoder.decode(inputs)
         return net
+
+    def reconstruct(
+        self,
+        net: Tensor,
+        *,
+        labels: Optional[Tensor] = None,
+    ) -> Optional[Tensor]:
+        distribution = self.encode(net)
+        return self.decode(DecoderInputs(z=distribution.mode()))
 
     def get_results(
         self,
