@@ -19,7 +19,6 @@ from ..schema import TrainStep
 from ..schema import TrainerState
 from ..schema import TrainStepLoss
 from ..modules import build_module
-from ..modules import build_generator
 from ..toolkit import get_clones
 from ..constants import LOSS_KEY
 

@@ -4,10 +4,10 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from ..common import build_loss
-from ..common import build_generator
 from ..common import CommonDLModel
 from ...schema import DLConfig
 from ...schema import TrainerState
+from ...modules import build_generator
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 

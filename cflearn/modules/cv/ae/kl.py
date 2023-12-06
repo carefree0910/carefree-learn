@@ -8,7 +8,7 @@ from typing import Optional
 
 from .common import IAttentionAutoEncoder
 from ..common import DecoderInputs
-from ...common import register_module
+from ....modules import register_module
 
 
 class GaussianDistribution:

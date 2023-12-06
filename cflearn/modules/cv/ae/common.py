@@ -3,8 +3,6 @@ import torch.nn as nn
 from typing import Tuple
 from cftool.misc import shallow_copy_dict
 
-from ..common import encoders
-from ..common import decoders
 from ..common import EncoderDecoder
 from ...core import HijackConv2d
 
