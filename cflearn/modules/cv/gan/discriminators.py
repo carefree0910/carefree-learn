@@ -83,7 +83,7 @@ class NLayerDiscriminator(IDiscriminator):
         # initialize
         self.apply(weights_init)
 
-    def forward(self, net: Tensor) -> Any:
+    def forward(self, net: Tensor) -> DiscriminatorOutput:
         feature_map = self.feature_net(net)
         logits = self.head(feature_map)
         cond_logits = None
