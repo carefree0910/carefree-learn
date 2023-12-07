@@ -1901,6 +1901,10 @@ class Config(TrainerConfig):
         self.valid_portion = 1.0e-4
 
     @property
+    def is_debug(self) -> bool:
+        return self.fixed_steps == 1
+
+    @property
     def trainer_config(self) -> TrainerConfig:
         return safe_execute(TrainerConfig, self.asdict())
 
