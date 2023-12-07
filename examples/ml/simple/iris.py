@@ -1,6 +1,7 @@
 # type: ignore
 
 import os
+import shutil
 import cflearn
 
 import numpy as np
@@ -11,6 +12,7 @@ from cflearn.toolkit import seed_everything
 from cflearn.data.ml import iris_dataset
 
 
+is_ci = check_is_ci()
 seed_everything(123)
 
 metrics = ["acc", "auc"]
@@ -21,12 +23,14 @@ config = cflearn.DLConfig(
     loss_name="focal",
     metric_names=metrics,
 )
+if is_ci and os.path.isdir("_logs"):
+    shutil.rmtree("_logs")
 
 block_names = ["ml_recognizer", "ml_preprocessor"]
 kw = dict(
     config=config,
     processor_config=cflearn.MLAdvancedProcessorConfig(block_names),
-    debug=check_is_ci(),
+    debug=is_ci,
 )
 m = cflearn.api.fit_ml(x, y, **kw)
 loader = m.data.build_loader(x, y)
@@ -81,5 +85,5 @@ print("> metrics ", metrics)
 print("> metrics2", metrics2)
 cflearn.api.evaluate(loader, dict(m1=m, m2=m2))
 
-if check_is_ci():
+if is_ci:
     assert metrics.final_score < metrics2.final_score
