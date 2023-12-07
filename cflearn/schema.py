@@ -1667,6 +1667,8 @@ class TrainerMonitor(WithRegister["TrainerMonitor"], metaclass=ABCMeta):
     def __init__(self, *args: Any, **kwargs: Any):
         pass
 
+    # abstract
+
     @abstractmethod
     def should_snapshot(self, new_score: float) -> bool:
         pass
@@ -1675,7 +1677,8 @@ class TrainerMonitor(WithRegister["TrainerMonitor"], metaclass=ABCMeta):
     def should_terminate(self, new_score: float) -> bool:
         pass
 
-    @abstractmethod
+    # optional callbacks
+
     def punish_extension(self) -> None:
         pass
 

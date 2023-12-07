@@ -33,9 +33,6 @@ class BasicMonitor(TrainerMonitor):
             return False
         return new_score <= self.worst_score
 
-    def punish_extension(self) -> None:
-        return None
-
 
 @TrainerMonitor.register("mean_std")
 class MeanStdMonitor(BasicMonitor):
@@ -126,9 +123,6 @@ class ConservativeMonitor(TrainerMonitor):
     def should_terminate(self, new_score: float) -> bool:
         return False
 
-    def punish_extension(self) -> None:
-        pass
-
 
 @TrainerMonitor.register("lazy")
 class LazyMonitor(TrainerMonitor):
@@ -137,9 +131,6 @@ class LazyMonitor(TrainerMonitor):
 
     def should_terminate(self, new_score: float) -> bool:
         return False
-
-    def punish_extension(self) -> None:
-        pass
 
 
 __all__ = [
