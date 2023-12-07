@@ -30,11 +30,13 @@ TEncoder = TypeVar("TEncoder", bound=Type["IEncoder"])
 TDecoder = TypeVar("TDecoder", bound=Type["IDecoder"])
 TGenerator = TypeVar("TGenerator", bound=Type["IGenerator"])
 TDiscriminator = TypeVar("TDiscriminator", bound=Type["IDiscriminator"])
+TAutoRegressor = TypeVar("TAutoRegressor", bound=Type["IAutoRegressor"])
 
 encoders = PrefixModules("encoders")
 decoders = PrefixModules("decoders")
 generators = PrefixModules("generators")
 discriminators = PrefixModules("discriminators")
+auto_regressors = PrefixModules("auto_regressors")
 
 
 class IEncoder(Module):
@@ -228,6 +230,25 @@ class IDiscriminator(Module):
             self.cond = Conv2d(out_channels, self.num_classes, **kw)  # type: ignore
 
 
+class IAutoRegressor(IConditional):
+    """
+    An `IAutoRegressor` is a module that can generate images in an auto-regressive way.
+
+    It is often used in VQ-VAEs.
+    """
+
+    @abstractmethod
+    def sample(
+        self,
+        num_samples: int,
+        *,
+        img_size: int,
+        labels: Optional[Tensor] = None,
+        class_idx: Optional[int] = None,
+    ) -> Tensor:
+        pass
+
+
 def register_encoder(name: str, **kwargs: Any) -> Callable[[TEncoder], TEncoder]:
     return encoders.register(name, **kwargs)
 
@@ -245,6 +266,13 @@ def register_discriminator(
     **kwargs: Any,
 ) -> Callable[[TDiscriminator], TDiscriminator]:
     return discriminators.register(name, **kwargs)
+
+
+def register_auto_regressor(
+    name: str,
+    **kwargs: Any,
+) -> Callable[[TAutoRegressor], TAutoRegressor]:
+    return auto_regressors.register(name, **kwargs)
 
 
 def build_encoder(
@@ -281,6 +309,15 @@ def build_discriminator(
     **kwargs: Any,
 ) -> IDiscriminator:
     return discriminators.build(name, config=config, **kwargs)
+
+
+def build_auto_regressor(
+    name: str,
+    *,
+    config: Any = None,
+    **kwargs: Any,
+) -> IAutoRegressor:
+    return auto_regressors.build(name, config=config, **kwargs)
 
 
 def get_latent_resolution(encoder: IEncoder, img_size: int) -> int:
