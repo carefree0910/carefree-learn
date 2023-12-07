@@ -17,6 +17,7 @@ from .schema import IDLModel
 from .schema import IInference
 from .schema import IDataLoader
 from .schema import MetricsOutputs
+from .schema import MultipleMetrics
 from .schema import InferenceOutputs
 from .toolkit import ONNX
 from .toolkit import get_device
@@ -117,7 +118,13 @@ class DLInference(IInference):
                         results.setdefault(k, []).append(v_np)  # type: ignore
                 if requires_np:
                     for k, v in np_batch.items():
-                        if (
+                        is_lk = False
+                        if metrics is not None:
+                            if not isinstance(metrics, MultipleMetrics):
+                                is_lk = k == metrics.labels_key
+                            else:
+                                is_lk = any(k == m.labels_key for m in metrics.metrics)
+                        if not is_lk and (
                             k == INPUT_KEY
                             or k == ORIGINAL_LABEL_KEY
                             or k.endswith(BATCH_INDICES_KEY)
@@ -125,7 +132,7 @@ class DLInference(IInference):
                             continue
                         if v is None:
                             continue
-                        if k != LABEL_KEY and len(v.shape) > 2:  # type: ignore
+                        if not is_lk and k != LABEL_KEY and len(v.shape) > 2:  # type: ignore
                             continue
                         labels.setdefault(k, []).append(v)  # type: ignore
                 # metrics
