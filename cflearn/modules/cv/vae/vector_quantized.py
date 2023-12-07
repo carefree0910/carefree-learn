@@ -1,6 +1,5 @@
 import torch
 
-from torch import nn
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -11,8 +10,9 @@ from cftool.types import tensor_dict_type
 from ..common import build_encoder
 from ..common import build_decoder
 from ..common import get_latent_resolution
-from ..common import DecoderInputs
 from ..common import VQCodebook
+from ..common import IConditional
+from ..common import DecoderInputs
 from ...core import ChannelPadding
 from ...common import register_module
 from ....toolkit import get_device
@@ -21,7 +21,7 @@ from ....constants import PREDICTIONS_KEY
 
 
 @register_module("vq_vae")
-class VQVAE(nn.Module):
+class VQVAE(IConditional):
     def __init__(
         self,
         img_size: int,
@@ -107,8 +107,7 @@ class VQVAE(nn.Module):
             labels = torch.randint(self.num_classes, [len(z_q)], device=z_q.device)
         if self.latent_padding is not None:
             z_q = self.latent_padding(z_q)
-        z = self.from_codebook(z_q)
-        inputs = DecoderInputs(z=z, labels=labels, apply_tanh=apply_tanh)
+        inputs = DecoderInputs(z=z_q, labels=labels, apply_tanh=apply_tanh)
         net = self.decoder.decode(inputs)
         return net
 
@@ -131,20 +130,23 @@ class VQVAE(nn.Module):
 
     def get_code_indices(self, net: Tensor, **kwargs: Any) -> Tensor:
         z_e = self.encoder.encode(net, **kwargs)
-        indices = self.codebook(z_e).indices
+        net = self.to_codebook(z_e)
+        indices = self.codebook(net).indices
         return indices
 
     def get_code(self, code_indices: Tensor) -> Tensor:
         code_indices = code_indices.squeeze(1)
         z_q = self.codebook.embedding(code_indices.to(get_device(self)))
-        return z_q.permute(0, 3, 1, 2)
+        z_q = z_q.permute(0, 3, 1, 2).contiguous()
+        z_q = self.from_codebook(z_q)
+        return z_q
 
     def reconstruct_from(
         self,
         code_indices: Tensor,
         *,
-        class_idx: Optional[int] = None,
         labels: Optional[Tensor] = None,
+        class_idx: Optional[int] = None,
         use_one_hot: bool = False,
         **kwargs: Any,
     ) -> Tensor:
@@ -155,8 +157,8 @@ class VQVAE(nn.Module):
             j = int(round(0.5 * z_q.shape[3]))
             one_hot[..., i, j] = z_q[..., i, j]
             z_q = one_hot
-        if labels is None and class_idx is not None:
-            labels = torch.full([len(z_q)], class_idx, device=get_device(self))
+        if labels is None:
+            labels = self.get_sample_labels(len(z_q), class_idx)
         return self.decode(z_q, labels=labels, **kwargs)
 
     def sample_codebook(
@@ -175,7 +177,7 @@ class VQVAE(nn.Module):
         resolution = self.latent_resolution
         tiled = code_indices.repeat([1, 1, resolution, resolution])
         if class_idx is not None:
-            kwargs["labels"] = torch.full([len(code_indices)], class_idx)
+            kwargs["labels"] = self.get_sample_labels(len(code_indices), class_idx)
         kwargs.setdefault("use_one_hot", True)
         net = self.reconstruct_from(tiled, **kwargs)
         return net, code_indices
