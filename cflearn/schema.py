@@ -1668,11 +1668,11 @@ class TrainerMonitor(WithRegister["TrainerMonitor"], metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def snapshot(self, new_score: float) -> bool:
+    def should_snapshot(self, new_score: float) -> bool:
         pass
 
     @abstractmethod
-    def check_terminate(self, new_score: float) -> bool:
+    def should_terminate(self, new_score: float) -> bool:
         pass
 
     @abstractmethod

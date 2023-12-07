@@ -15,7 +15,7 @@ class BasicMonitor(TrainerMonitor):
         self.best_score = -math.inf
         self.worst_score: Optional[float] = None
 
-    def snapshot(self, new_score: float) -> bool:
+    def should_snapshot(self, new_score: float) -> bool:
         self.num_snapshot += 1
         if self.worst_score is None:
             self.worst_score = new_score
@@ -26,7 +26,7 @@ class BasicMonitor(TrainerMonitor):
             return True
         return False
 
-    def check_terminate(self, new_score: float) -> bool:
+    def should_terminate(self, new_score: float) -> bool:
         if self.num_snapshot <= self.patience:
             return False
         if self.worst_score is None:
@@ -53,7 +53,7 @@ class MeanStdMonitor(BasicMonitor):
         self.overfit_level = 0.0
         self._incrementer = Incrementer(window_size)
 
-    def snapshot(self, new_score: float) -> bool:
+    def should_snapshot(self, new_score: float) -> bool:
         self._incrementer.update(new_score)
         mean, std = self._incrementer.mean, self._incrementer.std
         std = max(std, 1.0e-8)
@@ -64,9 +64,9 @@ class MeanStdMonitor(BasicMonitor):
         elif new_score > mean + std:
             improvement = (new_score - mean) / std - 1.0
             self.overfit_level = max(0.0, self.overfit_level - improvement)
-        return super().snapshot(new_score)
+        return super().should_snapshot(new_score)
 
-    def check_terminate(self, new_score: float) -> bool:
+    def should_terminate(self, new_score: float) -> bool:
         if self.num_snapshot <= 10:
             return False
         if self.overfit_level >= self.overfit_tolerance:
@@ -97,7 +97,7 @@ class PlateauMonitor(BasicMonitor):
     def max_plateau_increase(self) -> float:
         return self.plateau_tolerance / self.patience
 
-    def snapshot(self, new_score: float) -> bool:
+    def should_snapshot(self, new_score: float) -> bool:
         self.num_snapshot += 1
         self._incrementer.update(new_score)
         if self.num_snapshot > self.window_size:
@@ -109,9 +109,9 @@ class PlateauMonitor(BasicMonitor):
                     1.0 / ratio - 1.0 / self.plateau_threshold,
                 )
                 self.plateau_level += plateau
-        return super().snapshot(new_score)
+        return super().should_snapshot(new_score)
 
-    def check_terminate(self, new_score: float) -> bool:
+    def should_terminate(self, new_score: float) -> bool:
         return self.plateau_level >= self.plateau_tolerance
 
     def punish_extension(self) -> None:
@@ -120,10 +120,10 @@ class PlateauMonitor(BasicMonitor):
 
 @TrainerMonitor.register("conservative")
 class ConservativeMonitor(TrainerMonitor):
-    def snapshot(self, new_score: float) -> bool:
+    def should_snapshot(self, new_score: float) -> bool:
         return True
 
-    def check_terminate(self, new_score: float) -> bool:
+    def should_terminate(self, new_score: float) -> bool:
         return False
 
     def punish_extension(self) -> None:
@@ -132,10 +132,10 @@ class ConservativeMonitor(TrainerMonitor):
 
 @TrainerMonitor.register("lazy")
 class LazyMonitor(TrainerMonitor):
-    def snapshot(self, new_score: float) -> bool:
+    def should_snapshot(self, new_score: float) -> bool:
         return False
 
-    def check_terminate(self, new_score: float) -> bool:
+    def should_terminate(self, new_score: float) -> bool:
         return False
 
     def punish_extension(self) -> None:

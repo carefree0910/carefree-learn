@@ -580,11 +580,11 @@ class Trainer(ITrainer):
             # check terminate
             if self.state.should_start_snapshot:
                 score = self.intermediate.final_score
-                if any(monitor.snapshot(score) for monitor in self.monitors):
+                if any(monitor.should_snapshot(score) for monitor in self.monitors):
                     if self.state.can_snapshot:
                         self.state.update_snapshot_epoch()
                         save_checkpoint = True
-                if any(monitor.check_terminate(score) for monitor in self.monitors):
+                if any(monitor.should_terminate(score) for monitor in self.monitors):
                     terminate = True
         return MonitorResults(terminate, save_checkpoint, self.intermediate)
 
