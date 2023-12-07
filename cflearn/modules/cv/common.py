@@ -352,12 +352,12 @@ class VQCodebookOut(NamedTuple):
 
 
 class VQCodebook(nn.Module):
-    def __init__(self, num_code: int, code_dimension: int):
+    def __init__(self, num_codes: int, code_dimension: int):
         super().__init__()
-        self.num_code = num_code
+        self.num_codes = num_codes
         self.code_dimension = code_dimension
-        self.embedding = nn.Embedding(num_code, code_dimension)
-        span = 1.0 / num_code
+        self.embedding = nn.Embedding(num_codes, code_dimension)
+        span = 1.0 / num_codes
         self.embedding.weight.data.uniform_(-span, span)
 
     # z_q_g : z_q with embedding gradient

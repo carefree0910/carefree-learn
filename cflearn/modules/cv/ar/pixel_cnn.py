@@ -69,7 +69,7 @@ class MaskedConv2d(Conv2d):
 class PixelCNN(IAutoRegressor):
     def __init__(
         self,
-        num_code: int,
+        num_codes: int,
         in_channels: int = 3,
         need_embedding: bool = False,
         latent_channels: int = 128,
@@ -83,7 +83,7 @@ class PixelCNN(IAutoRegressor):
         if in_channels != 1:
             raise ValueError("`PixelCNN` requires `in_channels` to be 1")
         self.in_channels = in_channels
-        self.num_code = num_code
+        self.num_codes = num_codes
         self.latent_channels = latent_channels
         self.num_classes = num_classes
 
@@ -106,13 +106,13 @@ class PixelCNN(IAutoRegressor):
         # to blocks
         if not need_embedding:
             start_channels = in_channels
-            normalize = lambda t: t.float() / (num_code - 1)
+            normalize = lambda t: t.float() / (num_codes - 1)
             self.to_blocks = nn.Sequential(Lambda(normalize, name="normalize"))
         else:
             start_channels = latent_channels
             self.to_blocks = nn.Sequential(
                 Lambda(lambda t: t.squeeze(1), name="squeeze"),
-                nn.Embedding(num_code, latent_channels),
+                nn.Embedding(num_codes, latent_channels),
                 Lambda(lambda t: t.permute(0, 3, 1, 2), name="permute"),
             )
         # channel padding
@@ -130,7 +130,7 @@ class PixelCNN(IAutoRegressor):
         blocks: List[nn.Module] = [_get_block(start_channels, latent_channels, "A")]
         for _ in range(num_layers - 1):
             blocks.append(_get_block(latent_channels, latent_channels, "B"))
-        blocks.append(Conv2d(latent_channels, num_code, kernel_size=1))
+        blocks.append(Conv2d(latent_channels, num_codes, kernel_size=1))
         self.net = nn.Sequential(*blocks)
 
     def forward(self, net: Tensor, labels: Optional[Tensor]) -> Tensor:

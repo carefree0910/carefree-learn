@@ -26,7 +26,7 @@ class VQVAE(nn.Module):
     def __init__(
         self,
         img_size: int,
-        num_code: int,
+        num_codes: int,
         in_channels: int = 3,
         out_channels: Optional[int] = None,
         num_downsample: Optional[int] = None,
@@ -44,7 +44,7 @@ class VQVAE(nn.Module):
     ):
         super().__init__()
         self.img_size = img_size
-        self.num_code = num_code
+        self.num_codes = num_codes
         self.in_channels = in_channels
         self.out_channels = out_channels or in_channels
         self.num_classes = num_classes
@@ -63,7 +63,7 @@ class VQVAE(nn.Module):
         latent_resolution = get_latent_resolution(self.encoder, img_size)
         self.latent_resolution = latent_resolution
         # codebook
-        self.codebook = VQCodebook(num_code, code_dimension)
+        self.codebook = VQCodebook(num_codes, code_dimension)
         # decoder
         if decoder_config is None:
             decoder_config = {}
@@ -171,7 +171,7 @@ class VQVAE(nn.Module):
         if code_indices is None:
             if num_samples is None:
                 raise ValueError("either `indices` or `num_samples` should be provided")
-            code_indices = torch.randint(self.num_code, [num_samples])
+            code_indices = torch.randint(self.num_codes, [num_samples])
         code_indices = code_indices.view(-1, 1, 1, 1)
         resolution = self.latent_resolution
         tiled = code_indices.repeat([1, 1, resolution, resolution])

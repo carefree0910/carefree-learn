@@ -22,7 +22,7 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
         latent_channels: int,
         channel_multipliers: Tuple[int, ...],
         *,
-        num_code: int,
+        num_codes: int,
         embedding_channels: int,
         num_res_blocks: int,
         attention_resolutions: Tuple[int, ...] = (),
@@ -46,7 +46,7 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
             attention_type=attention_type,
             apply_tanh=apply_tanh,
         )
-        self.codebook = VQCodebook(num_code, embedding_channels)
+        self.codebook = VQCodebook(num_codes, embedding_channels)
 
     def encode(self, net: Tensor) -> Tensor:
         net = self.generator.encoder.encode(net)
