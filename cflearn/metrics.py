@@ -154,6 +154,9 @@ class AUC(IRequiresAllMixin, IMetric):
     def forward(self, logits: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
         if metrics is None:
             return 0.0
+        if len(logits.shape) > 2:
+            logits = logits.reshape([len(logits), -1])
+            labels = labels.reshape([len(labels), -1])
         logits = get_full_logits(logits)
         num_classes = logits.shape[1]
         probabilities = softmax(logits)
