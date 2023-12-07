@@ -31,7 +31,8 @@ config = cflearn.DLConfig(
         num_classes=10,
     ),
     callback_configs=dict(vq_vae=dict(num_classes=10)),
-    loss_metrics_weights=dict(l2=1.0, commit=0.01),
+    loss_metrics_weights=dict(l2=1.0, commit=0.001),
+    monitor_names="plateau",
 )
 if is_ci:
     config.to_debug()
