@@ -184,7 +184,6 @@ class ISampler(WithRegister):
         image = z
         if cond is not None and self.model.condition_model is not None:
             cond = self.model._get_cond(cond)
-        inpainting_ref_one_more_step = kwargs.get("inpainting_ref_one_more_step", False)
         for step in iterator:
             # callback
             callback = kwargs.get("step_callback")
