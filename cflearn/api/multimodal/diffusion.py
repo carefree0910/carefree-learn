@@ -856,7 +856,6 @@ class DiffusionAPI(IAPI):
                     dict(
                         z=z,
                         size=size,
-                        export_path=export_path,
                         z_ref=z_ref,
                         z_ref_mask=z_ref_mask,
                         z_ref_noise=z_ref_noise,
@@ -883,6 +882,8 @@ class DiffusionAPI(IAPI):
                 if keep_original:
                     original = image_res.original
                     sampled = paste_original(original, mask_res.original, sampled)
+                if export_path is not None:
+                    save_images(sampled, export_path)
                 return sampled
 
             # 'real' inpainting
@@ -910,7 +911,6 @@ class DiffusionAPI(IAPI):
             ## core
             sampled = self.sample(
                 num_samples,
-                export_path,
                 seed=seed,
                 z=z,
                 z_ref=z_ref,
@@ -937,6 +937,8 @@ class DiffusionAPI(IAPI):
                 )
         if keep_original:
             sampled = paste_original(res.original_image, res.original_mask, sampled)
+        if export_path is not None:
+            save_images(sampled, export_path)
         return sampled
 
     def outpainting(
