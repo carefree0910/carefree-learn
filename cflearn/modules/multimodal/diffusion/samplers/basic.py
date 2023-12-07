@@ -3,6 +3,7 @@ import torch
 from torch import Tensor
 from typing import Any
 from typing import Dict
+from typing import Callable
 from typing import Optional
 
 from .schema import ISampler
@@ -42,6 +43,7 @@ class BasicSampler(ISampler):
         cond: Optional[cond_type],
         step: int,
         total_step: int,
+        denoise_callback: Callable[[Tensor], Tensor],
         *,
         temperature: float = 1.0,
         **kwargs: Any,
@@ -50,6 +52,7 @@ class BasicSampler(ISampler):
         num_dim = len(shape)
         ts = get_timesteps(total_step - step - 1, shape[0], image.device)
         net = self.model.denoise(image, ts, cond, step, total_step)
+        net = denoise_callback(net)
         parameterization = self.model.parameterization
         if parameterization == "eps":
             coef1 = extract_to(self.model.posterior_coef1, ts, num_dim)

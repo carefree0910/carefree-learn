@@ -10,6 +10,7 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Tuple
+from typing import Callable
 from typing import Optional
 from typing import Protocol
 
@@ -130,6 +131,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         cond: Optional[cond_type],
         step: int,
         total_step: int,
+        denoise_callback: Callable[[Tensor], Tensor],
         *,
         eta: float = 0.0,
         discretize: str = "uniform",
@@ -140,6 +142,18 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         quantize_denoised: bool = False,
         **kwargs: Any,
     ) -> Tensor:
+        def get_denoised(model_output: Tensor, ts: Tensor) -> Tensor:
+            denoised = self._get_denoised_and_pred_x0(
+                model_output,
+                ts,
+                image,
+                quantize_denoised,
+                temperature,
+                noise_dropout,
+            )[0]
+            denoised = denoise_callback(denoised)
+            return denoised
+
         if step == 0 and not self.initialized:
             self._reset_buffers(
                 eta,
@@ -155,14 +169,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             step,
             total_step,
             lambda img, ts: self._uncond_denoise(img, ts, cond, step, total_step),
-            lambda model_output, ts: self._get_denoised_and_pred_x0(
-                model_output,
-                ts,
-                image,
-                quantize_denoised,
-                temperature,
-                noise_dropout,
-            )[0],
+            get_denoised,
             eta=eta,
             discretize=discretize,
             unconditional_cond=unconditional_cond,
