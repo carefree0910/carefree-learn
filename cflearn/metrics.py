@@ -20,6 +20,17 @@ except:
     metrics = None
 
 
+class IRequiresAllMixin:
+    _requires_all: Optional[bool] = None
+    _default_requires_all: bool = True
+
+    @property
+    def requires_all(self) -> bool:
+        if self._requires_all is None:
+            return self._default_requires_all
+        return self._requires_all
+
+
 @IMetric.register("acc")
 class Accuracy(IMetric):
     def __init__(
@@ -69,25 +80,23 @@ class Quantile(IMetric):
 
 
 @IMetric.register("f1")
-class F1Score(IMetric):
+class F1Score(IRequiresAllMixin, IMetric):
     def __init__(
         self,
         average: str = "macro",
         *,
         labels_key: Optional[str] = LABEL_KEY,
         predictions_key: Optional[str] = PREDICTIONS_KEY,
+        requires_all: Optional[bool] = None,
     ):
         super().__init__(labels_key=labels_key, predictions_key=predictions_key)
         self.average = average
+        self._requires_all = requires_all
         if metrics is None:
             print_warning("`scikit-learn` needs to be installed for `F1Score`")
 
     @property
     def is_positive(self) -> bool:
-        return True
-
-    @property
-    def requires_all(self) -> bool:
         return True
 
     def forward(self, logits: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
@@ -125,23 +134,21 @@ class R2Score(IMetric):
 
 
 @IMetric.register("auc")
-class AUC(IMetric):
+class AUC(IRequiresAllMixin, IMetric):
     def __init__(
         self,
         *,
         labels_key: Optional[str] = LABEL_KEY,
         predictions_key: Optional[str] = PREDICTIONS_KEY,
+        requires_all: Optional[bool] = None,
     ) -> None:
         super().__init__(labels_key=labels_key, predictions_key=predictions_key)
+        self._requires_all = requires_all
         if metrics is None:
             print_warning("`scikit-learn` needs to be installed for `AUC`")
 
     @property
     def is_positive(self) -> bool:
-        return True
-
-    @property
-    def requires_all(self) -> bool:
         return True
 
     def forward(self, logits: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
