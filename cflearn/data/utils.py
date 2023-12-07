@@ -20,6 +20,7 @@ from cftool.types import arr_type
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
+from ..schema import device_type
 from ..schema import IDataset
 from ..schema import DataArgs
 from ..schema import DataBundle
@@ -28,6 +29,7 @@ from ..schema import IDataLoader
 from ..schema import DataProcessor
 from ..toolkit import eval_context
 from ..toolkit import get_device
+from ..toolkit import get_torch_device
 from ..toolkit import np_batch_to_tensor
 from ..toolkit import tensor_batch_to_np
 from ..constants import INPUT_KEY
@@ -251,9 +253,11 @@ def predict_array_data(
 
 
 class TensorBatcher:
-    def __init__(self, loader: IDataLoader, device: torch.device) -> None:
+    device: torch.device
+
+    def __init__(self, loader: IDataLoader, device: device_type) -> None:
         self.loader = loader
-        self.device = device
+        self.to(device)
 
     def __len__(self) -> int:
         return len(self.loader)
@@ -267,8 +271,8 @@ class TensorBatcher:
         batch = np_batch_to_tensor(npd)
         return to_device(batch, self.device)
 
-    def to(self, device: torch.device) -> None:
-        self.device = device
+    def to(self, device: device_type) -> None:
+        self.device = get_torch_device(device)
 
     def get_full_batch(self) -> tensor_dict_type:
         return np_batch_to_tensor(self.loader.get_full_batch())
