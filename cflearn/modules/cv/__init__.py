@@ -1,4 +1,5 @@
 from .ae import *
+from .ar import *
 from .gan import *
 from .vae import *
 from .common import *
