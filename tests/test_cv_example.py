@@ -21,6 +21,15 @@ class TestExample(unittest.TestCase):
             0,
         )
 
+    def test_mnist_vq_vae(self) -> None:
+        folder = os.path.join(examples_folder, "vae")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'mnist_vq_vae.py')} --ci 1"),
+            0,
+        )
+        cmd = f"python {os.path.join(folder, 'mnist_vq_vae_inference.py')} --ci 1"
+        self.assertEqual(os.system(cmd), 0)
+
     def test_mnist_gan(self) -> None:
         folder = os.path.join(examples_folder, "gan")
         self.assertEqual(
