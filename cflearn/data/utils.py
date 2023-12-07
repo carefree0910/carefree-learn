@@ -11,6 +11,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
+from typing import TypeVar
 from typing import Optional
 from typing import Protocol
 from cftool.misc import shallow_copy_dict
@@ -35,6 +36,7 @@ from ..constants import BATCH_INDICES_KEY
 
 
 TSplitSW = Tuple[Optional[np.ndarray], Optional[np.ndarray]]
+TArrayData = TypeVar("TArrayData", bound="IArrayDataMixin")
 TArrayDict = Union[np_dict_type, tensor_dict_type]
 TArrayDataset = Union["IArrayDataset", "IArrayDictDataset"]
 
@@ -157,7 +159,7 @@ class IArrayDataMixin(ABC):
         )
 
     def fit(
-        self: "IArrayDataMixin",
+        self: TArrayData,
         x_train: arr_type,
         y_train: Optional[arr_type] = None,
         x_valid: Optional[arr_type] = None,
@@ -166,7 +168,7 @@ class IArrayDataMixin(ABC):
         valid_others: Optional[TArrayDict] = None,
         *args: Any,
         **kwargs: Any,
-    ) -> "IArrayDataMixin":
+    ) -> TArrayData:
         if train_others is not None:
             train_others = tensor_batch_to_np(train_others)
         if valid_others is not None:
