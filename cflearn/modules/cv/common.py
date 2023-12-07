@@ -38,6 +38,10 @@ discriminators = PrefixModules("discriminators")
 
 
 class IEncoder(Module):
+    """
+    An `IEncoder` is a module that takes an image tensor as input and outputs a latent.
+    """
+
     in_channels: int
 
     def encode(self, net: Tensor) -> Tensor:
@@ -84,6 +88,12 @@ class IConditional(Module):
 
 
 class IDecoder(IConditional):
+    """
+    An `IDecoder` is a module that takes a latent tensor as input and outputs an image.
+
+    The latent tensor can be either a 1d tensor or a 2d tensor.
+    """
+
     cond: Optional[Module]
     img_size: Optional[int] = None
     latent_channels: Optional[int] = None
@@ -126,6 +136,12 @@ class IDecoder(IConditional):
 
 
 class IGenerator(IConditional, metaclass=ABCMeta):
+    """
+    An `IGenerator` is a module that can generate images.
+
+    It differs from `IDecoder` in that it sometimes can reconstruct images as well. Either
+    way, it still often uses `IDecoder` as its generate model.
+    """
 
     latent_dim: int
 
@@ -183,6 +199,11 @@ class IGenerator(IConditional, metaclass=ABCMeta):
 
 
 class IGaussianGenerator(IGenerator):
+    """
+    An `IGaussianGenerator` futher specifies that the latent space is a (standard)
+    Gaussian distribution.
+    """
+
     def generate_z(self, num_samples: int) -> Tensor:
         return torch.randn(num_samples, self.latent_dim, device=get_device(self))
 
@@ -193,6 +214,10 @@ class DiscriminatorOutput(NamedTuple):
 
 
 class IDiscriminator(Module):
+    """
+    An `IDiscriminator` is typically used in GANs.
+    """
+
     num_classes: Optional[int]
 
     def generate_cond(self, out_channels: int) -> None:
