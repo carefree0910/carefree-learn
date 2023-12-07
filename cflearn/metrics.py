@@ -1,7 +1,6 @@
 import numpy as np
 
 from typing import Any
-from typing import Tuple
 from typing import Optional
 from cftool.misc import print_warning
 from cftool.array import iou
@@ -9,10 +8,8 @@ from cftool.array import corr
 from cftool.array import softmax
 from cftool.array import get_full_logits
 from cftool.array import get_label_predictions
-from cftool.types import np_dict_type
 
 from .schema import IMetric
-from .schema import IDataLoader
 from .toolkit import insert_intermediate_dims
 from .constants import LABEL_KEY
 from .constants import PREDICTIONS_KEY
@@ -29,9 +26,10 @@ class Accuracy(IMetric):
         self,
         threshold: float = 0.5,
         *,
-        predictions_key: Optional[str] = PREDICTIONS_KEY
+        labels_key: Optional[str] = LABEL_KEY,
+        predictions_key: Optional[str] = PREDICTIONS_KEY,
     ):
-        super().__init__(predictions_key=predictions_key)
+        super().__init__(labels_key=labels_key, predictions_key=predictions_key)
         self.threshold = threshold
 
     @property
@@ -45,8 +43,14 @@ class Accuracy(IMetric):
 
 @IMetric.register("quantile")
 class Quantile(IMetric):
-    def __init__(self, q: Any, *, predictions_key: Optional[str] = PREDICTIONS_KEY):
-        super().__init__(predictions_key=predictions_key)
+    def __init__(
+        self,
+        q: Any,
+        *,
+        labels_key: Optional[str] = LABEL_KEY,
+        predictions_key: Optional[str] = PREDICTIONS_KEY,
+    ):
+        super().__init__(labels_key=labels_key, predictions_key=predictions_key)
         if not isinstance(q, np.ndarray):
             q = np.asarray(q, np.float32).reshape([1, -1])
         self.q = q
@@ -70,9 +74,10 @@ class F1Score(IMetric):
         self,
         average: str = "macro",
         *,
-        predictions_key: Optional[str] = PREDICTIONS_KEY
+        labels_key: Optional[str] = LABEL_KEY,
+        predictions_key: Optional[str] = PREDICTIONS_KEY,
     ):
-        super().__init__(predictions_key=predictions_key)
+        super().__init__(labels_key=labels_key, predictions_key=predictions_key)
         self.average = average
         if metrics is None:
             print_warning("`scikit-learn` needs to be installed for `F1Score`")
@@ -99,8 +104,13 @@ class F1Score(IMetric):
 
 @IMetric.register("r2")
 class R2Score(IMetric):
-    def __init__(self, *, predictions_key: Optional[str] = PREDICTIONS_KEY) -> None:
-        super().__init__(predictions_key=predictions_key)
+    def __init__(
+        self,
+        *,
+        labels_key: Optional[str] = LABEL_KEY,
+        predictions_key: Optional[str] = PREDICTIONS_KEY,
+    ) -> None:
+        super().__init__(labels_key=labels_key, predictions_key=predictions_key)
         if metrics is None:
             print_warning("`scikit-learn` needs to be installed for `R2Score`")
 
@@ -116,8 +126,13 @@ class R2Score(IMetric):
 
 @IMetric.register("auc")
 class AUC(IMetric):
-    def __init__(self, *, predictions_key: Optional[str] = PREDICTIONS_KEY) -> None:
-        super().__init__(predictions_key=predictions_key)
+    def __init__(
+        self,
+        *,
+        labels_key: Optional[str] = LABEL_KEY,
+        predictions_key: Optional[str] = PREDICTIONS_KEY,
+    ) -> None:
+        super().__init__(labels_key=labels_key, predictions_key=predictions_key)
         if metrics is None:
             print_warning("`scikit-learn` needs to be installed for `AUC`")
 
@@ -163,8 +178,13 @@ class MSE(IMetric):
 
 @IMetric.register("ber")
 class BER(IMetric):
-    def __init__(self, *, predictions_key: Optional[str] = PREDICTIONS_KEY) -> None:
-        super().__init__(predictions_key=predictions_key)
+    def __init__(
+        self,
+        *,
+        labels_key: Optional[str] = LABEL_KEY,
+        predictions_key: Optional[str] = PREDICTIONS_KEY,
+    ) -> None:
+        super().__init__(labels_key=labels_key, predictions_key=predictions_key)
         if metrics is None:
             print_warning("`scikit-learn` needs to be installed for `AUC`")
 

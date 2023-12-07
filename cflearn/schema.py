@@ -824,9 +824,11 @@ class IMetric(WithRegister["IMetric"], metaclass=ABCMeta):
     def __init__(
         self,
         *args: Any,
+        labels_key: Optional[str] = LABEL_KEY,
         predictions_key: Optional[str] = PREDICTIONS_KEY,
         **kwargs: Any,
     ):
+        self.labels_key = labels_key
         self.predictions_key = predictions_key
 
     # abstract
@@ -860,7 +862,7 @@ class IMetric(WithRegister["IMetric"], metaclass=ABCMeta):
         np_outputs: np_dict_type,
         loader: Optional[IDataLoader] = None,
     ) -> Tuple[Any, ...]:
-        return np_outputs[self.predictions_key], np_batch[LABEL_KEY]
+        return np_outputs[self.predictions_key], np_batch[self.labels_key]
 
     # api
 
