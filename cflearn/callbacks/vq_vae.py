@@ -3,13 +3,12 @@ import math
 
 from typing import Optional
 from cftool.cv import save_images
-from cftool.array import to_device
 
 from .general import ImageCallback
+from ..data import TensorBatcher
 from ..schema import ITrainer
 from ..modules import VQVAE
 from ..toolkit import interpolate
-from ..toolkit import np_batch_to_tensor
 from ..toolkit import make_indices_visualization_map
 from ..toolkit import eval_context
 from ..constants import INPUT_KEY
@@ -25,9 +24,7 @@ class VQVAECallback(ImageCallback):
     def log_artifacts(self, trainer: ITrainer) -> None:
         if not self.is_local_rank_0:
             return None
-        batch = next(iter(trainer.validation_loader))
-        batch = np_batch_to_tensor(batch)
-        batch = to_device(batch, trainer.device)
+        batch = TensorBatcher(trainer.validation_loader, trainer.device).get_one_batch()
         original = batch[INPUT_KEY]
         model = trainer.model
         state = trainer.state

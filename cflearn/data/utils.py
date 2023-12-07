@@ -274,6 +274,10 @@ class TensorBatcher:
     def to(self, device: device_type) -> None:
         self.device = get_torch_device(device)
 
+    def get_one_batch(self) -> tensor_dict_type:
+        batch = np_batch_to_tensor(self.loader.get_one_batch())
+        return to_device(batch, self.device)
+
     def get_full_batch(self) -> tensor_dict_type:
         batch = np_batch_to_tensor(self.loader.get_full_batch())
         return to_device(batch, self.device)

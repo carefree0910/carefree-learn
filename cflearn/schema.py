@@ -269,6 +269,9 @@ class IDataLoader(ABC):
 
         return _(self)
 
+    def get_one_batch(self) -> np_dict_type:
+        return next(iter(self))
+
     def get_full_batch(self) -> np_dict_type:
         batch_size = self.batch_size
         self.batch_size = len(self.dataset)
