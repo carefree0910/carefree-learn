@@ -64,9 +64,27 @@ class DecoderInputs(DataClassBase):
     apply_codebook: bool = True
 
 
-class IDecoder(Module):
-    cond: Optional[Module]
+class IConditional(Module):
     num_classes: Optional[int] = None
+
+    @property
+    def is_conditional(self) -> bool:
+        return self.num_classes is not None
+
+    def get_sample_labels(
+        self,
+        num_samples: int,
+        class_idx: Optional[int] = None,
+    ) -> Optional[Tensor]:
+        if self.num_classes is None:
+            return None
+        if class_idx is not None:
+            return torch.full([num_samples], class_idx, device=get_device(self))
+        return torch.randint(self.num_classes, [num_samples], device=get_device(self))
+
+
+class IDecoder(IConditional):
+    cond: Optional[Module]
     img_size: Optional[int] = None
     latent_channels: Optional[int] = None
     latent_resolution: Optional[int] = None
@@ -107,17 +125,13 @@ class IDecoder(Module):
         return cond(net, labels)
 
 
-class IGenerator(Module, metaclass=ABCMeta):
-    latent_dim: int
-    num_classes: Optional[int] = None
+class IGenerator(IConditional, metaclass=ABCMeta):
 
-    # abstract
+    latent_dim: int
 
     @abstractmethod
     def generate_z(self, num_samples: int) -> Tensor:
         pass
-
-    # optional callbacks
 
     def decode(self, inputs: DecoderInputs) -> Tensor:
         # since `IGenerator` often uses `IDecoder` as its generate model,
@@ -166,23 +180,6 @@ class IGenerator(Module, metaclass=ABCMeta):
             class_idx = random.randint(0, self.num_classes - 1)
         labels = self.get_sample_labels(num_samples, class_idx)
         return self.decode(DecoderInputs(z=z, labels=labels))
-
-    # api
-
-    @property
-    def is_conditional(self) -> bool:
-        return self.num_classes is not None
-
-    def get_sample_labels(
-        self,
-        num_samples: int,
-        class_idx: Optional[int] = None,
-    ) -> Optional[Tensor]:
-        if self.num_classes is None:
-            return None
-        if class_idx is not None:
-            return torch.full([num_samples], class_idx, device=get_device(self))
-        return torch.randint(self.num_classes, [num_samples], device=get_device(self))
 
 
 class IGaussianGenerator(IGenerator):
