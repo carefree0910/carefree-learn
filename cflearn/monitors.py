@@ -82,7 +82,7 @@ class PlateauMonitor(BasicMonitor):
         plateau_threshold: float = 0.2,
     ):
         super().__init__()
-        self.patience = patience
+        self.patience = patience  # type: ignore
         self.window_size = window_size
         self.plateau_tolerance = plateau_tolerance
         self.plateau_threshold = plateau_threshold
