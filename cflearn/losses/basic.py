@@ -22,6 +22,7 @@ from ..schema import ILoss
 from ..schema import TrainerState
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
+from ..constants import PREDICTIONS_KEY
 
 
 @register_loss("iou")
@@ -124,11 +125,30 @@ class CorrelationLoss(ILoss):
 
 @register_loss("cross_entropy")
 class CrossEntropyLoss(ILoss):
+    def __init__(
+        self,
+        reduction: str = "mean",
+        *,
+        is_auto_regression: bool = False,
+    ):
+        super().__init__(reduction)
+        self.is_auto_regression = is_auto_regression
+
     @staticmethod
     def _get_stat(predictions: Tensor, labels: Tensor) -> Tuple[Tensor, Tensor]:
         log_prob_mat = F.log_softmax(predictions, dim=1)
         nll_losses = -log_prob_mat.gather(dim=1, index=labels)
         return log_prob_mat, nll_losses
+
+    def get_forward_args(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+    ) -> Tuple[Any, ...]:
+        if not self.is_auto_regression:
+            return super().get_forward_args(forward_results, batch, state)
+        return forward_results[PREDICTIONS_KEY], batch[INPUT_KEY]
 
     def forward(self, predictions: Tensor, labels: Tensor) -> Tensor:
         return self._get_stat(predictions, labels)[1]
