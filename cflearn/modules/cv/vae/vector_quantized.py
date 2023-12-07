@@ -156,7 +156,7 @@ class VQVAE(nn.Module):
             one_hot[..., i, j] = z_q[..., i, j]
             z_q = one_hot
         if labels is None and class_idx is not None:
-            labels = torch.full([len(z_q)], class_idx, device=self.device)
+            labels = torch.full([len(z_q)], class_idx, device=get_device(self))
         return self.decode(z_q, labels=labels, **kwargs)
 
     def sample_codebook(
