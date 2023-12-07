@@ -17,7 +17,6 @@ from ...core import ChannelPadding
 from ...common import register_module
 from ....toolkit import get_device
 from ....toolkit import auto_num_layers
-from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 
 
@@ -92,7 +91,7 @@ class VQVAE(nn.Module):
         return z_q
 
     def encode(self, net: Tensor) -> Tensor:
-        net = self.encoder.encode({INPUT_KEY: net})
+        net = self.encoder.encode(net)
         net = self.to_codebook(net)
         net = self.codebook(net).z_q
         return net
@@ -131,7 +130,7 @@ class VQVAE(nn.Module):
         return results
 
     def get_code_indices(self, net: Tensor, **kwargs: Any) -> Tensor:
-        z_e = self.encoder.encode({INPUT_KEY: net}, **kwargs)
+        z_e = self.encoder.encode(net, **kwargs)
         indices = self.codebook(z_e).indices
         return indices
 
