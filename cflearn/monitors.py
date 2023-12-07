@@ -75,7 +75,7 @@ class MeanStdMonitor(BasicMonitor):
 
 
 @TrainerMonitor.register("plateau")
-class PlateauMonitor(TrainerMonitor):
+class PlateauMonitor(BasicMonitor):
     def __init__(
         self,
         *,
@@ -100,22 +100,19 @@ class PlateauMonitor(TrainerMonitor):
     def snapshot(self, new_score: float) -> bool:
         self.num_snapshot += 1
         self._incrementer.update(new_score)
-        if self.num_snapshot <= self.window_size:
-            return False
-        mean, std = self._incrementer.mean, self._incrementer.std
-        ratio = max(abs(new_score - mean) / max(std, 1.0e-8), 1.0e-8)
-        if ratio < self.plateau_threshold:
-            plateau = min(
-                self.max_plateau_increase,
-                1.0 / ratio - 1.0 / self.plateau_threshold,
-            )
-            self.plateau_level += plateau
-        return False
+        if self.num_snapshot > self.window_size:
+            mean, std = self._incrementer.mean, self._incrementer.std
+            ratio = max(abs(new_score - mean) / max(std, 1.0e-8), 1.0e-8)
+            if ratio < self.plateau_threshold:
+                plateau = min(
+                    self.max_plateau_increase,
+                    1.0 / ratio - 1.0 / self.plateau_threshold,
+                )
+                self.plateau_level += plateau
+        return super().snapshot(new_score)
 
     def check_terminate(self, new_score: float) -> bool:
-        if self.plateau_level >= self.plateau_tolerance:
-            return True
-        return False
+        return self.plateau_level >= self.plateau_tolerance
 
     def punish_extension(self) -> None:
         self.plateau_level += self.max_plateau_increase / 5.0
