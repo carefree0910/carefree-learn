@@ -13,6 +13,25 @@ from ..utils import extract_to
 from ..utils import get_timesteps
 
 
+def merge_ref(
+    self: ISampler,
+    image: Tensor,
+    step: int,
+    total_step: int,
+    *,
+    ref: Optional[Tensor] = None,
+    ref_mask: Optional[Tensor] = None,
+    **kwargs: Any,
+) -> Tensor:
+    if ref is None or ref_mask is None:
+        return image
+    t_prev = total_step - step - 1
+    ref_ts = get_timesteps(t_prev, ref.shape[0], image.device)
+    ref_noisy = self.q_sample(ref, ref_ts)
+    image = ref_mask * ref_noisy + (1.0 - ref_mask) * image
+    return image
+
+
 @ISampler.register("basic")
 class BasicSampler(ISampler):
     def __init__(
@@ -49,6 +68,7 @@ class BasicSampler(ISampler):
         shape = image.shape
         num_dim = len(shape)
         ts = get_timesteps(total_step - step - 1, shape[0], image.device)
+        image = merge_ref(self, image, step, total_step, **kwargs)
         net = self.model.denoise(image, ts, cond, step, total_step)
         parameterization = self.model.parameterization
         if parameterization == "eps":

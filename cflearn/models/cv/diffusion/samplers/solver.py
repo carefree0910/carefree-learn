@@ -8,6 +8,7 @@ from typing import List
 from typing import Optional
 
 from .ddim import DDIMQSampler
+from .basic import merge_ref
 from .utils import append_dims
 from .utils import interpolate_fn
 from .schema import ISampler
@@ -122,6 +123,7 @@ class DPMSolver(ISampler, UncondSamplerMixin):
             )
         b = image.shape[0]
         vec_t = self.timesteps[step].to(image).expand(b)
+        image = merge_ref(self, image, step, total_step, **kwargs)
         if not self.t_prev_list:
             self.t_prev_list.append(vec_t)
             self.model_prev_list.append(

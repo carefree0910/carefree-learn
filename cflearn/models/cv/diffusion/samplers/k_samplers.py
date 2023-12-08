@@ -177,13 +177,20 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
                 f"unrecognized parameterization `{self.model.parameterization}` occurred"
             )
 
+        def get_denoised_with_reference(img: Tensor, sigma: Tensor) -> Tensor:
+            denoised = get_denoised(img, sigma)
+            ref, ref_mask = map(kwargs.get, ["ref", "ref_mask"])
+            if ref is not None and ref_mask is not None:
+                denoised = ref_mask * ref + (1.0 - ref_mask) * denoised
+            return denoised
+
         s_in = image.new_ones([image.shape[0]])
         return self.sample_step_core(
             image,
             cond,
             step,
             total_step,
-            get_denoised,
+            get_denoised_with_reference,
             quantize=quantize,
             unconditional_cond=unconditional_cond,
             unconditional_guidance_scale=unconditional_guidance_scale,
@@ -411,6 +418,7 @@ class KHeunSampler(KSamplerMixin):
 
 
 __all__ = [
+    "KSamplerMixin",
     "KLMSSampler",
     "KEulerSampler",
     "KEulerAncestralSampler",

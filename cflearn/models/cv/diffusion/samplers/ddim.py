@@ -13,6 +13,7 @@ from typing import Tuple
 from typing import Optional
 from typing import Protocol
 
+from .basic import merge_ref
 from .schema import ISampler
 from .schema import IDiffusion
 from .schema import DDPMQSampler
@@ -135,6 +136,22 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         quantize_denoised: bool = False,
         **kwargs: Any,
     ) -> Tensor:
+        def get_model_output(image: Tensor, ts: Tensor) -> Tensor:
+            image = merge_ref(self, image, step, total_step, **kwargs)
+            model_output = self._uncond_denoise(image, ts, cond, step, total_step)
+            return model_output
+
+        def get_denoised(model_output: Tensor, ts: Tensor) -> Tensor:
+            denoised = self._get_denoised_and_pred_x0(
+                model_output,
+                ts,
+                image,
+                quantize_denoised,
+                temperature,
+                noise_dropout,
+            )[0]
+            return denoised
+
         if step == 0 and not self.initialized:
             self._reset_buffers(
                 eta,
@@ -149,15 +166,8 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             cond,
             step,
             total_step,
-            lambda img, ts: self._uncond_denoise(img, ts, cond, step, total_step),
-            lambda model_output, ts: self._get_denoised_and_pred_x0(
-                model_output,
-                ts,
-                image,
-                quantize_denoised,
-                temperature,
-                noise_dropout,
-            )[0],
+            get_model_output,
+            get_denoised,
             eta=eta,
             discretize=discretize,
             unconditional_cond=unconditional_cond,
@@ -292,5 +302,6 @@ class DDIMSampler(DDIMMixin):
 
 
 __all__ = [
+    "DDIMMixin",
     "DDIMSampler",
 ]
