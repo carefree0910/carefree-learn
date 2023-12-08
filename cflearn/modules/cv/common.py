@@ -143,8 +143,6 @@ class IGenerator(IConditional, metaclass=ABCMeta):
     way, it still often uses `IDecoder` as its generate model.
     """
 
-    latent_dim: int
-
     @abstractmethod
     def generate_z(self, num_samples: int) -> Tensor:
         pass
@@ -201,8 +199,10 @@ class IGenerator(IConditional, metaclass=ABCMeta):
 class IGaussianGenerator(IGenerator):
     """
     An `IGaussianGenerator` futher specifies that the latent space is a (standard)
-    Gaussian distribution.
+    Gaussian distribution, and that the latent tensor is a 1d tensor.
     """
+
+    latent_dim: int
 
     def generate_z(self, num_samples: int) -> Tensor:
         return torch.randn(num_samples, self.latent_dim, device=get_device(self))
