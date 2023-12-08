@@ -296,7 +296,7 @@ def build_generator(
     *,
     config: Any = None,
     **kwargs: Any,
-) -> IGaussianGenerator:
+) -> IGenerator:
     return generators.build(name, config=config, **kwargs)
 
 
