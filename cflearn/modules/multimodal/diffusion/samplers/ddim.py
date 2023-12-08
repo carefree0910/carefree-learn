@@ -10,10 +10,10 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Tuple
-from typing import Callable
 from typing import Optional
 from typing import Protocol
 
+from .basic import merge_ref
 from .schema import ISampler
 from .schema import IDiffusion
 from .schema import DDPMQSampler
@@ -126,7 +126,6 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         cond: Optional[cond_type],
         step: int,
         total_step: int,
-        denoise_callback: Callable[[Tensor], Tensor],
         *,
         eta: float = 0.0,
         discretize: str = "uniform",
@@ -137,6 +136,11 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         quantize_denoised: bool = False,
         **kwargs: Any,
     ) -> Tensor:
+        def get_model_output(image: Tensor, ts: Tensor) -> Tensor:
+            image = merge_ref(self, image, step, total_step, **kwargs)
+            model_output = self._uncond_denoise(image, ts, cond, step, total_step)
+            return model_output
+
         def get_denoised(model_output: Tensor, ts: Tensor) -> Tensor:
             denoised = self._get_denoised_and_pred_x0(
                 model_output,
@@ -146,7 +150,6 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
                 temperature,
                 noise_dropout,
             )[0]
-            denoised = denoise_callback(denoised)
             return denoised
 
         if step == 0 and not self.initialized:
@@ -163,7 +166,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             cond,
             step,
             total_step,
-            lambda img, ts: self._uncond_denoise(img, ts, cond, step, total_step),
+            get_model_output,
             get_denoised,
             eta=eta,
             discretize=discretize,

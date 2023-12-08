@@ -139,7 +139,6 @@ class ISampler(WithRegister):
         cond: Optional[cond_type],
         step: int,
         total_step: int,
-        denoise_callback: Callable[[Tensor], Tensor],
         **kwargs: Any,
     ) -> Tensor:
         pass
@@ -165,12 +164,6 @@ class ISampler(WithRegister):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        def denoise_callback(denoised: Tensor) -> Tensor:
-            # inpainting reference
-            if ref is not None and ref_mask is not None:
-                denoised = ref * ref_mask + denoised * (1.0 - ref_mask)
-            return denoised
-
         # setup
         if num_steps is None:
             num_steps = getattr(self, "default_steps", self.model.t)
@@ -194,8 +187,10 @@ class ISampler(WithRegister):
             # sample
             kw = shallow_copy_dict(self.sample_kwargs)
             update_dict(shallow_copy_dict(kwargs), kw)
-            args = image, cond, step, num_steps, denoise_callback
-            image = self.sample_step(*args, **kw)
+            kw["ref"] = ref
+            kw["ref_mask"] = ref_mask
+            kw["ref_noise"] = ref_noise
+            image = self.sample_step(image, cond, step, num_steps, **kw)
         self.initialized = False
         return image
 

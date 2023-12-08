@@ -5,10 +5,10 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Callable
 from typing import Optional
 
 from .ddim import DDIMQSampler
+from .basic import merge_ref
 from .utils import append_dims
 from .utils import interpolate_fn
 from .schema import ISampler
@@ -103,7 +103,6 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         cond: Optional[cond_type],
         step: int,
         total_step: int,
-        denoise_callback: Callable[[Tensor], Tensor],
         *,
         unconditional_cond: Optional[Any] = None,
         unconditional_guidance_scale: float = 1.0,
@@ -124,8 +123,8 @@ class DPMSolver(ISampler, UncondSamplerMixin):
             )
         b = image.shape[0]
         vec_t = self.timesteps[step].to(image).expand(b)
+        image = merge_ref(self, image, step, total_step, **kwargs)
         if not self.t_prev_list:
-            image = denoise_callback(image)
             self.t_prev_list.append(vec_t)
             self.model_prev_list.append(
                 self._model_fn(image, vec_t, cond, step, total_step)
@@ -133,14 +132,12 @@ class DPMSolver(ISampler, UncondSamplerMixin):
             return image
         if len(self.t_prev_list) < order:
             image = self._multistep_update(image, vec_t, len(self.t_prev_list))
-            image = denoise_callback(image)
             self.t_prev_list.append(vec_t)
             self.model_prev_list.append(
                 self._model_fn(image, vec_t, cond, step, total_step)
             )
             return image
         image = self._multistep_update(image, vec_t, order)
-        image = denoise_callback(image)
         for i in range(order - 1):
             self.t_prev_list[i] = self.t_prev_list[i + 1]
             self.model_prev_list[i] = self.model_prev_list[i + 1]

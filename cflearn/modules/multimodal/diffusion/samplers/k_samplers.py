@@ -10,7 +10,6 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
-from typing import Callable
 from typing import Optional
 from typing import Protocol
 
@@ -128,7 +127,6 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         cond: Optional[cond_type],
         step: int,
         total_step: int,
-        denoise_callback: Callable[[Tensor], Tensor],
         *,
         quantize: bool = False,
         unconditional_cond: Optional[Any] = None,
@@ -179,9 +177,11 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
                 f"unrecognized parameterization `{self.model.parameterization}` occurred"
             )
 
-        def get_denoised_with_callback(img: Tensor, sigma: Tensor) -> Tensor:
+        def get_denoised_with_reference(img: Tensor, sigma: Tensor) -> Tensor:
             denoised = get_denoised(img, sigma)
-            denoised = denoise_callback(denoised)
+            ref, ref_mask = map(kwargs.get, ["ref", "ref_mask"])
+            if ref is not None and ref_mask is not None:
+                denoised = ref_mask * ref + (1.0 - ref_mask) * denoised
             return denoised
 
         s_in = image.new_ones([image.shape[0]])
@@ -190,7 +190,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             cond,
             step,
             total_step,
-            get_denoised_with_callback,
+            get_denoised_with_reference,
             quantize=quantize,
             unconditional_cond=unconditional_cond,
             unconditional_guidance_scale=unconditional_guidance_scale,

@@ -3,7 +3,6 @@ import torch
 from torch import Tensor
 from typing import Any
 from typing import Dict
-from typing import Callable
 from typing import Optional
 
 from .schema import ISampler
@@ -12,6 +11,25 @@ from .schema import DDPMQSampler
 from ..utils import cond_type
 from ..utils import extract_to
 from ..utils import get_timesteps
+
+
+def merge_ref(
+    self: ISampler,
+    image: Tensor,
+    step: int,
+    total_step: int,
+    *,
+    ref: Optional[Tensor] = None,
+    ref_mask: Optional[Tensor] = None,
+    **kwargs: Any,
+) -> Tensor:
+    if ref is None or ref_mask is None:
+        return image
+    t_prev = total_step - step - 1
+    ref_ts = get_timesteps(t_prev, ref.shape[0], image.device)
+    ref_noisy = self.q_sample(ref, ref_ts)
+    image = ref_mask * ref_noisy + (1.0 - ref_mask) * image
+    return image
 
 
 @ISampler.register("basic")
@@ -43,7 +61,6 @@ class BasicSampler(ISampler):
         cond: Optional[cond_type],
         step: int,
         total_step: int,
-        denoise_callback: Callable[[Tensor], Tensor],
         *,
         temperature: float = 1.0,
         **kwargs: Any,
@@ -51,8 +68,8 @@ class BasicSampler(ISampler):
         shape = image.shape
         num_dim = len(shape)
         ts = get_timesteps(total_step - step - 1, shape[0], image.device)
+        image = merge_ref(self, image, step, total_step, **kwargs)
         net = self.model.denoise(image, ts, cond, step, total_step)
-        net = denoise_callback(net)
         parameterization = self.model.parameterization
         if parameterization == "eps":
             coef1 = extract_to(self.model.posterior_coef1, ts, num_dim)
