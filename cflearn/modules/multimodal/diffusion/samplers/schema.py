@@ -221,7 +221,7 @@ class UncondSamplerMixin:
         step: int,
         total_step: int,
     ) -> Tensor:
-        if cond is None or self.uncond is None:
+        if cond is None or self.uncond is None or self.uncond_guidance_scale == 1.0:
             return self.model.denoise(image, ts, cond, step, total_step)
         uncond = self.uncond.repeat_interleave(image.shape[0], dim=0)
         cond2 = None
@@ -241,11 +241,7 @@ class UncondSamplerMixin:
             image2 = torch.cat([image, image])
             ts2 = torch.cat([ts, ts])
             eps, eps_uncond = self.model.denoise(
-                image2,
-                ts2,
-                cond2,
-                step,
-                total_step,
+                image2, ts2, cond2, step, total_step
             ).chunk(2)
         else:
             eps = self.model.denoise(image, ts, cond, step, total_step)
