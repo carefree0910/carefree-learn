@@ -1532,7 +1532,7 @@ class DiffusionAPI(IAPI):
             start_step = num_steps - t - 1
         else:
             t = int(min(1.0 - fidelity, 0.999) * num_steps)
-            ts = get_timesteps(t, num_steps, z.device)
+            ts = get_timesteps(t, 1, z.device)
             start_step = num_steps - t
         if isinstance(sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
             kw = shallow_copy_dict(sampler.sample_kwargs)
