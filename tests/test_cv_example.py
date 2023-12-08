@@ -37,6 +37,21 @@ class TestExample(unittest.TestCase):
             0,
         )
 
+    def test_mnist_ae(self) -> None:
+        try:
+            import albumentations
+        except:
+            return
+        folder = os.path.join(examples_folder, "ae")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'mnist_ae_kl.py')} --ci 1"),
+            0,
+        )
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'mnist_ae_vq.py')} --ci 1"),
+            0,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
