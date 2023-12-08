@@ -30,7 +30,7 @@ class IAttentionAutoEncoder(IGenerator):
         apply_tanh: bool = False,
     ):
         super().__init__()
-        self.z_size = img_size // 2 ** len(channel_multipliers)
+        self.z_size = img_size // 2 ** (len(channel_multipliers) - 1)
         self.img_size = img_size
         self.in_channels = in_channels
         self.out_channels = out_channels
