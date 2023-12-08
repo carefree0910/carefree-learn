@@ -1,12 +1,14 @@
 from torch import Tensor
 from typing import Tuple
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .common import IAttentionAutoEncoder
 from ..common import VQCodebook
 from ..common import VQCodebookOut
 from ..common import DecoderInputs
 from ...common import register_module
+from ....constants import PREDICTIONS_KEY
 
 
 @register_module("ae_vq")
@@ -56,10 +58,10 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
         z = self.codebook(z, return_z_q_g=False).z_q
         return z
 
-    def encode(self, net: Tensor) -> VQCodebookOut:
+    def encode(self, net: Tensor, *, return_z_q_g: bool = True) -> VQCodebookOut:
         net = self.generator.encoder.encode(net)
         net = self.to_embedding(net)
-        out = self.codebook(net, return_z_q_g=True)
+        out = self.codebook(net, return_z_q_g=return_z_q_g)
         return out
 
     def decode(self, inputs: DecoderInputs) -> Tensor:
@@ -73,8 +75,9 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
         *,
         no_head: bool = False,
         apply_tanh: Optional[bool] = None,
+        return_z_q_g: bool = True,
     ) -> Tuple[Tensor, VQCodebookOut]:
-        out = self.encode(net)
+        out = self.encode(net, return_z_q_g=return_z_q_g)
         inputs = DecoderInputs(z=out.z_q, no_head=no_head, apply_tanh=apply_tanh)
         net = self.decode(inputs)
         return net, out
@@ -93,9 +96,17 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
         *,
         no_head: bool = False,
         apply_tanh: Optional[bool] = None,
-    ) -> Tensor:
-        net, _ = self.get_results(net, no_head=no_head, apply_tanh=apply_tanh)
-        return net
+        return_z_q_g: bool = True,
+    ) -> tensor_dict_type:
+        net, out = self.get_results(
+            net,
+            no_head=no_head,
+            apply_tanh=apply_tanh,
+            return_z_q_g=return_z_q_g,
+        )
+        results = {PREDICTIONS_KEY: net}
+        results.update(out.to_dict())
+        return results
 
 
 __all__ = [
