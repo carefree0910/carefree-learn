@@ -23,16 +23,16 @@ processor_config.set_blocks(
 )
 data = cflearn.mnist_data(data_config, processor_config)
 
-module_config = load_predefined_config("ae/kl.f8").module_config
-module_config["img_size"] = img_size
-module_config["in_channels"] = 1
-module_config["out_channels"] = 1
-module_config["inner_channels"] = 32
-module_config["channel_multipliers"] = [1, 1, 2, 2]
-module_config["apply_tanh"] = True
-config = cflearn.DLConfig(model="ae", module_name="ae_kl", module_config=module_config)
+d = load_predefined_config("ae/kl.f4")
+d.model = "ae"
+d.module_config["img_size"] = img_size
+d.module_config["in_channels"] = 1
+d.module_config["out_channels"] = 1
+d.module_config["inner_channels"] = 32
+d.module_config["channel_multipliers"] = [1, 1, 2]
+d.module_config["apply_tanh"] = True
 if is_ci:
-    config.to_debug()
+    d.to_debug()
 
 device = None if is_ci else 0
-m = cflearn.DLTrainingPipeline.init(config).fit(data, device=device)
+m = cflearn.DLTrainingPipeline.init(d).fit(data, device=device)
