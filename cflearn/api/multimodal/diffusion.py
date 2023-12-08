@@ -629,6 +629,8 @@ class DiffusionAPI(IAPI):
                     if self.to_half:
                         i_z = i_z.half()
                         for k, v in i_kw.items():
+                            if k.startswith("ref") and not self.use_half:
+                                continue
                             if isinstance(v, torch.Tensor) and v.is_floating_point():
                                 i_kw[k] = v.half()
                     if self.use_half:
@@ -1524,10 +1526,14 @@ class DiffusionAPI(IAPI):
             self._random_state = random.getstate()
         if num_steps is None:
             num_steps = sampler.default_steps
-        t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1))) - 1
-        ts = get_timesteps(t, 1, z.device)
         if isinstance(sampler, KSamplerMixin):
-            ts += 1
+            t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1))) - 1
+            ts = get_timesteps(t + 1, 1, z.device)
+            start_step = num_steps - t - 1
+        else:
+            t = int(min(1.0 - fidelity, 0.999) * num_steps)
+            ts = get_timesteps(t, num_steps, z.device)
+            start_step = num_steps - t
         if isinstance(sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
             kw = shallow_copy_dict(sampler.sample_kwargs)
             kw.update(shallow_copy_dict(kwargs))
@@ -1535,15 +1541,18 @@ class DiffusionAPI(IAPI):
             if in_inpainting:
                 inject_inpainting_sampler_settings(kw)
             safe_execute(sampler._reset_buffers, kw)
-        z, noise = self._set_seed_and_variations(
-            seed,
-            lambda: torch.randn_like(z) if q_sample_noise is None else q_sample_noise,
-            lambda noise: sampler.q_sample(z, ts, noise),
-            variations,
-            variation_seed,
-            variation_strength,
-        )
-        start_step = num_steps - t - 1
+        if q_sample_noise is not None:
+            z = sampler.q_sample(z, ts, q_sample_noise)
+            noise = q_sample_noise
+        else:
+            z, noise = self._set_seed_and_variations(
+                seed,
+                lambda: torch.randn_like(z),
+                lambda noise: sampler.q_sample(z, ts, noise),
+                variations,
+                variation_seed,
+                variation_strength,
+            )
         return z, noise, start_step
 
     def _img2img(
