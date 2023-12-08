@@ -78,15 +78,6 @@ class AttentionAutoEncoderKL(IAttentionAutoEncoder):
         net = self.generator.decoder.decode(inputs)
         return net
 
-    def reconstruct(
-        self,
-        net: Tensor,
-        *,
-        labels: Optional[Tensor] = None,
-    ) -> Optional[Tensor]:
-        distribution = self.encode(net)
-        return self.decode(DecoderInputs(z=distribution.mode()))
-
     def get_results(
         self,
         net: Tensor,
@@ -99,6 +90,14 @@ class AttentionAutoEncoderKL(IAttentionAutoEncoder):
         z = distribution.sample() if sample_posterior else distribution.mode()
         net = self.decode(DecoderInputs(z=z, no_head=no_head, apply_tanh=apply_tanh))
         return net, distribution
+
+    def reconstruct(
+        self,
+        net: Tensor,
+        *,
+        labels: Optional[Tensor] = None,
+    ) -> Optional[Tensor]:
+        return self.get_results(net, sample_posterior=False)[0]
 
     def forward(
         self,
