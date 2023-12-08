@@ -18,7 +18,6 @@ from cftool.misc import WithRegister
 
 from ..utils import cond_type
 from ..utils import extract_to
-from ..utils import get_timesteps
 from ..utils import CONCAT_KEY
 from ..utils import CONTROL_HINT_KEY
 from ..utils import CONTROL_HINT_END_KEY
