@@ -29,6 +29,7 @@ from ...modules import IAttentionAutoEncoder
 from ...constants import INPUT_KEY
 from ...constants import PREDICTIONS_KEY
 from ...modules.cv.ae.kl import GaussianDistribution
+from ...modules.cv.ae.vq import AttentionAutoEncoderVQ
 
 
 def d_hinge_loss(real: Tensor, fake: Tensor) -> Tensor:
@@ -409,6 +410,16 @@ class AEModel(IDLModel):
         return list(self.loss.discriminator.parameters())
 
 
+@IDLModel.register("ae_vq")
+class AEVQModel(AEModel):
+    m: AttentionAutoEncoderVQ
+
+    @property
+    def ae_parameters(self) -> List[nn.Parameter]:
+        return super().ae_parameters + list(self.m.codebook.parameters())
+
+
 __all__ = [
     "AEModel",
+    "AEVQModel",
 ]
