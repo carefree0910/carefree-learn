@@ -23,6 +23,7 @@ from ...schema import TrainStepLoss
 from ...losses import register_loss
 from ...losses import LPIPS
 from ...modules import build_module
+from ...modules import VQVAELoss
 from ...modules import NLayerDiscriminator
 from ...modules import IAttentionAutoEncoder
 from ...constants import INPUT_KEY
@@ -215,6 +216,82 @@ class AutoEncoderKLLoss(AutoEncoderLPIPSWithDiscriminator):
         kl_loss = torch.sum(kl_loss) / kl_loss.shape[0]
         loss = weighted_nll_loss + self.kl_weight * kl_loss
         loss_items["kl"] = self.kl_weight * kl_loss.item()
+        # check discriminator start
+        if step is not None and step < self.d_loss_start_step:
+            return TrainStepLoss(loss, loss_items)
+        g_loss = self.g_loss(nll_loss, last_layer, loss_items, reconstructions, cond)
+        loss = loss + g_loss
+        return TrainStepLoss(loss, loss_items)
+
+
+@register_loss("ae_vq")
+class AutoEncoderVQLoss(AutoEncoderLPIPSWithDiscriminator):
+    def __init__(
+        self,
+        *,
+        # vq
+        lb_vq: float = 0.25,
+        lb_recon: float = 1.0,
+        lb_commit: float = 1.0,
+        vq_loss_type: str = "l1",
+        # common
+        kl_weight: float = 1.0,
+        d_loss: str = "hinge",
+        d_loss_start_step: int = 50001,
+        d_num_layers: int = 4,
+        d_in_channels: int = 3,
+        d_start_channels: int = 64,
+        d_factor: float = 1.0,
+        d_weight: float = 1.0,
+        perceptual_weight: float = 1.0,
+    ):
+        super().__init__(
+            kl_weight=kl_weight,
+            d_loss=d_loss,
+            d_loss_start_step=d_loss_start_step,
+            d_num_layers=d_num_layers,
+            d_in_channels=d_in_channels,
+            d_start_channels=d_start_channels,
+            d_factor=d_factor,
+            d_weight=d_weight,
+            perceptual_weight=perceptual_weight,
+        )
+        self.vq_loss = VQVAELoss(
+            lb_vq=lb_vq,
+            lb_recon=lb_recon,
+            lb_commit=lb_commit,
+            loss_type=vq_loss_type,
+        )
+
+    def get_generator_loss(
+        self,
+        batch: tensor_dict_type,
+        forward_results: tensor_dict_type,
+        *,
+        last_layer: nn.Parameter,
+        step: Optional[int] = None,
+        cond: Optional[Tensor] = None,
+    ) -> TrainStepLoss:
+        inputs = batch[INPUT_KEY].contiguous()
+        reconstructions = forward_results[PREDICTIONS_KEY].contiguous()
+        # vq & nll loss
+        vq_losses = self.vq_loss(forward_results, batch, reduction="none", gather=False)
+        ## {"mse": mse, "commit": commit_loss, LOSS_KEY: loss}
+        recon_loss = vq_losses[self.vq_loss.loss_type]
+        codebook_loss = vq_losses["codebook"].mean()
+        with torch.no_grad():
+            loss_items = {
+                "recon": recon_loss.mean().item(),
+                "codebook": codebook_loss.item(),
+            }
+        if self.perceptual_weight > 0:
+            p_loss = self.perceptual_loss(inputs, reconstructions)
+            p_loss = self.perceptual_weight * p_loss
+            recon_loss = recon_loss + p_loss
+            with torch.no_grad():
+                loss_items["perceptual"] = p_loss.mean().item()
+        nll_loss = torch.mean(recon_loss)
+        loss = nll_loss + codebook_loss
         # check discriminator start
         if step is not None and step < self.d_loss_start_step:
             return TrainStepLoss(loss, loss_items)
