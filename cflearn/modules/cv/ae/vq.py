@@ -48,14 +48,21 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
         )
         self.codebook = VQCodebook(num_codes, embedding_channels)
 
-    def encode(self, net: Tensor) -> Tensor:
+    def generate_z(self, num_samples: int) -> Tensor:
+        # To be honest this is not a good implementation because `vq` is not
+        # meant to do generations out of nowhere (or, standard normal).
+        # However to keep things unified, we still implement this method.
+        z = super().generate_z(num_samples)
+        z = self.codebook(z, return_z_q_g=False).z_q
+        return z
+
+    def encode(self, net: Tensor) -> VQCodebookOut:
         net = self.generator.encoder.encode(net)
         net = self.to_embedding(net)
-        return net
+        out = self.codebook(net, return_z_q_g=True)
+        return out
 
     def decode(self, inputs: DecoderInputs) -> Tensor:
-        if inputs.apply_codebook:
-            inputs.z = self.codebook(inputs.z).z_q
         inputs.z = self.from_embedding(inputs.z)
         net = self.generator.decoder.decode(inputs)
         return net
@@ -67,16 +74,18 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
         no_head: bool = False,
         apply_tanh: Optional[bool] = None,
     ) -> Tuple[Tensor, VQCodebookOut]:
-        net = self.encode(net)
-        out = self.codebook(net, return_z_q_g=True)
-        inputs = DecoderInputs(
-            z=out.z_q,
-            no_head=no_head,
-            apply_tanh=apply_tanh,
-            apply_codebook=False,
-        )
+        out = self.encode(net)
+        inputs = DecoderInputs(z=out.z_q, no_head=no_head, apply_tanh=apply_tanh)
         net = self.decode(inputs)
         return net, out
+
+    def reconstruct(
+        self,
+        net: Tensor,
+        *,
+        labels: Optional[Tensor] = None,
+    ) -> Optional[Tensor]:
+        return self.get_results(net)[0]
 
     def forward(
         self,

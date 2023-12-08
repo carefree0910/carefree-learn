@@ -66,8 +66,6 @@ class DecoderInputs(DataClassBase):
     apply_tanh: Optional[bool] = None
     # attn
     no_head: bool = False
-    # vq
-    apply_codebook: bool = True
 
 
 class IConditional(Module):
