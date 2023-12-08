@@ -1,9 +1,12 @@
+import torch
+
 from typing import Tuple
 from cftool.misc import shallow_copy_dict
 
 from ..common import IGenerator
 from ..common import EncoderDecoder
 from ...core import HijackConv2d
+from ....toolkit import get_device
 
 
 class IAttentionAutoEncoder(IGenerator):
@@ -66,6 +69,10 @@ class IAttentionAutoEncoder(IGenerator):
             1,
         )
         self.from_embedding = HijackConv2d(embedding_channels, latent_channels, 1)
+
+    def generate_z(self, num_samples: int) -> torch.Tensor:
+        shape = [num_samples, self.embedding_channels, self.z_size, self.z_size]
+        return torch.randn(shape, device=get_device(self))
 
 
 __all__ = [
