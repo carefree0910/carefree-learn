@@ -698,7 +698,7 @@ class DiffusionAPI(IAPI):
                 concat = F.interpolate(
                     concat,
                     original_size[::-1],
-                    mode="bicubic",
+                    mode="bilinear",
                 )
         if alpha is not None:
             alpha = torch.from_numpy(2.0 * alpha - 1.0)
@@ -1413,7 +1413,7 @@ class DiffusionAPI(IAPI):
         z_ref_mask = 1.0 - F.interpolate(
             torch.from_numpy(mask_tensor).to(z_ref),
             z_ref.shape[-2:],
-            mode="bicubic",
+            mode="bilinear",
         )
         if seed is not None:
             seed_everything(seed)
