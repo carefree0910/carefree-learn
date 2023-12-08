@@ -21,13 +21,16 @@ def merge_ref(
     *,
     ref: Optional[Tensor] = None,
     ref_mask: Optional[Tensor] = None,
+    ref_noise: Optional[Tensor] = None,
     **kwargs: Any,
 ) -> Tensor:
     if ref is None or ref_mask is None:
         return image
     t_prev = total_step - step - 1
     ref_ts = get_timesteps(t_prev, ref.shape[0], image.device)
-    ref_noisy = self.q_sample(ref, ref_ts)
+    if not kwargs.get("use_unified_ref_noise", False):
+        ref_noise = None
+    ref_noisy = self.q_sample(ref, ref_ts, ref_noise)
     image = ref_mask * ref_noisy + (1.0 - ref_mask) * image
     return image
 
