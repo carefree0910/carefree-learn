@@ -3,7 +3,7 @@
 import cflearn
 
 from cflearn.data.blocks import *
-from cflearn.zoo import load_predefined_info
+from cflearn.zoo import load_predefined_config
 from cflearn.toolkit import check_is_ci
 
 
@@ -23,7 +23,7 @@ processor_config.set_blocks(
 )
 data = cflearn.mnist_data(data_config, processor_config)
 
-module_config = load_predefined_info("ae/kl.f8").module_config
+module_config = load_predefined_config("ae/kl.f8").module_config
 module_config["img_size"] = img_size
 module_config["in_channels"] = 1
 module_config["out_channels"] = 1

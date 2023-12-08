@@ -3,33 +3,28 @@ import torch
 from typing import Any
 from typing import Dict
 from typing import Optional
-from typing import NamedTuple
 from pathlib import Path
 from torch.nn import Module
+from cftool.misc import safe_execute
 
 from .utils import parse_config
 from .utils import parse_config_info
+from ..schema import DLConfig
 from ..toolkit import download_checkpoint
 from ..modules.common import build_module
 
 
-class PredefinedInfo(NamedTuple):
-    module_name: str
-    module_config: Dict[str, Any]
-
-
-def load_predefined_info(config: str) -> PredefinedInfo:
+def load_predefined_config(config: str) -> DLConfig:
     parsed = parse_config(config)
     module_name = parsed.get("module_name")
     if module_name is None:
         raise ValueError(f"module name not found in '{parsed}'")
-    module_config = parsed.get("module_config", {})
-    return PredefinedInfo(module_name, module_config)
+    return safe_execute(DLConfig, parsed)
 
 
 def build_predefined_module(config: str, **kwargs: Any) -> Module:
-    module_name, module_config = load_predefined_info(config)
-    return build_module(module_name, config=module_config, **kwargs)
+    d = load_predefined_config(config)
+    return build_module(d.module_name, config=d.module_config, **kwargs)
 
 
 def load_pretrained_weights(
@@ -83,7 +78,7 @@ def load_module(
 
 
 __all__ = [
-    "load_predefined_info",
+    "load_predefined_config",
     "build_predefined_module",
     "load_pretrained_weights",
     "load_pretrained_module",
