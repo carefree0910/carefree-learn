@@ -4,7 +4,9 @@
   ],
   "module_name": "ae_vq",
   "module_config": {
-    "num_codes": 8192,
+    "num_codes": 8192
+  },
+  "loss_config": {
     "lb_vq": 0.25,
     "lb_commit": 1.0,
     "d_loss_start_step": 0,

@@ -14,7 +14,9 @@
     "embedding_channels": 4,
     "attention_resolutions": [
       32
-    ],
+    ]
+  },
+  "loss_config": {
     "d_num_layers": 3,
     "d_loss_start_step": 1,
     "d_weight": 0.6
