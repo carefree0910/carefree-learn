@@ -441,8 +441,7 @@ def get_cropped(
 
 
 def inject_inpainting_sampler_settings(kwargs: Dict[str, Any]) -> None:
-    # ddim settings
-    kwargs["discretize"] = "uniform_ensure_start"
+    pass
 
 
 def inject_uncond_indices(hooks: SpatialTransformerHooks, num_samples: int) -> None:
