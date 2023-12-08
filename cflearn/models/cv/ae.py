@@ -276,7 +276,7 @@ class AutoEncoderVQLoss(AutoEncoderLPIPSWithDiscriminator):
         inputs = batch[INPUT_KEY].contiguous()
         reconstructions = forward_results[PREDICTIONS_KEY].contiguous()
         # vq & nll loss
-        vq_losses = self.vq_loss(forward_results, batch, reduction="none", gather=False)
+        vq_losses = self.vq_loss(forward_results, batch)
         ## {"mse": mse, "commit": commit_loss, LOSS_KEY: loss}
         recon_loss = vq_losses[self.vq_loss.loss_type]
         codebook_loss = vq_losses["codebook"].mean()
