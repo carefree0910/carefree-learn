@@ -31,6 +31,7 @@ d.module_config["out_channels"] = 1
 d.module_config["inner_channels"] = 32
 d.module_config["channel_multipliers"] = [1, 1, 2]
 d.module_config["apply_tanh"] = True
+d.loss_config["d_loss_start_step"] = 50001
 if is_ci:
     d.to_debug()
 
