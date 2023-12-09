@@ -165,6 +165,7 @@ class IGenerator(IConditional, metaclass=ABCMeta):
         *,
         class_idx: Optional[int] = None,
         labels: Optional[Tensor] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tensor:
         z = self.generate_z(num_samples)
         if labels is None:
@@ -172,7 +173,7 @@ class IGenerator(IConditional, metaclass=ABCMeta):
         elif class_idx is not None:
             msg = "`class_idx` should not be provided when `labels` is provided"
             raise ValueError(msg)
-        return self.decode(DecoderInputs(z=z, labels=labels))
+        return self.decode(DecoderInputs(z=z, labels=labels, kwargs=kwargs))
 
     def reconstruct(
         self,
