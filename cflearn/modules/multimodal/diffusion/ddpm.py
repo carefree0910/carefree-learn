@@ -267,14 +267,12 @@ class DDPM(IGenerator):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        sampled = super().sample(
-            num_samples,
-            cond=cond,
-            num_steps=num_steps,
-            start_step=start_step,
-            verbose=verbose,
-            **kwargs,
-        )
+        kwargs = shallow_copy_dict(kwargs)
+        kwargs["cond"] = cond
+        kwargs["num_steps"] = num_steps
+        kwargs["start_step"] = start_step
+        kwargs["verbose"] = verbose
+        sampled = super().sample(num_samples, kwargs=kwargs)
         if clip_output:
             sampled = torch.clip(sampled, -1.0, 1.0)
         return sampled
