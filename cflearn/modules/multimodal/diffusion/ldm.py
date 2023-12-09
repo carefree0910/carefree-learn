@@ -165,24 +165,9 @@ class LDM(DDPM):
         net = self.scale_factor * net
         return net
 
-    def decode(
-        self,
-        z: Tensor,
-        *,
-        cond: Optional[Any] = None,
-        num_steps: Optional[int] = None,
-        start_step: Optional[int] = None,
-        verbose: bool = True,
-        **kwargs: Any,
-    ) -> Tensor:
-        latent = super().decode(
-            z,
-            cond=cond,
-            num_steps=num_steps,
-            start_step=start_step,
-            verbose=verbose,
-            **kwargs,
-        )
+    def decode(self, inputs: DecoderInputs) -> Tensor:
+        latent = super().decode(inputs)
+        kwargs = inputs.kwargs or {}
         if kwargs.get("return_latent", False):
             return latent
         callback = kwargs.get("decode_callback")

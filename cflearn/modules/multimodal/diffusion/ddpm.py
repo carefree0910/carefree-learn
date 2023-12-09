@@ -37,6 +37,7 @@ from .samplers import DDPMQSampler
 from .cond_models import condition_models
 from .cond_models import specialized_condition_models
 from ...cv import IGenerator
+from ...cv import DecoderInputs
 from ...common import register_module
 from ...common import EMA
 from ....schema import device_type
@@ -245,25 +246,15 @@ class DDPM(IGenerator):
         shape = num_samples, self.in_channels, self.img_size, self.img_size
         return torch.randn(shape, dtype=get_dtype(self), device=get_device(self))
 
-    def decode(
-        self,
-        z: Tensor,
-        *,
-        cond: Optional[Any] = None,
-        num_steps: Optional[int] = None,
-        start_step: Optional[int] = None,
-        verbose: bool = True,
-        **kwargs: Any,
-    ) -> Tensor:
+    def decode(self, inputs: DecoderInputs) -> Tensor:
+        kwargs = shallow_copy_dict(inputs.kwargs or {})
+        kwargs.setdefault("cond", inputs.cond)
+        kwargs.setdefault("num_steps", inputs.num_steps)
+        kwargs.setdefault("start_step", inputs.start_step)
+        kwargs.setdefault("verbose", inputs.verbose)
+        inputs.kwargs = kwargs
         with self._control_model_context():
-            return self.sampler.sample(
-                z,
-                cond=cond,
-                num_steps=num_steps,
-                start_step=start_step,
-                verbose=verbose,
-                **kwargs,
-            )
+            return self.sampler.sample(inputs.z, **kwargs)
 
     def sample(
         self,
@@ -301,9 +292,7 @@ class DDPM(IGenerator):
             noise_steps = self.t
         ts = get_timesteps(noise_steps - 1, net.shape[0], net.device)
         z = self.q_sampler.q_sample(net, ts)
-        kw = shallow_copy_dict(kwargs)
-        kw.update(dict(z=z, cond=cond))
-        net = safe_execute(self.decode, kw)
+        net = self.decode(DecoderInputs(z=z, cond=cond, kwargs=kwargs))
         return net
 
     # optional callbacks

@@ -57,6 +57,7 @@ from ...schema import DataConfig
 from ...modules import LDM
 from ...modules import DDPM
 from ...modules import Conv2d
+from ...modules import DecoderInputs
 from ...modules import StableDiffusion
 from ...modules import DDIMMixin
 from ...modules import DPMSolver
@@ -662,7 +663,8 @@ class DiffusionAPI(IAPI):
                         if highres_info is not None:
                             # highres workaround
                             i_kw["return_latent"] = True
-                        i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
+                        i_inputs = DecoderInputs(z=i_z, cond=i_cond, kwargs=i_kw)
+                        i_sampled = self.m.decode(i_inputs)
                         if highres_info is not None:
                             i_z = self._get_highres_latent(i_sampled, highres_info)
                             fidelity = highres_info["fidelity"]

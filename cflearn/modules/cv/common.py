@@ -64,8 +64,15 @@ class DecoderInputs(DataClassBase):
     labels: Optional[Tensor] = None
     deterministic: bool = False
     apply_tanh: Optional[bool] = None
+    verbose: bool = True
     # attn
     no_head: bool = False
+    # diffusion
+    cond: Optional[Any] = None
+    num_steps: Optional[int] = None
+    start_step: Optional[int] = None
+    # universal fallback
+    kwargs: Optional[Dict[str, Any]] = None
 
 
 class IConditional(Module):
