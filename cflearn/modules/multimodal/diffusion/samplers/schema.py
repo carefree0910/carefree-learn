@@ -49,7 +49,7 @@ class Denoise(Protocol):
 
 
 class IDiffusion:
-    _get_cond: Callable
+    get_cond: Callable
     predict_eps_from_z_and_v: Callable
     predict_start_from_z_and_v: Callable
 
@@ -175,7 +175,7 @@ class ISampler(WithRegister):
         # execute
         image = z
         if cond is not None and self.model.condition_model is not None:
-            cond = self.model._get_cond(cond)
+            cond = self.model.get_cond(cond)
         for step in iterator:
             # callback
             callback = kwargs.get("step_callback")
@@ -209,7 +209,7 @@ class UncondSamplerMixin:
             self.uncond = None
             self.uncond_guidance_scale = 0.0
         else:
-            self.uncond = self.model._get_cond(unconditional_cond)
+            self.uncond = self.model.get_cond(unconditional_cond)
             self.uncond_guidance_scale = unconditional_guidance_scale
 
     def _uncond_denoise(

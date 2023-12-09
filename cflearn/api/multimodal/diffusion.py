@@ -1400,7 +1400,7 @@ class DiffusionAPI(IAPI):
         if self.to_half:
             z = z.half()
         z = z.to(self.device)
-        z = self.m._preprocess(z, deterministic=True)
+        z = self.m.preprocess(z, deterministic=True)
         return z
 
     def _get_z_ref_pack(

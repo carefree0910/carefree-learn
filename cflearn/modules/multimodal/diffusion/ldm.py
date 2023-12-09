@@ -153,6 +153,18 @@ class LDM(DDPM):
                 f"first_stage model ({first_stage})"
             )
 
+    def get_cond(self, cond: Any) -> Tensor:
+        if isinstance(self.condition_model, list):
+            return self.condition_model[0](cond)
+        return super().get_cond(cond)
+
+    def preprocess(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
+        net = self.first_stage.encode(net)
+        if isinstance(net, GaussianDistribution):
+            net = net.mode() if deterministic else net.sample()
+        net = self.scale_factor * net
+        return net
+
     def decode(
         self,
         z: Tensor,
@@ -176,24 +188,9 @@ class LDM(DDPM):
         callback = kwargs.get("decode_callback")
         if callback is not None:
             callback()
-        net = self._from_latent(latent)
-        return net
-
-    def _preprocess(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
-        net = self.first_stage.encode(net)
-        if isinstance(net, GaussianDistribution):
-            net = net.mode() if deterministic else net.sample()
-        net = self.scale_factor * net
-        return net
-
-    def _from_latent(self, latent: Tensor) -> Tensor:
         latent = latent / self.scale_factor
-        return self.first_stage.decode(DecoderInputs(z=latent))
-
-    def _get_cond(self, cond: Any) -> Tensor:
-        if isinstance(self.condition_model, list):
-            return self.condition_model[0](cond)
-        return super()._get_cond(cond)
+        net = self.first_stage.decode(DecoderInputs(z=latent))
+        return net
 
 
 class SDLoRAMode(str, Enum):

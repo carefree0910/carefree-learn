@@ -227,15 +227,31 @@ class DDPM(nn.Module):
 
     def forward(self, net: Tensor, cond: Optional[Tensor]) -> tensor_dict_type:
         timesteps = torch.randint(0, self.t, (net.shape[0],), device=net.device).long()
-        net = self._preprocess(net)
+        net = self.preprocess(net)
         noise = torch.randn_like(net)
-        net = self._q_sample(net, timesteps, noise)
+        net = self.q_sampler.q_sample(net, timesteps, noise)
         unet_out = self.denoise(net, timesteps, cond, timesteps[0].item(), self.t)
         return {
             PREDICTIONS_KEY: unet_out,
             self.noise_key: noise,
             self.timesteps_key: timesteps,
         }
+
+    # optional callbacks
+
+    def get_cond(self, cond: Any) -> cond_type:
+        if self.condition_model is None:
+            msg = "should not call `get_cond` when `condition_model` is not provided"
+            raise ValueError(msg)
+        if not isinstance(cond, dict):
+            return self.condition_model(cond)
+        for k, v in cond.items():
+            if not is_misc_key(k):
+                cond[k] = self.condition_model(v)
+        return cond
+
+    def preprocess(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
+        return net
 
     # api
 
@@ -493,28 +509,6 @@ class DDPM(nn.Module):
                     torch.cuda.empty_cache()
 
         return _(self)
-
-    def _q_sample(
-        self,
-        net: Tensor,
-        timesteps: Tensor,
-        noise: Optional[Tensor] = None,
-    ) -> Tensor:
-        return self.q_sampler.q_sample(net, timesteps, noise)
-
-    def _preprocess(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
-        return net
-
-    def _get_cond(self, cond: Any) -> cond_type:
-        if self.condition_model is None:
-            msg = "should not call `get_cond` when `condition_model` is not provided"
-            raise ValueError(msg)
-        if not isinstance(cond, dict):
-            return self.condition_model(cond)
-        for k, v in cond.items():
-            if not is_misc_key(k):
-                cond[k] = self.condition_model(v)
-        return cond
 
     def _initialize_condition_model(
         self,
