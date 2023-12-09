@@ -20,6 +20,7 @@ from .unet import ControlNet
 from .unet import UNetDiffuser
 from .utils import cond_type
 from .utils import extract_to
+from .utils import get_timesteps
 from .utils import ADM_KEY
 from .utils import ADM_TYPE
 from .utils import CONCAT_KEY
@@ -35,6 +36,7 @@ from .samplers import ISampler
 from .samplers import DDPMQSampler
 from .cond_models import condition_models
 from .cond_models import specialized_condition_models
+from ...cv import IGenerator
 from ...common import register_module
 from ...common import EMA
 from ....schema import device_type
@@ -91,7 +93,7 @@ def make_condition_model(key: str, m: nn.Module) -> nn.Module:
 
 
 @register_module("ddpm")
-class DDPM(nn.Module):
+class DDPM(IGenerator):
     cond_key = "cond"
     noise_key = "noise"
     timesteps_key = "timesteps"
@@ -237,6 +239,73 @@ class DDPM(nn.Module):
             self.timesteps_key: timesteps,
         }
 
+    # inherit
+
+    def generate_z(self, num_samples: int) -> Tensor:
+        shape = num_samples, self.in_channels, self.img_size, self.img_size
+        return torch.randn(shape, dtype=get_dtype(self), device=get_device(self))
+
+    def decode(
+        self,
+        z: Tensor,
+        *,
+        cond: Optional[Any] = None,
+        num_steps: Optional[int] = None,
+        start_step: Optional[int] = None,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        with self._control_model_context():
+            return self.sampler.sample(
+                z,
+                cond=cond,
+                num_steps=num_steps,
+                start_step=start_step,
+                verbose=verbose,
+                **kwargs,
+            )
+
+    def sample(
+        self,
+        num_samples: int,
+        *,
+        cond: Optional[Any] = None,
+        num_steps: Optional[int] = None,
+        start_step: Optional[int] = None,
+        clip_output: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        sampled = super().sample(
+            num_samples,
+            cond=cond,
+            num_steps=num_steps,
+            start_step=start_step,
+            verbose=verbose,
+            **kwargs,
+        )
+        if clip_output:
+            sampled = torch.clip(sampled, -1.0, 1.0)
+        return sampled
+
+    def reconstruct(
+        self,
+        net: Tensor,
+        *,
+        noise_steps: Optional[int] = None,
+        cond: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> Tensor:
+        net = self.preprocess(net)
+        if noise_steps is None:
+            noise_steps = self.t
+        ts = get_timesteps(noise_steps - 1, net.shape[0], net.device)
+        z = self.q_sampler.q_sample(net, ts)
+        kw = shallow_copy_dict(kwargs)
+        kw.update(dict(z=z, cond=cond))
+        net = safe_execute(self.decode, kw)
+        return net
+
     # optional callbacks
 
     def get_cond(self, cond: Any) -> cond_type:
@@ -270,30 +339,6 @@ class DDPM(nn.Module):
         sampler_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.sampler = self.make_sampler(sampler, sampler_config)
-
-    def generate_z(self, num_samples: int) -> Tensor:
-        shape = num_samples, self.in_channels, self.img_size, self.img_size
-        return torch.randn(shape, dtype=get_dtype(self), device=get_device(self))
-
-    def decode(
-        self,
-        z: Tensor,
-        *,
-        cond: Optional[Any] = None,
-        num_steps: Optional[int] = None,
-        start_step: Optional[int] = None,
-        verbose: bool = True,
-        **kwargs: Any,
-    ) -> Tensor:
-        with self._control_model_context():
-            return self.sampler.sample(
-                z,
-                cond=cond,
-                num_steps=num_steps,
-                start_step=start_step,
-                verbose=verbose,
-                **kwargs,
-            )
 
     def denoise(
         self,
