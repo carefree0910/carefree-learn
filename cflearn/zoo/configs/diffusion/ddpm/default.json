@@ -3,7 +3,6 @@
     "module_config": [
       "img_size",
       "timesteps",
-      "timesteps",
       "linear_start",
       "linear_end"
     ]
