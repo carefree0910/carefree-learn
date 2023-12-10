@@ -25,6 +25,7 @@ from ...cv import IGenerator
 from ...cv import DecoderInputs
 from ...core import IHook
 from ...core import LoRAManager
+from ...cv.ae.vq import VQCodebookOut
 from ...cv.ae.kl import GaussianDistribution
 from ....schema import d_inp_type
 from ....toolkit import freeze
@@ -37,7 +38,7 @@ class IFirstStage(IGenerator, metaclass=ABCMeta):
     embedding_channels: int
 
     @abstractmethod
-    def encode(self, net: Tensor) -> Union[Tensor, GaussianDistribution]:
+    def encode(self, net: Tensor) -> Union[Tensor, VQCodebookOut, GaussianDistribution]:
         pass
 
     @abstractmethod
@@ -186,6 +187,8 @@ class LDM(DDPM):
         net = self.first_stage.encode(net)
         if isinstance(net, GaussianDistribution):
             net = net.mode() if deterministic else net.sample()
+        elif isinstance(net, VQCodebookOut):
+            net = net.z_q
         net = self.scale_factor * net
         return net
 
