@@ -7,6 +7,7 @@ from torch.nn import Module
 
 from .utils import *
 from .common import *
+from ..modules import generators
 
 
 # translator
@@ -127,6 +128,7 @@ def _ldm(
         tag=tag,
         download_root=download_root,
         download_kwargs=download_kwargs,
+        prefix_module=generators,
         **kwargs,
     )
 

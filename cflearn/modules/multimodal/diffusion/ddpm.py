@@ -36,9 +36,9 @@ from .samplers import ISampler
 from .samplers import DDPMQSampler
 from .cond_models import condition_models
 from .cond_models import specialized_condition_models
+from ...cv import register_generator
 from ...cv import IGenerator
 from ...cv import DecoderInputs
-from ...common import register_module
 from ...common import EMA
 from ....schema import device_type
 from ....toolkit import freeze
@@ -93,7 +93,7 @@ def make_condition_model(key: str, m: nn.Module) -> nn.Module:
     return condition_base(m)
 
 
-@register_module("ddpm")
+@register_generator("ddpm")
 class DDPM(IGenerator):
     cond_key = "cond"
     noise_key = "noise"

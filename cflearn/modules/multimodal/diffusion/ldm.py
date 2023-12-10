@@ -15,10 +15,10 @@ from cftool.types import tensor_dict_type
 from .ddpm import make_condition_model
 from .ddpm import DDPM
 from .utils import CROSS_ATTN_TYPE
+from ...cv import register_generator
 from ...cv import DecoderInputs
 from ...core import IHook
 from ...core import LoRAManager
-from ...common import register_module
 from ...cv.ae.kl import GaussianDistribution
 from ....schema import d_inp_type
 from ....toolkit import freeze
@@ -27,7 +27,7 @@ from ....toolkit import download_json
 from ....zoo.common import load_module
 
 
-@register_module("ldm")
+@register_generator("ldm")
 class LDM(DDPM):
     def __init__(
         self,
@@ -194,7 +194,7 @@ def convert_lora(inp: d_inp_type) -> tensor_dict_type:
     return converted
 
 
-@register_module("sd")
+@register_generator("sd")
 class StableDiffusion(LDM):
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
