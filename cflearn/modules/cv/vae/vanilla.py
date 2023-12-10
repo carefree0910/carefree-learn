@@ -36,7 +36,7 @@ class VAE(IGaussianGenerator):
         encoder_config: Optional[Dict[str, Any]] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
         num_classes: Optional[int] = None,
-        apply_tanh: bool = True,
+        apply_tanh: bool = False,
     ):
         super().__init__()
         self.latent_dim = latent

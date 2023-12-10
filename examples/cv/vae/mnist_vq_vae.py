@@ -29,6 +29,7 @@ config = cflearn.DLConfig(
         num_downsample=3,
         code_dimension=32 if is_ci else 256,
         num_classes=10,
+        apply_tanh=True,
     ),
     callback_configs=dict(vq_vae=dict(num_classes=10)),
     loss_metrics_weights=dict(l2=1.0, commit=0.001),

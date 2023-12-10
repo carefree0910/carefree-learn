@@ -27,6 +27,7 @@ config = cflearn.DLConfig(
         num_downsample=3,
         decoder_config=dict(img_size=28),
         num_classes=10,
+        apply_tanh=True,
     ),
 )
 if is_ci:

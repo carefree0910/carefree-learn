@@ -39,7 +39,7 @@ class VQVAE(IConditional):
         decoder_config: Optional[Dict[str, Any]] = None,
         latent_padding_channels: Optional[int] = None,
         num_classes: Optional[int] = None,
-        apply_tanh: bool = True,
+        apply_tanh: bool = False,
     ):
         super().__init__()
         self.img_size = img_size
