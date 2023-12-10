@@ -369,12 +369,6 @@ class AEModel(IDLModel):
     def all_modules(self) -> List[nn.Module]:
         return [self.m, self.loss]
 
-    def from_accelerator(self, m: nn.Module, loss: nn.Module) -> IDLModel:
-        cloned: AEModel = AEModel.from_config(self.config.copy())
-        cloned.m = m
-        cloned.loss = loss
-        return cloned
-
     def build(self, config: DLConfig) -> None:
         if config.loss_name is None:
             raise ValueError("loss name should be provided")

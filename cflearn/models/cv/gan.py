@@ -149,12 +149,6 @@ class GANModel(IDLModel):
     def all_modules(self) -> List[nn.Module]:
         return [self.m, self.gan_loss]
 
-    def from_accelerator(self, m: nn.Module, gan_loss: nn.Module) -> IDLModel:
-        cloned: GANModel = GANModel.from_config(self.config.copy())
-        cloned.m = m
-        cloned.gan_loss = gan_loss
-        return cloned
-
     def build(self, config: DLConfig) -> None:
         self.m = build_generator(config.module_name, config=config.module_config)
         loss_config = config.loss_config or {}

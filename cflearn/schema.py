@@ -1093,11 +1093,13 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
     def build(self, config: "DLConfig") -> None:
         pass
 
-    @abstractmethod
-    def from_accelerator(self, *args: nn.Module) -> "IDLModel":
-        pass
-
     # optional callbacks
+
+    def from_accelerator(self, *args: nn.Module) -> "IDLModel":
+        cloned: IDLModel = IDLModel.from_config(self.config.copy())
+        for i, k in enumerate(self.all_module_names):
+            setattr(cloned, k, args[i])
+        return cloned
 
     def params_groups(self) -> List[Dict[str, Any]]:
         return [{"params": [p for p in self.parameters() if p.requires_grad]}]
@@ -1353,6 +1355,16 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
         from .toolkit import get_device
 
         return get_device(self.m)
+
+    @property
+    def all_module_names(self) -> List[str]:
+        names = []
+        for m in self.all_modules:
+            for k, v in self.__dict__.items():
+                if v is m:
+                    names.append(k)
+                    break
+        return names
 
     def eval_context(self, **kwargs: Any) -> ContextManager:
         from .toolkit import eval_context

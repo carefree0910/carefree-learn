@@ -55,12 +55,6 @@ class CommonDLModel(IDLModel):
     def all_modules(self) -> List[nn.Module]:
         return [self.m, self.loss]
 
-    def from_accelerator(self, m: nn.Module, loss: nn.Module) -> IDLModel:
-        cloned: CommonDLModel = CommonDLModel.from_config(self.config.copy())
-        cloned.m = m
-        cloned.loss = loss
-        return cloned
-
     def build(self, config: DLConfig) -> None:
         if config.loss_name is None:
             raise ValueError("`loss_name` should be specified for `CommonDLModel`")
