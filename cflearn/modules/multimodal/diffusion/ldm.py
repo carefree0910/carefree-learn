@@ -1,12 +1,16 @@
 import json
 
 import numpy as np
+import torch.nn as nn
 
+from abc import abstractmethod
+from abc import ABCMeta
 from enum import Enum
 from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Tuple
+from typing import Union
 from typing import Optional
 from cftool.misc import print_info
 from cftool.misc import print_warning
@@ -25,6 +29,18 @@ from ....toolkit import freeze
 from ....toolkit import get_tensors
 from ....toolkit import download_json
 from ....zoo.common import load_module
+
+
+class IFirstStage(nn.Module, metaclass=ABCMeta):
+    embedding_channels: int
+
+    @abstractmethod
+    def encode(self, net: Tensor) -> Union[Tensor, GaussianDistribution]:
+        pass
+
+    @abstractmethod
+    def decode(self, inputs: DecoderInputs) -> Tensor:
+        pass
 
 
 @register_generator("ldm")
@@ -135,7 +151,7 @@ class LDM(DDPM):
             sampler=sampler,
             sampler_config=sampler_config,
         )
-        m = load_module(first_stage, **(first_stage_config or {}))
+        m: IFirstStage = load_module(first_stage, **(first_stage_config or {}))
         self.first_stage = freeze(m)
         self.scale_factor = first_stage_scale_factor
         # condition
