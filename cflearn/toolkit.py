@@ -24,6 +24,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -410,6 +411,7 @@ class WeightsStrategy:
 pt2_sdp_attn = getattr(F, "scaled_dot_product_attention", None)
 warnings = set()
 xformers_failed = set()
+GenericM = TypeVar("GenericM", bound=nn.Module)
 
 
 def warn_once(message: str, *, key: Optional[str] = None) -> None:
@@ -716,7 +718,7 @@ def set_requires_grad(module: nn.Module, requires_grad: bool = False) -> None:
         param.requires_grad = requires_grad
 
 
-def freeze(module: nn.Module) -> nn.Module:
+def freeze(module: GenericM) -> GenericM:
     module.eval()
     # make sure that the module will never go back to `train` mode
     module.train = lambda mode=True: module  # type: ignore
