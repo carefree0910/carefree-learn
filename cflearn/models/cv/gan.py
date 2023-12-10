@@ -3,8 +3,9 @@ import random
 
 from torch import nn
 from torch import Tensor
-from typing import Any, Tuple
+from typing import Any
 from typing import List
+from typing import Tuple
 from typing import Optional
 from typing import NamedTuple
 from cftool.types import tensor_dict_type

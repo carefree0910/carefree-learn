@@ -190,6 +190,16 @@ def register_op(name: str) -> Callable:
     return _register
 
 
+@register_scheduler("op")
+class OpScheduler(LambdaLR):
+    def __init__(self, optimizer: Optimizer, op_type: str, op_config: Dict[str, Any]):
+        op_base = scheduler_ops.get(op_type)
+        if op_base is None:
+            raise ValueError(f"unrecognized scheduler op '{op_type}' occurred")
+        op = op_base(**op_config)
+        super().__init__(optimizer, lr_lambda=op.schedule)
+
+
 @register_op("cosine_warmup")
 class CosineWarmupOp:
     def __init__(
@@ -244,22 +254,15 @@ class LinearWarmupOp(CosineWarmupOp):
         return f_min + (f_max - f_min) * (cycle_length - step) / cycle_length
 
 
-@register_scheduler("op")
-class OpScheduler(LambdaLR):
-    def __init__(self, optimizer: Optimizer, op_type: str, op_config: Dict[str, Any]):
-        op_base = scheduler_ops.get(op_type)
-        if op_base is None:
-            raise ValueError(f"unrecognized scheduler op '{op_type}' occurred")
-        op = op_base(**op_config)
-        super().__init__(optimizer, lr_lambda=op.schedule)
-
-
 __all__ = [
     "scheduler_dict",
+    "register_op",
     "register_scheduler",
     "LinearInverseScheduler",
     "StepLRWithFloor",
     "ExponentialLRWithFloor",
     "ReduceLROnPlateauWithGet",
     "WarmupScheduler",
+    "CosineWarmupOp",
+    "LinearWarmupOp",
 ]
