@@ -12,6 +12,7 @@ from .utils import parse_config_info
 from ..schema import DLConfig
 from ..toolkit import download_checkpoint
 from ..modules.common import build_module
+from ..modules.common import PrefixModules
 
 
 def load_predefined_config(config: str) -> DLConfig:
@@ -22,9 +23,16 @@ def load_predefined_config(config: str) -> DLConfig:
     return safe_execute(DLConfig, parsed)
 
 
-def build_predefined_module(config: str, **kwargs: Any) -> Module:
+def build_predefined_module(
+    config: str,
+    prefix_module: Optional[PrefixModules] = None,
+    **kwargs: Any,
+) -> Module:
     d = load_predefined_config(config)
-    return build_module(d.module_name, config=d.module_config, **kwargs)
+    module_name = d.module_name
+    if prefix_module is not None:
+        module_name = prefix_module.prefix(module_name)
+    return build_module(module_name, config=d.module_config, **kwargs)
 
 
 def load_pretrained_weights(
@@ -45,9 +53,10 @@ def load_pretrained_module(
     tag: Optional[str] = None,
     download_root: Optional[Path] = None,
     download_kwargs: Optional[Dict[str, Any]] = None,
+    prefix_module: Optional[PrefixModules] = None,
     **kwargs: Any,
 ) -> Module:
-    module = build_predefined_module(config, **kwargs)
+    module = build_predefined_module(config, prefix_module, **kwargs)
     load_pretrained_weights(
         module,
         tag=tag or parse_config_info(config).download_name,
@@ -64,6 +73,7 @@ def load_module(
     tag: Optional[str] = None,
     download_root: Optional[Path] = None,
     download_kwargs: Optional[Dict[str, Any]] = None,
+    prefix_module: Optional[PrefixModules] = None,
     **kwargs: Any,
 ) -> Module:
     if not pretrained:
@@ -73,6 +83,7 @@ def load_module(
         tag=tag,
         download_root=download_root,
         download_kwargs=download_kwargs,
+        prefix_module=prefix_module,
         **kwargs,
     )
 
