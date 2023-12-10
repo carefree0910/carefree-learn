@@ -37,8 +37,8 @@
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/kl.f16.pt"
     },
     "kl.f4": {
-      "sha": "32f4da7190017614efad84eed32f990e86303a1e023473043c902f03e3933ff5",
-      "st_size": 291248237,
+      "sha": "f8b7d5bbf42ba9e146f8987224bccba25e68f7616bce7e64c48d3f721cfbe68b",
+      "st_size": 221299706,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/kl.f4.pt"
     },
     "kl.f8": {
