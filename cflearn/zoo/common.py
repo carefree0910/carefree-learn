@@ -77,7 +77,7 @@ def load_module(
     **kwargs: Any,
 ) -> Module:
     if not pretrained:
-        return build_predefined_module(config, **kwargs)
+        return build_predefined_module(config, prefix_module=prefix_module, **kwargs)
     return load_pretrained_module(
         config,
         tag=tag,
