@@ -52,6 +52,25 @@ class TestExample(unittest.TestCase):
             0,
         )
 
+    def test_mnist_diffusion(self) -> None:
+        try:
+            import albumentations
+        except:
+            return
+        folder = os.path.join(examples_folder, "diffusion")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'mnist_ddpm.py')} --ci 1"),
+            0,
+        )
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'mnist_ldm.py')} --ci 1"),
+            0,
+        )
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'mnist_ldm_vq.py')} --ci 1"),
+            0,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
