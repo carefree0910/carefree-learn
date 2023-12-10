@@ -88,8 +88,8 @@ class LDM(DDPM):
         if use_first_stage_as_condition:
             if condition_learnable:
                 raise ValueError(
-                    "should not use ae as condition model "
-                    "when `condition_learnable` is set to True"
+                    "should not set `condition_learnable` to True when "
+                    "`use_first_stage_as_condition` is True"
                 )
             condition_model = None
         super().__init__(
