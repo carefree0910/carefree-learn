@@ -78,6 +78,8 @@ class LDM(DDPM):
         linear_start: float = 1.0e-4,
         linear_end: float = 2.0e-2,
         cosine_s: float = 8.0e-3,
+        learn_log_var: bool = False,
+        log_var_init: float = 0.0,
         ## sampling
         sampler: str = "ddim",
         sampler_config: Optional[Dict[str, Any]] = None,
@@ -128,6 +130,8 @@ class LDM(DDPM):
             linear_start=linear_start,
             linear_end=linear_end,
             cosine_s=cosine_s,
+            learn_log_var=learn_log_var,
+            log_var_init=log_var_init,
             sampler=sampler,
             sampler_config=sampler_config,
         )

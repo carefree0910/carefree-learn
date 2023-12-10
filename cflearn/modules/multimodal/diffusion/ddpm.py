@@ -164,6 +164,8 @@ class DDPM(IGenerator):
         linear_start: float = 1.0e-4,
         linear_end: float = 2.0e-2,
         cosine_s: float = 8.0e-3,
+        learn_log_var: bool = False,
+        log_var_init: float = 0.0,
         ## sampling
         sampler: str = "ddim",
         sampler_config: Optional[Dict[str, Any]] = None,
@@ -233,6 +235,12 @@ class DDPM(IGenerator):
             linear_end,
             cosine_s,
         )
+        self.learn_log_var = learn_log_var
+        log_var = torch.full(fill_value=log_var_init, size=(self.t,))
+        if not learn_log_var:
+            self.register_buffer("log_var", log_var)
+        else:
+            self.log_var = nn.Parameter(log_var, requires_grad=True)
         # sampler
         self.switch_sampler(sampler, sampler_config)
         self.q_sampler = DDPMQSampler(self)
