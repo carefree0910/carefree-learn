@@ -238,7 +238,7 @@ class DDPM(IGenerator):
         self.learn_log_var = learn_log_var
         log_var = torch.full(fill_value=log_var_init, size=(self.t,))
         if not learn_log_var:
-            self.register_buffer("log_var", log_var)
+            self.log_var = log_var
         else:
             self.log_var = nn.Parameter(log_var, requires_grad=True)
         # sampler
