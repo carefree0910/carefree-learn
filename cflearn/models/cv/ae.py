@@ -22,7 +22,7 @@ from ...schema import TrainerState
 from ...schema import TrainStepLoss
 from ...losses import register_loss
 from ...losses import LPIPS
-from ...modules import build_module
+from ...modules import build_generator
 from ...modules import VQVAELoss
 from ...modules import NLayerDiscriminator
 from ...modules import IAttentionAutoEncoder
@@ -373,7 +373,7 @@ class AEModel(IDLModel):
         if config.loss_name is None:
             raise ValueError("loss name should be provided")
         module_config = config.module_config or {}
-        self.m = build_module(config.module_name, config=module_config)
+        self.m = build_generator(config.module_name, config=module_config)
         loss_defaults = dict(
             kl_weight=1.0,
             log_var_init=0.0,

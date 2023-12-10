@@ -19,7 +19,9 @@ from cftool.types import tensor_dict_type
 from .ddpm import make_condition_model
 from .ddpm import DDPM
 from .utils import CROSS_ATTN_TYPE
+from ...cv import generators
 from ...cv import register_generator
+from ...cv import IGenerator
 from ...cv import DecoderInputs
 from ...core import IHook
 from ...core import LoRAManager
@@ -31,7 +33,7 @@ from ....toolkit import download_json
 from ....zoo.common import load_module
 
 
-class IFirstStage(nn.Module, metaclass=ABCMeta):
+class IFirstStage(IGenerator, metaclass=ABCMeta):
     embedding_channels: int
 
     @abstractmethod
@@ -151,7 +153,9 @@ class LDM(DDPM):
             sampler=sampler,
             sampler_config=sampler_config,
         )
-        m: IFirstStage = load_module(first_stage, **(first_stage_config or {}))
+        first_stage_config = first_stage_config or {}
+        first_stage_config["prefix_module"] = generators
+        m: IFirstStage = load_module(first_stage, **first_stage_config)
         self.first_stage = freeze(m)
         self.scale_factor = first_stage_scale_factor
         # condition

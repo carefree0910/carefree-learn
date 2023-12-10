@@ -8,8 +8,8 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from .common import IAttentionAutoEncoder
+from ..common import register_generator
 from ..common import DecoderInputs
-from ....modules import register_module
 from ....constants import PREDICTIONS_KEY
 
 
@@ -64,7 +64,7 @@ class GaussianDistribution:
         return self.mean
 
 
-@register_module("ae_kl")
+@register_generator("ae_kl")
 class AttentionAutoEncoderKL(IAttentionAutoEncoder):
     enc_double_channels = True
 

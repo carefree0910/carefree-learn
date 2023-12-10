@@ -4,14 +4,14 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from .common import IAttentionAutoEncoder
+from ..common import register_generator
 from ..common import VQCodebook
 from ..common import VQCodebookOut
 from ..common import DecoderInputs
-from ...common import register_module
 from ....constants import PREDICTIONS_KEY
 
 
-@register_module("ae_vq")
+@register_generator("ae_vq")
 class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
     enc_double_channels = False
 
