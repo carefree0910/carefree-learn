@@ -105,6 +105,19 @@ class DDPM(IGenerator):
     control_model_lazy: bool
     control_scales: Optional[Union[List[float], List[List[float]]]]
 
+    # buffers
+
+    betas: Tensor
+    alphas_cumprod: Tensor
+    alphas_cumprod_prev: Tensor
+    sqrt_alphas_cumprod: Tensor
+    sqrt_one_minus_alphas_cumprod: Tensor
+    posterior_variance: Tensor
+    posterior_log_variance_clipped: Tensor
+    posterior_coef1: Tensor
+    posterior_coef2: Tensor
+    lvlb_weights: Tensor
+
     def __init__(
         self,
         img_size: int,
