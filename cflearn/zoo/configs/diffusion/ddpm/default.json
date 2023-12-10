@@ -1,10 +1,7 @@
 {
   "__requires__": {
     "module_config": [
-      "img_size",
-      "timesteps",
-      "linear_start",
-      "linear_end"
+      "img_size"
     ]
   },
   "module_name": "ddpm",

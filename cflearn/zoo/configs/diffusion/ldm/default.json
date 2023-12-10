@@ -4,14 +4,7 @@
   ],
   "__requires__": {
     "module_config": [
-      "img_size",
-      "in_channels",
-      "out_channels",
-      "first_stage",
-      "first_stage_scale_factor",
-      "timesteps",
-      "linear_start",
-      "linear_end"
+      "img_size"
     ]
   },
   "module_name": "ldm",
