@@ -78,6 +78,7 @@ class IKSampler(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         default_quantize: bool = False,
         unconditional_cond: Optional[Any] = None,
         unconditional_guidance_scale: float = 1.0,
+        sigmas_scheduler: Optional[str] = None,
         default_steps: int = 25,
     ):
         if model.parameterization not in ("eps", "v"):
@@ -87,6 +88,7 @@ class IKSampler(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         self.default_quantize = default_quantize
         self.unconditional_cond = unconditional_cond
         self.unconditional_guidance_scale = unconditional_guidance_scale
+        self.sigmas_scheduler = sigmas_scheduler
         self.default_steps = default_steps
 
     # abstract
@@ -119,6 +121,7 @@ class IKSampler(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             quantize=self.default_quantize,
             unconditional_cond=self.unconditional_cond,
             unconditional_guidance_scale=self.unconditional_guidance_scale,
+            sigmas_scheduler=self.sigmas_scheduler,
         )
 
     def sample_step(
@@ -131,6 +134,7 @@ class IKSampler(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         quantize: bool = False,
         unconditional_cond: Optional[Any] = None,
         unconditional_guidance_scale: float = 1.0,
+        sigmas_scheduler: Optional[str] = None,
         **kwargs: Any,
     ) -> Tensor:
         if step == 0 and not self.initialized:
@@ -139,6 +143,7 @@ class IKSampler(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
                 quantize,
                 unconditional_cond,
                 unconditional_guidance_scale,
+                sigmas_scheduler,
             )
             image = image * self.sigmas[0]
         if step == total_step - 1:
@@ -226,6 +231,16 @@ class IKSampler(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
 
     def _get_sigmas(self, total_step: int, dtype: torch.dtype) -> Tensor:
         device = self.sigmas_base.device
+        if self.sigmas_scheduler == "karras":
+            rho = 7.0
+            sigma_min = self.sigmas_base[0].item()
+            sigma_max = self.sigmas_base[-1].item()
+            ramp = torch.linspace(0, 1, total_step, device=device)
+            min_inv_rho = sigma_min ** (1 / rho)
+            max_inv_rho = sigma_max ** (1 / rho)
+            sigmas = (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** rho
+            return append_zero(sigmas).to(dtype)
+        # default
         t_max = len(self.sigmas_base) - 1
         ts = torch.linspace(t_max, 0, total_step, device=device)
         return append_zero(self._t_to_sigma(ts)).to(dtype)
@@ -236,10 +251,12 @@ class IKSampler(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         quantize: bool,
         unconditional_cond: Optional[Any],
         unconditional_guidance_scale: float,
+        sigmas_scheduler: Optional[str],
     ) -> None:
         alphas = self.model.alphas_cumprod
         self.sigmas_base = ((1.0 - alphas) / alphas) ** 0.5
         self.log_sigmas_base = self.sigmas_base.log()
+        self.sigmas_scheduler = sigmas_scheduler
         self.sigmas = self._get_sigmas(total_step, alphas.dtype)
         self.sigma_data = 1.0
         self.quantize = quantize
@@ -299,12 +316,14 @@ class KLMSSampler(IKSampler):
         quantize: bool,
         unconditional_cond: Optional[Any],
         unconditional_guidance_scale: float,
+        sigmas_scheduler: Optional[str],
     ) -> None:
         super()._reset_buffers(
             total_step,
             quantize,
             unconditional_cond,
             unconditional_guidance_scale,
+            sigmas_scheduler,
         )
         self.ds: List[Tensor] = []
         self.sigmas_numpy = self.sigmas.detach().cpu().numpy()
