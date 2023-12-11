@@ -41,12 +41,15 @@ if __name__ == "__main__":
     print(rs["predictions"][[0, 60, 100]])
     cflearn.api.evaluate(loader, dict(m=m))
 
-    results = cflearn.api.repeat_ml(data, m.config, num_repeat=3)
+    num_repeat = 1 if is_ci else 3
+    repeat_kwargs = dict(num_repeat=num_repeat)
+
+    results = cflearn.api.repeat_ml(data, m.config, **repeat_kwargs)
     pipelines = cflearn.api.load_pipelines(results)
     cflearn.api.evaluate(loader, pipelines=pipelines)
 
     modules = ["linear", "fcnn"]
-    results = cflearn.api.repeat_ml(data, m.config, modules=modules, num_repeat=3)
+    results = cflearn.api.repeat_ml(data, m.config, modules=modules, **repeat_kwargs)
     pipelines = cflearn.api.load_pipelines(results)
     cflearn.api.evaluate(loader, pipelines=pipelines)
 
