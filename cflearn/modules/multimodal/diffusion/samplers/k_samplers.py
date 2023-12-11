@@ -440,10 +440,65 @@ class KHeunSampler(IKSampler):
         return image
 
 
+@ISampler.register("k_dpmpp_2m")
+class KDPMpp2MSampler(IKSampler):
+    old_denoised: Optional[Tensor]
+
+    @staticmethod
+    def t_fn(sigma: Tensor) -> Tensor:
+        return sigma.log().neg()
+
+    def sample_step_core(
+        self,
+        image: Tensor,
+        cond: Optional[cond_type],
+        step: int,
+        total_step: int,
+        get_denoised: IGetDenoised,
+        *,
+        quantize: bool,
+        unconditional_cond: Optional[Any],
+        unconditional_guidance_scale: float,
+        **kwargs: Any,
+    ) -> Tensor:
+        sigma = self.sigmas[step]
+        sigma_next = self.sigmas[step + 1]
+        denoised = get_denoised(image, sigma)
+        t, t_next = map(self.t_fn, [sigma, sigma_next])
+        h = t_next - t
+        if self.old_denoised is None or sigma_next.item() == 0:
+            image = (sigma_next / sigma) * image - (-h).expm1() * denoised
+        else:
+            h_last = t - self.t_fn(self.sigmas[step - 1])
+            r = h_last / h
+            dd = (1 + 1 / (2 * r)) * denoised - (1 / (2 * r)) * self.old_denoised
+            image = (sigma_next / sigma) * image - (-h).expm1() * dd
+        self.old_denoised = denoised
+        return image
+
+    def _reset_buffers(
+        self,
+        total_step: int,
+        quantize: bool,
+        unconditional_cond: Optional[Any],
+        unconditional_guidance_scale: float,
+        sigmas_scheduler: Optional[str],
+    ) -> None:
+        super()._reset_buffers(
+            total_step,
+            quantize,
+            unconditional_cond,
+            unconditional_guidance_scale,
+            sigmas_scheduler,
+        )
+        self.old_denoised = None
+
+
 __all__ = [
     "IKSampler",
     "KLMSSampler",
     "KEulerSampler",
     "KEulerAncestralSampler",
     "KHeunSampler",
+    "KDPMpp2MSampler",
 ]
