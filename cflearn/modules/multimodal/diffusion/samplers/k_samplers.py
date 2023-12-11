@@ -70,7 +70,7 @@ class KQSampler(IQSampler):
         self.sigmas = sigmas
 
 
-class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
+class IKSampler(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     def __init__(
         self,
         model: IDiffusion,
@@ -263,7 +263,7 @@ def klms_coef(order: int, t: np.ndarray, i: int, j: int) -> float:
 
 
 @ISampler.register("klms")
-class KLMSSampler(KSamplerMixin):
+class KLMSSampler(IKSampler):
     def sample_step_core(
         self,
         image: Tensor,
@@ -307,7 +307,7 @@ class KLMSSampler(KSamplerMixin):
 
 
 @ISampler.register("k_euler")
-class KEulerSampler(KSamplerMixin):
+class KEulerSampler(IKSampler):
     def sample_step_core(
         self,
         image: Tensor,
@@ -342,7 +342,7 @@ class KEulerSampler(KSamplerMixin):
 
 
 @ISampler.register("k_euler_a")
-class KEulerAncestralSampler(KSamplerMixin):
+class KEulerAncestralSampler(IKSampler):
     def sample_step_core(
         self,
         image: Tensor,
@@ -375,7 +375,7 @@ class KEulerAncestralSampler(KSamplerMixin):
 
 
 @ISampler.register("k_heun")
-class KHeunSampler(KSamplerMixin):
+class KHeunSampler(IKSampler):
     def sample_step_core(
         self,
         image: Tensor,
@@ -418,7 +418,7 @@ class KHeunSampler(KSamplerMixin):
 
 
 __all__ = [
-    "KSamplerMixin",
+    "IKSampler",
     "KLMSSampler",
     "KEulerSampler",
     "KEulerAncestralSampler",

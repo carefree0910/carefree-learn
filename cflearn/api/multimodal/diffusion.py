@@ -61,7 +61,7 @@ from ...modules import DecoderInputs
 from ...modules import StableDiffusion
 from ...modules import DDIMMixin
 from ...modules import DPMSolver
-from ...modules import KSamplerMixin
+from ...modules import IKSampler
 from ...toolkit import _get_file_size
 from ...toolkit import slerp
 from ...toolkit import freeze
@@ -1528,7 +1528,7 @@ class DiffusionAPI(IAPI):
             self._random_state = random.getstate()
         if num_steps is None:
             num_steps = sampler.default_steps
-        if isinstance(sampler, KSamplerMixin):
+        if isinstance(sampler, IKSampler):
             t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1))) - 1
             ts = get_timesteps(t + 1, 1, z.device)
             start_step = num_steps - t - 1
@@ -1536,7 +1536,7 @@ class DiffusionAPI(IAPI):
             t = int(min(1.0 - fidelity, 0.999) * num_steps)
             ts = get_timesteps(t, 1, z.device)
             start_step = num_steps - t
-        if isinstance(sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
+        if isinstance(sampler, (DDIMMixin, IKSampler, DPMSolver)):
             kw = shallow_copy_dict(sampler.sample_kwargs)
             kw.update(shallow_copy_dict(kwargs))
             kw["total_step"] = num_steps
