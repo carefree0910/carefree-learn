@@ -224,6 +224,12 @@ class IKSampler(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         t = (1.0 - w) * low_idx + w * high_idx
         return t.view(sigmas.shape)
 
+    def _get_sigmas(self, total_step: int, dtype: torch.dtype) -> Tensor:
+        device = self.sigmas_base.device
+        t_max = len(self.sigmas_base) - 1
+        ts = torch.linspace(t_max, 0, total_step, device=device)
+        return append_zero(self._t_to_sigma(ts)).to(dtype)
+
     def _reset_buffers(
         self,
         total_step: int,
@@ -234,9 +240,7 @@ class IKSampler(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         alphas = self.model.alphas_cumprod
         self.sigmas_base = ((1.0 - alphas) / alphas) ** 0.5
         self.log_sigmas_base = self.sigmas_base.log()
-        t_max = len(self.sigmas_base) - 1
-        ts = torch.linspace(t_max, 0, total_step, device=self.sigmas_base.device)
-        self.sigmas = append_zero(self._t_to_sigma(ts)).to(alphas.dtype)
+        self.sigmas = self._get_sigmas(total_step, alphas.dtype)
         self.sigma_data = 1.0
         self.quantize = quantize
         # q sampling
