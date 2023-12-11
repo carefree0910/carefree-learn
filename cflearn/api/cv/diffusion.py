@@ -93,7 +93,7 @@ from ...models.cv.diffusion.utils import CONTROL_HINT_START_KEY
 from ...models.cv.diffusion.cond_models import CLIPTextConditionModel
 from ...models.cv.diffusion.samplers.ddim import DDIMMixin
 from ...models.cv.diffusion.samplers.solver import DPMSolver
-from ...models.cv.diffusion.samplers.k_samplers import KSamplerMixin
+from ...models.cv.diffusion.samplers.k_samplers import IKSampler
 
 try:
     import cv2
@@ -1705,7 +1705,7 @@ class DiffusionAPI(APIMixin):
             self._random_state = random.getstate()
         if num_steps is None:
             num_steps = self.sampler.default_steps
-        if isinstance(self.sampler, KSamplerMixin):
+        if isinstance(self.sampler, IKSampler):
             t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1))) - 1
             ts = get_timesteps(t + 1, 1, z.device)
             start_step = num_steps - t - 1
@@ -1713,7 +1713,7 @@ class DiffusionAPI(APIMixin):
             t = int(min(1.0 - fidelity, 0.999) * num_steps)
             ts = get_timesteps(t, 1, z.device)
             start_step = num_steps - t
-        if isinstance(self.sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
+        if isinstance(self.sampler, (DDIMMixin, IKSampler, DPMSolver)):
             kw = shallow_copy_dict(self.sampler.sample_kwargs)
             kw.update(shallow_copy_dict(kwargs))
             kw["total_step"] = num_steps

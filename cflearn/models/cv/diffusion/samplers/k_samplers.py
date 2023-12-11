@@ -70,7 +70,7 @@ class KQSampler(IQSampler):
         self.sigmas = sigmas
 
 
-class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
+class IKSampler(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     def __init__(
         self,
         model: IDiffusion,
@@ -78,6 +78,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         default_quantize: bool = False,
         unconditional_cond: Optional[Any] = None,
         unconditional_guidance_scale: float = 1.0,
+        sigmas_scheduler: Optional[str] = None,
         default_steps: int = 25,
     ):
         if model.parameterization not in ("eps", "v"):
@@ -87,6 +88,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         self.default_quantize = default_quantize
         self.unconditional_cond = unconditional_cond
         self.unconditional_guidance_scale = unconditional_guidance_scale
+        self.sigmas_scheduler = sigmas_scheduler
         self.default_steps = default_steps
 
     # abstract
@@ -119,6 +121,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             quantize=self.default_quantize,
             unconditional_cond=self.unconditional_cond,
             unconditional_guidance_scale=self.unconditional_guidance_scale,
+            sigmas_scheduler=self.sigmas_scheduler,
         )
 
     def sample_step(
@@ -131,6 +134,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         quantize: bool = False,
         unconditional_cond: Optional[Any] = None,
         unconditional_guidance_scale: float = 1.0,
+        sigmas_scheduler: Optional[str] = None,
         **kwargs: Any,
     ) -> Tensor:
         if step == 0 and not self.initialized:
@@ -139,6 +143,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
                 quantize,
                 unconditional_cond,
                 unconditional_guidance_scale,
+                sigmas_scheduler,
             )
             image = image * self.sigmas[0]
         if step == total_step - 1:
@@ -224,19 +229,35 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         t = (1.0 - w) * low_idx + w * high_idx
         return t.view(sigmas.shape)
 
+    def _get_sigmas(self, total_step: int, dtype: torch.dtype) -> Tensor:
+        device = self.sigmas_base.device
+        if self.sigmas_scheduler == "karras":
+            rho = 7.0
+            sigma_min = self.sigmas_base[0].item()
+            sigma_max = self.sigmas_base[-1].item()
+            ramp = torch.linspace(0, 1, total_step, device=device)
+            min_inv_rho = sigma_min ** (1 / rho)
+            max_inv_rho = sigma_max ** (1 / rho)
+            sigmas = (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** rho
+            return append_zero(sigmas).to(dtype)
+        # default
+        t_max = len(self.sigmas_base) - 1
+        ts = torch.linspace(t_max, 0, total_step, device=device)
+        return append_zero(self._t_to_sigma(ts)).to(dtype)
+
     def _reset_buffers(
         self,
         total_step: int,
         quantize: bool,
         unconditional_cond: Optional[Any],
         unconditional_guidance_scale: float,
+        sigmas_scheduler: Optional[str],
     ) -> None:
         alphas = self.model.alphas_cumprod
         self.sigmas_base = ((1.0 - alphas) / alphas) ** 0.5
         self.log_sigmas_base = self.sigmas_base.log()
-        t_max = len(self.sigmas_base) - 1
-        ts = torch.linspace(t_max, 0, total_step, device=self.sigmas_base.device)
-        self.sigmas = append_zero(self._t_to_sigma(ts)).to(alphas.dtype)
+        self.sigmas_scheduler = sigmas_scheduler
+        self.sigmas = self._get_sigmas(total_step, alphas.dtype)
         self.sigma_data = 1.0
         self.quantize = quantize
         # q sampling
@@ -263,7 +284,7 @@ def klms_coef(order: int, t: np.ndarray, i: int, j: int) -> float:
 
 
 @ISampler.register("klms")
-class KLMSSampler(KSamplerMixin):
+class KLMSSampler(IKSampler):
     def sample_step_core(
         self,
         image: Tensor,
@@ -295,19 +316,21 @@ class KLMSSampler(KSamplerMixin):
         quantize: bool,
         unconditional_cond: Optional[Any],
         unconditional_guidance_scale: float,
+        sigmas_scheduler: Optional[str],
     ) -> None:
         super()._reset_buffers(
             total_step,
             quantize,
             unconditional_cond,
             unconditional_guidance_scale,
+            sigmas_scheduler,
         )
         self.ds: List[Tensor] = []
         self.sigmas_numpy = self.sigmas.detach().cpu().numpy()
 
 
 @ISampler.register("k_euler")
-class KEulerSampler(KSamplerMixin):
+class KEulerSampler(IKSampler):
     def sample_step_core(
         self,
         image: Tensor,
@@ -342,7 +365,7 @@ class KEulerSampler(KSamplerMixin):
 
 
 @ISampler.register("k_euler_a")
-class KEulerAncestralSampler(KSamplerMixin):
+class KEulerAncestralSampler(IKSampler):
     def sample_step_core(
         self,
         image: Tensor,
@@ -375,7 +398,7 @@ class KEulerAncestralSampler(KSamplerMixin):
 
 
 @ISampler.register("k_heun")
-class KHeunSampler(KSamplerMixin):
+class KHeunSampler(IKSampler):
     def sample_step_core(
         self,
         image: Tensor,
@@ -417,10 +440,65 @@ class KHeunSampler(KSamplerMixin):
         return image
 
 
+@ISampler.register("k_dpmpp_2m")
+class KDPMpp2MSampler(IKSampler):
+    old_denoised: Optional[Tensor]
+
+    @staticmethod
+    def t_fn(sigma: Tensor) -> Tensor:
+        return sigma.log().neg()
+
+    def sample_step_core(
+        self,
+        image: Tensor,
+        cond: Optional[cond_type],
+        step: int,
+        total_step: int,
+        get_denoised: IGetDenoised,
+        *,
+        quantize: bool,
+        unconditional_cond: Optional[Any],
+        unconditional_guidance_scale: float,
+        **kwargs: Any,
+    ) -> Tensor:
+        sigma = self.sigmas[step]
+        sigma_next = self.sigmas[step + 1]
+        denoised = get_denoised(image, sigma)
+        t, t_next = map(self.t_fn, [sigma, sigma_next])
+        h = t_next - t
+        if self.old_denoised is None or sigma_next.item() == 0:
+            image = (sigma_next / sigma) * image - (-h).expm1() * denoised
+        else:
+            h_last = t - self.t_fn(self.sigmas[step - 1])
+            r = h_last / h
+            dd = (1 + 1 / (2 * r)) * denoised - (1 / (2 * r)) * self.old_denoised
+            image = (sigma_next / sigma) * image - (-h).expm1() * dd
+        self.old_denoised = denoised
+        return image
+
+    def _reset_buffers(
+        self,
+        total_step: int,
+        quantize: bool,
+        unconditional_cond: Optional[Any],
+        unconditional_guidance_scale: float,
+        sigmas_scheduler: Optional[str],
+    ) -> None:
+        super()._reset_buffers(
+            total_step,
+            quantize,
+            unconditional_cond,
+            unconditional_guidance_scale,
+            sigmas_scheduler,
+        )
+        self.old_denoised = None
+
+
 __all__ = [
-    "KSamplerMixin",
+    "IKSampler",
     "KLMSSampler",
     "KEulerSampler",
     "KEulerAncestralSampler",
     "KHeunSampler",
+    "KDPMpp2MSampler",
 ]
