@@ -169,13 +169,18 @@ class ResizedPreparation(DefaultPreparation):
     """
     A Preparation with images resized.
     * Useful when we need a static-sized image dataset.
-    * The attribute, `img_size`, should be initialized when `from_info` is called.
+    * We use `0` as the default `img_size` because `ISerializable` requires all
+    attributes to have default values, but we actually need to specify `img_size`.
+    So we will check if `img_size` is positive in the `copy` method.
     """
 
-    img_size: int
-    keep_aspect_ratio: bool
+    def __init__(self, *, img_size: int = 0, keep_aspect_ratio: bool = True) -> None:
+        self.img_size = img_size
+        self.keep_aspect_ratio = keep_aspect_ratio
 
     def copy(self, src_path: str, tgt_path: str) -> None:
+        if self.img_size <= 0:
+            raise ValueError("`img_size` should be positive")
         img = to_rgb(Image.open(src_path))
         if not self.keep_aspect_ratio:
             img.resize((self.img_size, self.img_size), Image.LANCZOS).save(tgt_path)
