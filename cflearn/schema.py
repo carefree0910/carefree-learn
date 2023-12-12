@@ -1096,7 +1096,8 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
     # optional callbacks
 
     def from_accelerator(self, *args: nn.Module) -> "IDLModel":
-        cloned: IDLModel = IDLModel.from_config(self.config.copy())
+        cloned = IDLModel.make(self.config.model, {})
+        cloned.config = self.config.copy()
         for i, k in enumerate(self.all_module_names):
             setattr(cloned, k, args[i])
         return cloned
