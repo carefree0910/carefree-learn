@@ -84,22 +84,6 @@ def get_input_sample(loader: IDataLoader, device: torch.device) -> tensor_dict_t
     return sample
 
 
-class amp_context:
-    def __init__(self, enabled: bool):
-        if not enabled:
-            self.ctx = None
-        else:
-            self.ctx = torch.cuda.amp.autocast(enabled=True)
-
-    def __enter__(self) -> None:
-        if self.ctx is not None:
-            self.ctx.__enter__()
-
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        if self.ctx is not None:
-            self.ctx.__exit__(exc_type, exc_val, exc_tb)
-
-
 class Trainer(ITrainer):
     model_log_file = "model.txt"
     metrics_log_file = "metrics.txt"
@@ -607,6 +591,5 @@ __all__ = [
     "get_scores",
     "get_sorted_checkpoints",
     "get_input_sample",
-    "amp_context",
     "Trainer",
 ]
