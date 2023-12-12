@@ -64,7 +64,7 @@ class AnchoredResizeBlock(IRuntimeDataBlock):
 
     def postprocess_item(self, item: np_dict_type, for_inference: bool) -> np_dict_type:
         image = item[INPUT_KEY]
-        h, w = image.shape[-2:]
+        h, w = image.shape[:2]
         if self.max_wh is not None:
             h, w = restrict_wh(h, w, self.max_wh)
         if self.anchor is not None:
