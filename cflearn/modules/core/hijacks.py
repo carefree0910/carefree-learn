@@ -145,12 +145,25 @@ class ILoRAMappingHook(ILoRAHook[TLoRAMapping], IBasicHook):
         return updown
 
     def before_forward(self, inp: Tensor, index: Optional[int] = None) -> Tensor:
-        if not self.injected:
+        if self.training:
+            self.cleanup()
+        elif not self.injected:
             self.to(self.m.weight)
             weight = self.m.weight
             updown = self.get_updown()
             self.inject(weight, updown, index)
         return inp
+
+    def after_forward(self, inp: Tensor, out: Tensor) -> Tensor:
+        if self.training:
+            net = self.lora_down(inp)
+            net = self.selector(net)
+            net = self.lora_up(net)
+            net = self.dropout(net)
+            scale = self.scale * self.alpha_scale
+            net = scale * net
+            out = out + net
+        return out
 
     @classmethod
     def create_with(cls, m: IBasicHijackMixin, rank: int) -> "ILoRAMappingHook":
