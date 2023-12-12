@@ -1,10 +1,10 @@
 from abc import abstractmethod
 from abc import ABCMeta
 from typing import Any
+from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
-from typing import Optional
 from cftool.types import np_dict_type
 
 from ...schema import DataBundle
@@ -45,7 +45,7 @@ class IRuntimeDataBlock(IDataBlock, metaclass=ABCMeta):
 
 
 class IAlbumentationsBlock(IRuntimeDataBlock):
-    fn: Optional[BasicTransform] = None
+    fns: Dict[bool, BasicTransform]
 
     @abstractmethod
     def init_fn(self, for_inference: bool) -> BasicTransform:
@@ -56,11 +56,13 @@ class IAlbumentationsBlock(IRuntimeDataBlock):
             name = self.__class__.__name__
             raise ValueError(f"`albumentations` is required for `{name}`")
         super().__init__(*args, **kwargs)
+        self.fns = {}
 
     def postprocess_item(self, item: np_dict_type, for_inference: bool) -> np_dict_type:
-        if self.fn is None:
-            self.fn = self.init_fn(for_inference)
-        item[INPUT_KEY] = self.fn(image=item[INPUT_KEY])["image"]
+        fn = self.fns.get(for_inference)
+        if fn is None:
+            fn = self.fns[for_inference] = self.init_fn(for_inference)
+        item[INPUT_KEY] = fn(image=item[INPUT_KEY])["image"]
         return item
 
 
