@@ -1875,7 +1875,7 @@ class TrainerConfig(ISerializableDataClass):
     fixed_steps: Optional[int] = None
     log_steps: Optional[int] = None
     valid_portion: float = 1.0
-    mixed_precision: str = "no"
+    mixed_precision: str = "no"  # this is the `PrecisionType` from `accelerate`
     clip_norm: float = 0.0
     grad_accumulate: int = 1
     metric_names: Optional[Union[str, List[str]]] = None
