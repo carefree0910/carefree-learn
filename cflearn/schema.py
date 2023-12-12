@@ -1256,11 +1256,13 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
                 )
         # run train steps
         get_fw = lambda: self.run(batch_idx, batch, state, **forward_kwargs)
+        autocast_ctx = autocast(enabled=trainer.should_autocast)
         for i, train_step in enumerate(self.train_steps):
             if train_step.should_skip(self, state):
                 continue
             if i == 0 or train_step.requires_new_forward:
-                with no_grad_context(enabled=not train_step.requires_grad_in_forward):
+                no_grad = not train_step.requires_grad_in_forward
+                with no_grad_context(enabled=no_grad), autocast_ctx:
                     if train_step.num_forward == 1:
                         forward = get_fw()
                     else:
