@@ -65,11 +65,14 @@ class GeneratorCallback(ImageCallback):
         save_images(sampled, os.path.join(image_folder, "sampled.png"))
         # interpolation
         with eval_context(m):
-            interpolations = m.interpolate(
-                self.num_interpolations,
-                kwargs=shallow_copy_dict(interpolate_kw),
-            )
-        save_images(interpolations, os.path.join(image_folder, "interpolations.png"))
+            if self.num_interpolations > 0:
+                save_images(
+                    m.interpolate(
+                        self.num_interpolations,
+                        kwargs=shallow_copy_dict(interpolate_kw),
+                    ),
+                    os.path.join(image_folder, "interpolations.png"),
+                )
         # conditional sampling
         if m.num_classes is None:
             return None
