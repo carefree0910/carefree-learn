@@ -1265,7 +1265,10 @@ class GradientCheckpointFunction(torch.autograd.Function):
             for x, r in zip(ctx.input_tensors, ctx.grad_requires)
         ]
         input_params = ctx.input_params
-        with torch.enable_grad(), torch.cuda.amp.autocast():
+        any_tensors_fp16 = any(x.dtype == torch.float16 for x in input_tensors)
+        any_params_fp16 = any(x.dtype == torch.float16 for x in input_params)
+        enable_autocast = any_tensors_fp16 or any_params_fp16
+        with torch.enable_grad(), torch.cuda.amp.autocast(enabled=enable_autocast):
             shallow_copies = [x.view_as(x) for x in input_tensors]
             output_tensors = ctx.run_function(*shallow_copies)
         tensors_indices = [i for i, x in enumerate(input_tensors) if x.requires_grad]
