@@ -1268,17 +1268,16 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
                     else:
                         forward = [get_fw() for _ in range(train_step.num_forward)]
             optimizer = trainer.optimizers[train_step.scope]
-            with toggle_optimizer(
-                self.m, optimizer, enabled=train_step.enable_toggle_optimizer
-            ):
-                with autocast(enabled=trainer.should_autocast):
-                    loss_res = train_step.loss_fn(
-                        self, state, batch, forward, **loss_kwargs
-                    )
-                grad_period = (
-                    train_step.grad_accumulate or trainer.config.grad_accumulate
+            should_toggle_optimizer = train_step.enable_toggle_optimizer
+            with toggle_optimizer(self.m, optimizer, enabled=should_toggle_optimizer):
+                with autocast_ctx:
+                    loss_args = self, state, batch, forward
+                    loss_res = train_step.loss_fn(*loss_args, **loss_kwargs)
+                update = (
+                    state.step
+                    % (train_step.grad_accumulate or trainer.config.grad_accumulate)
+                    == 0
                 )
-                update = state.step % grad_period == 0
                 update_fn(loss_res.loss, optimizer, update)
                 loss_dict.update(loss_res.losses)
             if update:
