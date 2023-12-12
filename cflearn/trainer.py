@@ -311,6 +311,7 @@ class Trainer(ITrainer):
                 json.dump(self.export_config, f)
         for callback in self.callbacks:
             callback.before_loop(self)
+        step_iterator = TensorBatcher(self.train_loader, self.device)
         while self.state.should_train:
             try:
                 self.state.epoch += 1
@@ -322,7 +323,6 @@ class Trainer(ITrainer):
                             valid_sampler = self.valid_loader.loader.sampler
                             if isinstance(valid_sampler, DistributedSampler):
                                 valid_sampler.set_epoch(self.state.epoch)
-                step_iterator = TensorBatcher(self.train_loader, self.device)
                 if self.is_local_rank_0 and self.tqdm_settings.use_step_tqdm:
                     step_tqdm = step_iterator = tqdm(
                         step_iterator,
