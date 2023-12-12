@@ -273,9 +273,9 @@ class CLIPTextConditionModel(Module):
                 )
             # weighting
             original_mean = z.mean()
-            z *= weights_tensor
+            z = z * weights_tensor
             new_mean = z.mean()
-            z *= original_mean / new_mean
+            z = z * (original_mean / new_mean)
             zs.append(z)
             # set flag
             is_first = False
