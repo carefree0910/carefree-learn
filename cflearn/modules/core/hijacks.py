@@ -105,6 +105,17 @@ class ILoRAHook(Generic[TLoRA]):
             w.data = self.backup + updown
         self.injected = True
 
+    def cleanup(self) -> None:
+        if not self.injected:
+            return
+        self.injected = False
+        if self.backup is not None:
+            if isinstance(self.m, IAttention):
+                self.m.in_w.data = self.backup  # type: ignore
+            else:
+                self.m.weight.data = self.backup  # type: ignore
+            self.backup = None
+
 
 class ILoRAMappingHook(ILoRAHook[TLoRAMapping], IBasicHook):
     rank: int
@@ -400,14 +411,8 @@ class LoRAManager:
                 for h in hooks:
                     if not isinstance(h, ILoRAHook):
                         continue
-                    h.injected = False
+                    h.cleanup()
                     module.hook = None
-                    if h.backup is not None:
-                        if isinstance(module, IAttention):
-                            module.in_w.data = h.backup  # type: ignore
-                        else:
-                            module.weight.data = h.backup  # type: ignore
-                        h.backup = None
         self.injected = False
         torch.cuda.empty_cache()
 
