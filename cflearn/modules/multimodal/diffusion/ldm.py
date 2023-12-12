@@ -1,7 +1,6 @@
 import json
 
 import numpy as np
-import torch.nn as nn
 
 from abc import abstractmethod
 from abc import ABCMeta
