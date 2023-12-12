@@ -92,6 +92,7 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
         kwargs: Optional[Dict[str, Any]] = None,
     ) -> Optional[Tensor]:
         kwargs = kwargs or {}
+        kwargs["return_z_q_g"] = False
         return self.get_results(net, **kwargs)[0]
 
     def forward(
