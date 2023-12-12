@@ -15,6 +15,7 @@ except:
 @IAlbumentationsBlock.register("resize")
 class ResizeBlock(IAlbumentationsBlock):
     size: Union[int, List[int]]
+    interpolation: int
 
     def __init__(
         self,
