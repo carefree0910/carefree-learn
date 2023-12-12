@@ -1269,7 +1269,7 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
             with toggle_optimizer(
                 self.m, optimizer, enabled=train_step.enable_toggle_optimizer
             ):
-                with autocast(enabled=trainer.config.mixed_precision != "no"):
+                with autocast(enabled=trainer.should_autocast):
                     loss_res = train_step.loss_fn(
                         self, state, batch, forward, **loss_kwargs
                     )
@@ -1822,6 +1822,11 @@ class ITrainer(ABC):
     @property
     @abstractmethod
     def validation_loader(self) -> IDataLoader:
+        pass
+
+    @property
+    @abstractmethod
+    def should_autocast(self) -> bool:
         pass
 
     @abstractmethod

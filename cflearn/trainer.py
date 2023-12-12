@@ -177,6 +177,10 @@ class Trainer(ITrainer):
     def checkpoint_folder(self) -> str:
         return os.path.join(self.workspace, CHECKPOINTS_FOLDER)
 
+    @property
+    def should_autocast(self) -> bool:
+        return self.config.mixed_precision != "no"
+
     # inheritance
 
     def clip_norm_step(self) -> None:
