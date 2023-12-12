@@ -585,9 +585,9 @@ class DDPM(IGenerator):
                 pretrained=use_pretrained_condition,
                 **(condition_config or {}),
             )
-        if not condition_learnable:
-            freeze(m)
         self.condition_model = make_condition_model(condition_model, m)
+        if not condition_learnable:
+            freeze(self.condition_model)
 
     def _register_noise_schedule(
         self,
