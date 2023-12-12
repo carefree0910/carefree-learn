@@ -804,6 +804,11 @@ class ImageFolderBlock(IDataBlock):
     def fit_transform(self, bundle: DataBundle) -> DataBundle:
         return self.transform(bundle, False)
 
+    # api
+
+    def set_preparation(self, preparation: IPreparation) -> None:
+        self.preparation_pack = preparation.to_pack()
+
     # internal
 
     def _parse(
