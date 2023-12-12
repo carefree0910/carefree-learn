@@ -180,6 +180,7 @@ class IGenerator(IConditional, metaclass=ABCMeta):
         net: Tensor,
         *,
         labels: Optional[Tensor] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
     ) -> Optional[Tensor]:
         return None
 
@@ -189,6 +190,7 @@ class IGenerator(IConditional, metaclass=ABCMeta):
         *,
         class_idx: Optional[int] = None,
         use_slerp: bool = False,
+        kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tensor:
         z1 = self.generate_z(num_samples)
         z2 = self.generate_z(num_samples)
@@ -201,7 +203,7 @@ class IGenerator(IConditional, metaclass=ABCMeta):
         if class_idx is None and self.num_classes is not None:
             class_idx = random.randint(0, self.num_classes - 1)
         labels = self.get_sample_labels(num_samples, class_idx)
-        return self.decode(DecoderInputs(z=z, labels=labels))
+        return self.decode(DecoderInputs(z=z, labels=labels, kwargs=kwargs))
 
 
 class IGaussianGenerator(IGenerator):

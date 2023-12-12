@@ -86,6 +86,7 @@ class VAE(IGaussianGenerator):
         net: Tensor,
         *,
         labels: Optional[Tensor] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
     ) -> Optional[Tensor]:
         return self(net, labels)[PREDICTIONS_KEY]
 

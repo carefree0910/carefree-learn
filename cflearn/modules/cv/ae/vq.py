@@ -1,4 +1,6 @@
 from torch import Tensor
+from typing import Any
+from typing import Dict
 from typing import Tuple
 from typing import Optional
 from cftool.types import tensor_dict_type
@@ -87,8 +89,10 @@ class AttentionAutoEncoderVQ(IAttentionAutoEncoder):
         net: Tensor,
         *,
         labels: Optional[Tensor] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
     ) -> Optional[Tensor]:
-        return self.get_results(net)[0]
+        kwargs = kwargs or {}
+        return self.get_results(net, **kwargs)[0]
 
     def forward(
         self,
