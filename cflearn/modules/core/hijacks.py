@@ -84,6 +84,7 @@ class IAttention:
 
 
 TLoRA = TypeVar("TLoRA")
+TLoRAMapping = Union[nn.Linear, nn.Conv2d]
 
 
 class ILoRAHook(Generic[TLoRA]):
@@ -105,11 +106,11 @@ class ILoRAHook(Generic[TLoRA]):
         self.injected = True
 
 
-class ILoRAMappingHook(ILoRAHook[Union[nn.Linear, nn.Conv2d]], IBasicHook):
+class ILoRAMappingHook(ILoRAHook[TLoRAMapping], IBasicHook):
     rank: int
-    lora_down: Union[nn.Linear, nn.Conv2d]
-    selector: Union[nn.Identity, nn.Linear, nn.Conv2d]
-    lora_up: Union[nn.Linear, nn.Conv2d]
+    lora_down: TLoRAMapping
+    selector: Union[nn.Identity, TLoRAMapping]
+    lora_up: TLoRAMapping
     dropout: nn.Dropout
     alpha: nn.Parameter
     scale: float = 1.0
