@@ -290,12 +290,13 @@ class DDPM(IGenerator):
         # compatible with the parent class
         **other_kw: Any,
     ) -> Tensor:
-        kw = shallow_copy_dict(kwargs or {})
-        kw.update(other_kw)
+        kw = shallow_copy_dict(other_kw)
         kw["cond"] = cond
         kw["num_steps"] = num_steps
         kw["start_step"] = start_step
         kw["verbose"] = verbose
+        if kwargs is not None:
+            kw.update(kwargs)
         sampled = super().sample(num_samples, kwargs=kw)
         if clip_output:
             sampled = torch.clip(sampled, -1.0, 1.0)
@@ -316,8 +317,9 @@ class DDPM(IGenerator):
             noise_steps = self.t
         ts = get_timesteps(noise_steps - 1, net.shape[0], net.device)
         z = self.q_sampler.q_sample(net, ts)
-        kw = shallow_copy_dict(kwargs or {})
-        kw.update(other_kw)
+        kw = shallow_copy_dict(other_kw)
+        if kwargs is not None:
+            kw.update(kwargs)
         net = self.decode(DecoderInputs(z=z, cond=cond, kwargs=kw))
         return net
 
