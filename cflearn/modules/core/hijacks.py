@@ -83,7 +83,7 @@ class IAttention:
 ## input -> lora_down -> selector -> lora_up -> dropout -> alpha (scale)
 
 
-TLoRA = TypeVar("TLoRA")
+TLoRA = TypeVar("TLoRA", bound=Union["TLoRAMapping", IAttention])
 TLoRAMapping = Union[nn.Linear, nn.Conv2d]
 
 
