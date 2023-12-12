@@ -18,6 +18,7 @@ from cflearn.data.blocks import DataOrder
 from cflearn.data.blocks import DataSplitter
 from cflearn.data.blocks import HWCToCHWBlock
 from cflearn.data.blocks import ImageFolderBlock
+from cflearn.data.blocks import ResizedPreparation
 
 
 data_config = cflearn.DataConfig.inference_with(batch_size=4)
@@ -152,17 +153,11 @@ class TestDataModules(unittest.TestCase):
                 i_size = 100 * (i + 1)
                 array = np.random.randint(0, 256, [i_size, i_size + 123, 3], np.uint8)
                 Image.fromarray(array).save(os.path.join(dir, f"{i}.png"))
+            image_folder_block = ImageFolderBlock(save_data_in_parallel=False)
+            prep = ResizedPreparation(img_size=unified_size, keep_aspect_ratio=False)
+            image_folder_block.set_preparation(prep)
             processor_config = cflearn.DataProcessorConfig()
-            processor_config.set_blocks(
-                ImageFolderBlock(
-                    preparation_pack=dict(
-                        type="resized",
-                        info=dict(img_size=unified_size, keep_aspect_ratio=False),
-                    ),
-                    save_data_in_parallel=False,
-                ),
-                HWCToCHWBlock(),
-            )
+            processor_config.set_blocks(image_folder_block, HWCToCHWBlock())
             data: TorchData = TorchData.build(dir, processor_config=processor_config)
             data.config.batch_size = 3
             train_loader, valid_loader = data.get_loaders()
