@@ -1252,6 +1252,7 @@ class GradientCheckpointFunction(torch.autograd.Function):
         ctx.run_function = run_function
         ctx.input_tensors = list(args[:length])
         ctx.input_params = list(args[length:])
+        ctx.grad_requires = [x.requires_grad for x in ctx.input_tensors]
 
         with torch.no_grad():
             output_tensors = ctx.run_function(*ctx.input_tensors)
@@ -1259,20 +1260,42 @@ class GradientCheckpointFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx: Any, *grad_outputs: Any) -> Any:
-        ctx.input_tensors = [x.detach().requires_grad_(True) for x in ctx.input_tensors]
-        with torch.enable_grad():
-            shallow_copies = [x.view_as(x) for x in ctx.input_tensors]
+        input_tensors = [
+            x.detach().requires_grad_(r)
+            for x, r in zip(ctx.input_tensors, ctx.grad_requires)
+        ]
+        input_params = ctx.input_params
+        with torch.enable_grad(), torch.cuda.amp.autocast():
+            shallow_copies = [x.view_as(x) for x in input_tensors]
             output_tensors = ctx.run_function(*shallow_copies)
+        tensors_indices = [i for i, x in enumerate(input_tensors) if x.requires_grad]
+        params_indices = [i for i, x in enumerate(input_params) if x.requires_grad]
+        grad_tensors = [input_tensors[i] for i in tensors_indices]
+        grad_params = [input_params[i] for i in params_indices]
         input_grads = torch.autograd.grad(
             output_tensors,
-            ctx.input_tensors + ctx.input_params,
+            grad_tensors + grad_params,
             grad_outputs,
             allow_unused=True,
         )
+        n_grad_tensors = len(tensors_indices)
+        n_tensors = len(input_tensors)
+        n_params = len(input_params)
         del ctx.input_tensors
         del ctx.input_params
+        del input_tensors
+        del input_params
+        del grad_tensors
+        del grad_params
+        del grad_outputs
+        del shallow_copies
         del output_tensors
-        return (None, None) + input_grads
+        output_grads = [None] * (n_tensors + n_params)
+        for i, idx in enumerate(tensors_indices):
+            output_grads[idx] = input_grads[i]
+        for i, idx in enumerate(params_indices):
+            output_grads[n_tensors + idx] = input_grads[n_grad_tensors + i]
+        return (None, None) + tuple(output_grads)
 
 
 # ml
