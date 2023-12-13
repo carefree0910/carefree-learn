@@ -132,7 +132,7 @@ def convert_external(
         if not model_path.is_file():
             st_path = external_root / f"{tag}.safetensors"
             if not st_path.is_file():
-                raise FileNotFoundError(f"cannot find '{tag}'")
+                raise FileNotFoundError(f"cannot find '{tag}' under '{external_root}'")
             torch.save(load_file(st_path), model_path)
         if convert_fn is not None:
             d = convert_fn(model_path, m)
