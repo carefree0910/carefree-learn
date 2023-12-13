@@ -1332,8 +1332,9 @@ class DiffusionAPI(IAPI):
     def setup_hooks(
         self,
         *,
+        tome_info: Optional[Dict[str, Any]] = None,
         style_reference_image: Optional[Union[str, Image.Image]] = None,
-        **hooks_kwargs: Any,
+        style_reference_states: Optional[Dict[str, Any]] = None,
     ) -> None:
         def mutate_states(hooks: SpatialTransformerHooks) -> None:
             if style_reference_image is None:
@@ -1350,7 +1351,10 @@ class DiffusionAPI(IAPI):
             hooks.style_reference_states.get_ref_net = get_ref_net
 
         unet = self.m.unet
-        unet.setup_hooks(**hooks_kwargs)
+        unet.setup_hooks(
+            tome_info=tome_info,
+            style_reference_states=style_reference_states,
+        )
         walk_spatial_transformer_hooks(unet, lambda hooks, _: mutate_states(hooks))
 
     # constructors
