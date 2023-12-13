@@ -263,7 +263,6 @@ class CLIPTextConditionModel(Module):
                 device=get_device(self.m),
             )
             inp = to_torch([local_ids], torch.int64)
-            weights_tensor = to_torch(local_weights, torch.float32).view(1, -1, 1)
             with inject_embeddings(self):
                 z = self.m.encode_text(
                     inp,
@@ -273,7 +272,7 @@ class CLIPTextConditionModel(Module):
                 )
             # weighting
             original_mean = z.mean()
-            z = z * weights_tensor
+            z = z * to_torch(local_weights, z.dtype).view(1, -1, 1)
             new_mean = z.mean()
             z = z * (original_mean / new_mean)
             zs.append(z)
