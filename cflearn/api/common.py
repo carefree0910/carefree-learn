@@ -9,7 +9,7 @@ from torch.cuda.amp.autocast_mode import autocast
 
 from ..schema import device_type
 from ..toolkit import is_cpu
-from ..toolkit import freeze
+from ..toolkit import to_eval
 from ..toolkit import empty_cuda_cache
 from ..toolkit import get_torch_device
 
@@ -28,7 +28,7 @@ class IAPI:
         use_amp: bool = False,
         use_half: bool = False,
     ):
-        self.m = freeze(m)
+        self.m = to_eval(m)
         self.to(device, use_amp=use_amp, use_half=use_half)
 
     @property

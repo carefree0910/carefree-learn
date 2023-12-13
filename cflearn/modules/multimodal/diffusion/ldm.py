@@ -27,7 +27,7 @@ from ...core import LoRAManager
 from ...cv.ae.vq import VQCodebookOut
 from ...cv.ae.kl import GaussianDistribution
 from ....schema import d_inp_type
-from ....toolkit import freeze
+from ....toolkit import to_eval
 from ....toolkit import get_tensors
 from ....toolkit import download_json
 from ....zoo.common import load_module
@@ -156,7 +156,7 @@ class LDM(DDPM):
         first_stage_config = first_stage_config or {}
         first_stage_config["prefix_module"] = generators
         m: IFirstStage = load_module(first_stage, **first_stage_config)
-        self.first_stage = freeze(m)
+        self.first_stage = to_eval(m)
         self.scale_factor = first_stage_scale_factor
         # condition
         if use_first_stage_as_condition:

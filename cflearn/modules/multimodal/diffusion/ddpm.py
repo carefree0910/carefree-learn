@@ -41,7 +41,7 @@ from ...cv import IGenerator
 from ...cv import DecoderInputs
 from ...common import EMA
 from ....schema import device_type
-from ....toolkit import freeze
+from ....toolkit import to_eval
 from ....toolkit import get_dtype
 from ....toolkit import get_device
 from ....constants import PREDICTIONS_KEY
@@ -596,7 +596,7 @@ class DDPM(IGenerator):
             )
         self.condition_model = make_condition_model(condition_model, m)
         if not condition_learnable:
-            freeze(self.condition_model)
+            to_eval(self.condition_model)
 
     def _register_noise_schedule(
         self,

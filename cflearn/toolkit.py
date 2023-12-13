@@ -718,10 +718,8 @@ def set_requires_grad(module: nn.Module, requires_grad: bool = False) -> None:
         param.requires_grad = requires_grad
 
 
-def freeze(module: GenericM) -> GenericM:
+def to_eval(module: GenericM) -> GenericM:
     module.eval()
-    # make sure that the module will never go back to `train` mode
-    module.train = lambda mode=True: module  # type: ignore
     set_requires_grad(module, False)
     return module
 

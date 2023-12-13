@@ -64,7 +64,7 @@ from ...modules import DPMSolver
 from ...modules import IKSampler
 from ...toolkit import _get_file_size
 from ...toolkit import slerp
-from ...toolkit import freeze
+from ...toolkit import to_eval
 from ...toolkit import new_seed
 from ...toolkit import load_file
 from ...toolkit import seed_everything
@@ -434,7 +434,7 @@ class DiffusionAPI(IAPI):
         # extracted the condition model so we can pre-calculate the conditions
         self.cond_model = m.condition_model
         if self.cond_model is not None:
-            freeze(self.cond_model)
+            to_eval(self.cond_model)
         m.condition_model = nn.Identity()
         # inference mode flag, should be switched to `False` when `compile`d
         self._use_inference_mode = True
@@ -1653,7 +1653,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         m.make_control_net({default_cnet: hint_channels}, lazy)
         assert isinstance(m.control_model, nn.ModuleDict)
         self.control_model = m.control_model
-        freeze(m.control_model)
+        to_eval(m.control_model)
         self.loaded = {}
         self.annotators = {}
         self.control_model = m.control_model
@@ -1725,7 +1725,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             elif hint not in self.loaded:
                 self.loaded[hint] = False
         if any_new:
-            freeze(self.m.control_model)
+            to_eval(self.m.control_model)
 
     def remove_control(self, hints: List[ControlNetHints]) -> None:
         for hint in hints:
