@@ -630,16 +630,16 @@ class GetRefNet(Protocol):
 
 @dataclass
 class StyleReferenceStates:
-    mode: ReferenceMode = ReferenceMode.READ
-    bank: List[Tensor] = field(default_factory=lambda: [])
     style_fidelity: float = 0.5
     reference_weight: float = 1.0
-    uncond_indices: Optional[List[int]] = None
     get_ref_net: Optional[GetRefNet] = None
     # runtime states
+    mode: ReferenceMode = ReferenceMode.READ
+    bank: List[Tensor] = field(default_factory=lambda: [])
     in_write: bool = False
     is_written: bool = False
     enable_write: bool = False
+    uncond_indices: Optional[List[int]] = None
 
 
 class SpatialTransformerHooks:
