@@ -5,7 +5,6 @@
   "module_name": "sd",
   "module_config": {
     "context_dim": 768,
-    "attn_split_chunk": 4,
     "first_stage_config": {
       "img_size": 512
     },

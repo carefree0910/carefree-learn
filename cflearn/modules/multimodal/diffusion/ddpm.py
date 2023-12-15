@@ -142,7 +142,6 @@ class DDPM(IGenerator):
         num_classes: Optional[int] = None,
         use_linear_in_transformer: bool = False,
         use_checkpoint: bool = False,
-        attn_split_chunk: Optional[int] = None,
         hooks_kwargs: Optional[Dict[str, Any]] = None,
         # ControlNet
         only_mid_control: bool = False,
@@ -194,7 +193,6 @@ class DDPM(IGenerator):
             num_classes=num_classes,
             use_linear_in_transformer=use_linear_in_transformer,
             use_checkpoint=use_checkpoint,
-            attn_split_chunk=attn_split_chunk,
             hooks_kwargs=hooks_kwargs,
         )
         self.unet = UNetDiffuser(out_channels=out_channels, **self.unet_kw)  # type: ignore

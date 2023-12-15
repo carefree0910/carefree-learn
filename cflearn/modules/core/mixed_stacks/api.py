@@ -775,7 +775,6 @@ class SpatialTransformerBlock(Module):
         feedforward_multiplier: float = 4.0,
         feedforward_activation: str = "geglu",
         use_checkpoint: bool = False,
-        attn_split_chunk: Optional[int] = None,
         hooks_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
@@ -784,7 +783,6 @@ class SpatialTransformerBlock(Module):
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=dropout,
-            attn_split_chunk=attn_split_chunk,
         )
         latent_dim = round(query_dim * feedforward_multiplier)
         self.ff = FeedForward(
@@ -800,7 +798,6 @@ class SpatialTransformerBlock(Module):
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=dropout,
-            attn_split_chunk=attn_split_chunk,
         )
         self.norm1 = nn.LayerNorm(query_dim)
         self.norm2 = nn.LayerNorm(query_dim)
@@ -842,7 +839,6 @@ class SpatialTransformer(Module):
         context_dim: Optional[int] = None,
         use_linear: bool = False,
         use_checkpoint: bool = False,
-        attn_split_chunk: Optional[int] = None,
         hooks_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
@@ -862,7 +858,6 @@ class SpatialTransformer(Module):
                     dropout=dropout,
                     context_dim=context_dim,
                     use_checkpoint=use_checkpoint,
-                    attn_split_chunk=attn_split_chunk,
                     hooks_kwargs=hooks_kwargs,
                 )
                 for _ in range(num_layers)

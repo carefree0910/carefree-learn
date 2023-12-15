@@ -457,7 +457,7 @@ def try_run_xformers_sdp_attn(
         return None
 
 
-def _sdp_attn(
+def sdp_attn(
     q: Tensor,
     k: Tensor,
     v: Tensor,
@@ -468,6 +468,14 @@ def _sdp_attn(
     q = q.contiguous()
     k = k.contiguous()
     v = v.contiguous()
+    try_xformers = try_run_xformers_sdp_attn(q, k, v, training, mask, dropout)
+    if try_xformers is not None:
+        return try_xformers
+    size = q.shape[0]
+    if mask is not None and len(mask.shape) == 3:
+        b = mask.shape[0]
+        mask = mask.view(b, -1)
+        mask = mask[:, None, :].repeat(size // b, 1, 1)
     if pt2_sdp_attn is not None:
         dropout = dropout if training else None
         dropout = 0.0 if dropout is None else dropout
@@ -483,39 +491,6 @@ def _sdp_attn(
     if training and dropout is not None and 0.0 < dropout < 1.0:
         weights = F.dropout(weights, dropout)
     return weights @ v
-
-
-def sdp_attn(
-    q: Tensor,
-    k: Tensor,
-    v: Tensor,
-    training: bool,
-    mask: Optional[Tensor] = None,
-    dropout: Optional[float] = None,
-    split_chunk: Optional[int] = None,
-) -> Tensor:
-    q = q.contiguous()
-    k = k.contiguous()
-    v = v.contiguous()
-    try_xformers = try_run_xformers_sdp_attn(q, k, v, training, mask, dropout)
-    if try_xformers is not None:
-        return try_xformers
-    size = q.shape[0]
-    if split_chunk is None:
-        if mask is not None and len(mask.shape) == 3:
-            b = mask.shape[0]
-            mask = mask.view(b, -1)
-            mask = mask[:, None, :].repeat(size // b, 1, 1)
-        return _sdp_attn(q, k, v, training, mask)
-    if mask is not None:
-        msg = "`mask` is not supported yet when `attn_split_chunk` is enabled"
-        raise ValueError(msg)
-    tq = q.shape[1]
-    net = torch.zeros(size, tq, v.shape[2], dtype=q.dtype, device=q.device)
-    for i in range(0, size, split_chunk):
-        end = i + split_chunk
-        net[i:end] = _sdp_attn(q[i:end], k[i:end], v[i:end], training, dropout=dropout)
-    return net
 
 
 def get_tensors(inp: d_inp_type) -> tensor_dict_type:

@@ -118,7 +118,6 @@ class UNetDiffuser(nn.Module):
         use_linear_in_transformer: bool = False,
         # misc
         use_checkpoint: bool = False,
-        attn_split_chunk: Optional[int] = None,
         hooks_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
@@ -138,7 +137,6 @@ class UNetDiffuser(nn.Module):
         self.num_classes = num_classes
         self.use_linear_in_transformer = use_linear_in_transformer
         self.use_checkpoint = use_checkpoint
-        self.attn_split_chunk = attn_split_chunk
 
         time_embedding_dim = start_channels * 4
         self.time_embedding = nn.Sequential(
@@ -174,7 +172,6 @@ class UNetDiffuser(nn.Module):
                 n_heads = num_heads
             head_c = in_c // n_heads if num_head_channels is None else num_head_channels
             if not use_spatial_transformer:
-                # TODO: support attn_split_chunk
                 return MultiHeadSpatialAttention(
                     in_c,
                     num_heads=n_heads,
@@ -189,7 +186,6 @@ class UNetDiffuser(nn.Module):
                 context_dim=context_dim,
                 use_linear=use_linear_in_transformer,
                 use_checkpoint=use_checkpoint,
-                attn_split_chunk=attn_split_chunk,
                 hooks_kwargs=hooks_kwargs,
             )
 
@@ -350,7 +346,6 @@ class ControlNet(nn.Module):
         use_linear_in_transformer: bool = False,
         # misc
         use_checkpoint: bool = False,
-        attn_split_chunk: Optional[int] = None,
         hooks_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
@@ -370,7 +365,6 @@ class ControlNet(nn.Module):
         self.num_classes = num_classes
         self.use_linear_in_transformer = use_linear_in_transformer
         self.use_checkpoint = use_checkpoint
-        self.attn_split_chunk = attn_split_chunk
 
         time_embedding_dim = start_channels * 4
         self.time_embed = nn.Sequential(
@@ -406,7 +400,6 @@ class ControlNet(nn.Module):
                 n_heads = num_heads
             head_c = in_c // n_heads if num_head_channels is None else num_head_channels
             if not use_spatial_transformer:
-                # TODO: support attn_split_chunk
                 return MultiHeadSpatialAttention(
                     in_c,
                     num_heads=n_heads,
@@ -421,7 +414,6 @@ class ControlNet(nn.Module):
                 context_dim=context_dim,
                 use_linear=use_linear_in_transformer,
                 use_checkpoint=use_checkpoint,
-                attn_split_chunk=attn_split_chunk,
                 hooks_kwargs=hooks_kwargs,
             )
 

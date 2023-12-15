@@ -508,7 +508,6 @@ class CrossAttention(Module):
         num_heads: int = 8,
         head_dim: int = 64,
         dropout: float = 0.0,
-        attn_split_chunk: Optional[int] = None,
     ):
         super().__init__()
         self.has_context = context_dim is not None
@@ -516,8 +515,6 @@ class CrossAttention(Module):
         context_dim = context_dim or query_dim
 
         self.num_heads = num_heads
-        self.attn_split_chunk = attn_split_chunk
-
         self.to_q = HijackLinear(query_dim, latent_dim, bias=False)
         self.to_k = HijackLinear(context_dim, latent_dim, bias=False)
         self.to_v = HijackLinear(context_dim, latent_dim, bias=False)
@@ -564,7 +561,7 @@ class CrossAttention(Module):
 
         if mask is not None:
             mask = ~mask
-        net = sdp_attn(q, k, v, self.training, mask, split_chunk=self.attn_split_chunk)
+        net = sdp_attn(q, k, v, self.training, mask)
         # (B, head, Tq, dim)
         net = net.reshape(b, self.num_heads, tq, dq // self.num_heads)
         # (B, Tq, head, dim)
