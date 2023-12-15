@@ -121,7 +121,7 @@ class FileInfo(NamedTuple):
 
 
 def check_available(dtype: str, tag: str) -> Optional[FileInfo]:
-    available_path = Path(__file__).parent / "misc" / "available.json"
+    available_path = Path(__file__).parent / "zoo" / "available.json"
     with available_path.open("r") as f:
         available = json.load(f)
     info = available[dtype].get(tag)
