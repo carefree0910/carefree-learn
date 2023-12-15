@@ -2651,6 +2651,36 @@ class GradientCheckpointFunction(torch.autograd.Function):
 
 
 def to_2d(arr: data_type) -> data_type:
+    """
+    Convert an array-like object to a 2D array.
+
+    If `arr` is already a 2D array or a list of lists, it is returned as is.
+    If `arr` is a 1D array or list, it is reshaped to a 2D array with one column.
+    If `arr` is None or a string, None is returned.
+
+    Parameters
+    ----------
+    arr : data_type
+        The array-like object to convert.
+
+    Returns
+    -------
+    data_type
+        The 2D array.
+
+    Examples
+    --------
+    >>> to_2d(np.array([1, 2, 3]))
+    array([[1],
+           [2],
+           [3]])
+    >>> to_2d([[1, 2], [3, 4]])
+    [[1, 2], [3, 4]]
+    >>> to_2d(None)
+    >>> to_2d("string")
+
+    """
+
     if arr is None or isinstance(arr, str):
         return None
     if isinstance(arr, np.ndarray):
@@ -2670,6 +2700,33 @@ def auto_num_layers(
     *,
     use_stride: bool = False,
 ) -> int:
+    """
+    Automatically determine the number of layers for a model based on the image size.
+
+    Parameters
+    ----------
+    img_size : int
+        The size of the input images.
+    min_size : int, optional
+        The minimum size of the feature maps in the model. Default is 4.
+    target_layers : Optional[int], optional
+        The target number of layers. If None, the maximum number of layers is used. Default is 4.
+    use_stride : bool, optional
+        Whether to use stride to reduce the size of the feature maps.
+        If True, the number of layers is rounded up; otherwise, it is rounded down. Default is False.
+
+    Returns
+    -------
+    int
+        The number of layers.
+
+    Examples
+    --------
+    >>> auto_num_layers(64, min_size=4, target_layers=4, use_stride=False)
+    4
+
+    """
+
     fn = math.ceil if use_stride else math.floor
     max_layers = fn(math.log2(img_size / min_size))
     if target_layers is None:
@@ -2685,6 +2742,36 @@ def slerp(
     *,
     dot_threshold: float = 0.9995,
 ) -> torch.Tensor:
+    """
+    Perform spherical linear interpolation (slerp) between two tensors.
+
+    Parameters
+    ----------
+    x1 : torch.Tensor
+        The first tensor, it should be at least 2D.
+    x2 : torch.Tensor
+        The second tensor, it should be at least 2D.
+    r1 : Union[float, torch.Tensor]
+        The interpolation factor for the first tensor.
+    r2 : Optional[Union[float, torch.Tensor]], optional
+        The interpolation factor for the second tensor. If None, it is set to `1.0 - r1`. Default is None.
+    dot_threshold : float, optional
+        The dot product threshold for the overflow condition. Default is 0.9995.
+
+    Returns
+    -------
+    torch.Tensor
+        The interpolated tensor.
+
+    Examples
+    --------
+    >>> x1 = torch.tensor([[1.0, 0.0]])
+    >>> x2 = torch.tensor([[0.0, 1.0]])
+    >>> slerp(x1, x2, 0.5)
+    tensor([[0.7071, 0.7071]])
+
+    """
+
     if r2 is None:
         r2 = 1.0 - r1
     b, *shape = x1.shape
@@ -2715,6 +2802,41 @@ def interpolate(
     deterministic: bool = False,
     **kwargs: Any,
 ) -> Tensor:
+    """
+    Interpolate a tensor to a specified size or by a specified factor.
+
+    Parameters
+    ----------
+    src : Tensor
+        The source tensor.
+    mode : str, optional
+        The interpolation mode. Default is "nearest".
+    factor : Optional[Union[float, Tuple[float, float]]], optional
+        The scale factor for the interpolation.
+        If provided, `size` and `anchor` will be ignored. Default is None.
+    size : Optional[Union[int, Tuple[int, int]]], optional
+        The target size for the interpolation.
+        If `factor` is not provided, either `size` or `anchor` must be provided. Default is None.
+    anchor : Optional[Tensor], optional
+        A tensor whose size will be used as the target size for the interpolation.
+        If `factor` is not provided, either `size` or `anchor` must be provided. Default is None.
+    deterministic : bool, optional
+        Whether to use deterministic computation. Default is False.
+    **kwargs : Any
+        Additional keyword arguments to pass to the interpolation function.
+
+    Returns
+    -------
+    Tensor
+        The interpolated tensor.
+
+    Examples
+    --------
+    >>> src = torch.rand(1, 3, 4, 4)
+    >>> interpolate(src, mode="bilinear", size=(8, 8))
+
+    """
+
     if "linear" in mode or mode == "bicubic":
         kwargs.setdefault("align_corners", False)
     c, h, w = src.shape[1:]
@@ -2761,6 +2883,30 @@ def mean_std(
     *,
     deterministic: bool = False,
 ) -> Tuple[Tensor, Tensor]:
+    """
+    Compute the mean and standard deviation of a latent map.
+
+    Parameters
+    ----------
+    latent_map : Tensor
+        The latent map.
+    eps : float, optional
+        A small constant for numerical stability. Default is 1.0e-5.
+    deterministic : bool, optional
+        Whether to use deterministic computation. Default is False.
+
+    Returns
+    -------
+    Tuple[Tensor, Tensor]
+        The mean and standard deviation of the latent map.
+
+    Examples
+    --------
+    >>> latent_map = torch.rand(1, 3, 4, 4)
+    >>> mean_std(latent_map)
+
+    """
+
     c, h, w = latent_map.shape[1:]
     if deterministic:
         c, h, w = map(int, [c, h, w])
@@ -2778,6 +2924,35 @@ def adain_with_params(
     *,
     deterministic: bool = False,
 ) -> Tensor:
+    """
+    Apply Adaptive Instance Normalization (AdaIN) to a source tensor
+    using provided mean and standard deviation.
+
+    Parameters
+    ----------
+    src : Tensor
+        The source tensor.
+    mean : Tensor
+        The mean for AdaIN.
+    std : Tensor
+        The standard deviation for AdaIN.
+    deterministic : bool, optional
+        Whether to use deterministic computation. Default is False.
+
+    Returns
+    -------
+    Tensor
+        The tensor after AdaIN.
+
+    Examples
+    --------
+    >>> src = torch.rand(1, 3, 4, 4)
+    >>> mean = torch.rand(1, 3, 1, 1)
+    >>> std = torch.rand(1, 3, 1, 1)
+    >>> adain_with_params(src, mean, std)
+
+    """
+
     src_mean, src_std = mean_std(src, deterministic=deterministic)
     src_normalized = (src - src_mean) / src_std
     return src_normalized * std + mean
@@ -2789,11 +2964,59 @@ def adain_with_tensor(
     *,
     deterministic: bool = False,
 ) -> Tensor:
+    """
+    Apply Adaptive Instance Normalization (AdaIN) to a source tensor
+    using the mean and standard deviation of a target tensor.
+
+    Parameters
+    ----------
+    src : Tensor
+        The source tensor.
+    tgt : Tensor
+        The target tensor.
+    deterministic : bool, optional
+        Whether to use deterministic computation. Default is False.
+
+    Returns
+    -------
+    Tensor
+        The tensor after AdaIN.
+
+    Examples
+    --------
+    >>> src = torch.rand(1, 3, 4, 4)
+    >>> tgt = torch.rand(1, 3, 4, 4)
+    >>> adain_with_tensor(src, tgt)
+
+    """
+
     tgt_mean, tgt_std = mean_std(tgt, deterministic=deterministic)
     return adain_with_params(src, tgt_mean, tgt_std, deterministic=deterministic)
 
 
 def make_indices_visualization_map(indices: Tensor) -> Tensor:
+    """
+    Create a visualization map for a tensor of indices.
+
+    Each index is visualized as a white 28x28 image with the index number drawn in the center.
+
+    Parameters
+    ----------
+    indices : Tensor
+        The tensor of indices.
+
+    Returns
+    -------
+    Tensor
+        The visualization map.
+
+    Examples
+    --------
+    >>> indices = torch.tensor([1, 2, 3])
+    >>> make_indices_visualization_map(indices)
+
+    """
+
     images = []
     for idx in indices.view(-1).tolist():
         img = Image.new("RGB", (28, 28), (250, 250, 250))
