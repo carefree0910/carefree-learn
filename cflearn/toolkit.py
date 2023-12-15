@@ -1294,8 +1294,6 @@ class ONNX:
         self.output_names = [node.name for node in self.ort_session.get_outputs()]
 
     def predict(self, new_inputs: np_dict_type) -> np_dict_type:
-        if self.ort_session is None:
-            raise ValueError("`onnx_path` is not provided")
         ort_inputs = {
             node.name: to_standard(new_inputs[node.name])
             for node in self.ort_session.get_inputs()
