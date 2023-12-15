@@ -726,7 +726,7 @@ class WeightsStrategy:
     def __init__(self, strategy: Optional[str]):
         self.strategy = strategy
 
-    def __call__(self, num: int) -> np.ndarray:
+    def __call__(self, num: int) -> Optional[np.ndarray]:
         """
         Generate sample weights.
 
@@ -745,7 +745,7 @@ class WeightsStrategy:
             return None
         return getattr(self, self.strategy)(num)
 
-    def linear_decay(self, num) -> np.ndarray:
+    def linear_decay(self, num: int) -> np.ndarray:
         """
         Generate sample weights using a linear decay strategy.
 
@@ -762,7 +762,7 @@ class WeightsStrategy:
 
         return np.linspace(0, 1, num + 1)[1:]
 
-    def radius_decay(self, num) -> np.ndarray:
+    def radius_decay(self, num: int) -> np.ndarray:
         """
         Generate sample weights using a radius decay strategy.
 
@@ -779,7 +779,7 @@ class WeightsStrategy:
 
         return np.sin(np.arccos(1.0 - np.linspace(0, 1, num + 1)[1:]))
 
-    def log_decay(self, num) -> np.ndarray:
+    def log_decay(self, num: int) -> np.ndarray:
         """
         Generate sample weights using a log decay strategy.
 
@@ -796,7 +796,7 @@ class WeightsStrategy:
 
         return np.log(np.arange(num) + np.e)
 
-    def sigmoid_decay(self, num) -> np.ndarray:
+    def sigmoid_decay(self, num: int) -> np.ndarray:
         """
         Generate sample weights using a sigmoid decay strategy.
 
@@ -836,7 +836,7 @@ class WeightsStrategy:
             raise ValueError("`carefree-ml` is needed for `visualize`")
         n = 1000
         x = np.linspace(0, 1, n)
-        y = self(n, 0)
+        y = self(n)
         if isinstance(y, tuple):
             y = y[0]
         plt.figure()
@@ -2328,8 +2328,7 @@ class Initializer:
 
         def _register(f: Callable) -> Callable:
             if name in cls.defined_initialization:
-                print_warning(f"'{name}' initializer is already defined")
-                return
+                raise ValueError(f"'{name}' initializer is already defined")
             cls.defined_initialization.add(name)
             cls.custom_initializer[name] = f
             return f
@@ -2575,7 +2574,8 @@ def gradient_checkpoint(
 
     if not enabled:
         return func(*inputs)
-    args = tuple(inputs) + tuple(params)
+    inputs = tuple(inputs)
+    args = inputs + tuple(params)
     return GradientCheckpointFunction.apply(func, len(inputs), *args)
 
 
