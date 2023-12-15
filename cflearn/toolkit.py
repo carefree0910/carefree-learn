@@ -1228,18 +1228,14 @@ class Initializer:
     @classmethod
     def register(cls, name: str) -> Callable[[Callable], Callable]:
         def _register(f: Callable) -> Callable:
-            cls.add_initializer(f, name)
+            if name in cls.defined_initialization:
+                print_warning(f"'{name}' initializer is already defined")
+                return
+            cls.defined_initialization.add(name)
+            cls.custom_initializer[name] = f
             return f
 
         return _register
-
-    @classmethod
-    def add_initializer(cls, f: Callable, name: str) -> None:
-        if name in cls.defined_initialization:
-            print_warning(f"'{name}' initializer is already defined")
-            return
-        cls.defined_initialization.add(name)
-        cls.custom_initializer[name] = f
 
     def xavier_uniform(self, param: param_type) -> None:
         gain = self.config.setdefault("gain", 1.0)
