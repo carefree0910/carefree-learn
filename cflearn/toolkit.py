@@ -54,7 +54,6 @@ from .schema import data_type
 from .schema import d_inp_type
 from .schema import param_type
 from .schema import device_type
-from .schema import sample_weights_type
 from .constants import INPUT_KEY
 from .constants import WORKSPACE_ENVIRON_KEY
 from .parameters import OPT
@@ -471,22 +470,22 @@ class WeightsStrategy:
     def __init__(self, strategy: Optional[str]):
         self.strategy = strategy
 
-    def __call__(self, num_train: int, num_valid: int) -> sample_weights_type:
+    def __call__(self, num: int) -> np.ndarray:
         if self.strategy is None:
             return None
-        return getattr(self, self.strategy)(num_train, num_valid)
+        return getattr(self, self.strategy)(num)
 
-    def linear_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
-        return np.linspace(0, 1, num_train + 1)[1:]
+    def linear_decay(self, num) -> np.ndarray:
+        return np.linspace(0, 1, num + 1)[1:]
 
-    def radius_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
-        return np.sin(np.arccos(1.0 - np.linspace(0, 1, num_train + 1)[1:]))
+    def radius_decay(self, num) -> np.ndarray:
+        return np.sin(np.arccos(1.0 - np.linspace(0, 1, num + 1)[1:]))
 
-    def log_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
-        return np.log(np.arange(num_train) + np.e)
+    def log_decay(self, num) -> np.ndarray:
+        return np.log(np.arange(num) + np.e)
 
-    def sigmoid_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
-        x = np.linspace(-5.0, 5.0, num_train)
+    def sigmoid_decay(self, num) -> np.ndarray:
+        x = np.linspace(-5.0, 5.0, num)
         return 1.0 / (1.0 + np.exp(-x))
 
     def visualize(self, export_path: str = "weights_strategy.png") -> None:
