@@ -781,9 +781,7 @@ def get_gradient(
     create_graph: bool = False,
 ) -> Union[Tensor, Tuple[Tensor, ...]]:
     grads = torch.autograd.grad(y, x, torch.ones_like(y), retain_graph, create_graph)
-    if len(grads) == 1:
-        return grads[0]
-    return grads
+    return grads[0] if len(grads) == 1 else grads
 
 
 def set_requires_grad(module: nn.Module, requires_grad: bool = False) -> None:
