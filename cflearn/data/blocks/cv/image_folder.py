@@ -181,9 +181,10 @@ class ResizedPreparation(DefaultPreparation):
     def copy(self, src_path: str, tgt_path: str) -> None:
         if self.img_size <= 0:
             raise ValueError("`img_size` should be positive")
+        LANCZOS = Image.Resampling.LANCZOS
         img = to_rgb(Image.open(src_path))
         if not self.keep_aspect_ratio:
-            img.resize((self.img_size, self.img_size), Image.LANCZOS).save(tgt_path)
+            img.resize((self.img_size, self.img_size), LANCZOS).save(tgt_path)
             return None
         w, h = img.size
         wh_ratio = w / h
@@ -193,7 +194,7 @@ class ResizedPreparation(DefaultPreparation):
         else:
             new_w = round(self.img_size * wh_ratio)
             new_h = self.img_size
-        img.resize((new_w, new_h), Image.LANCZOS).save(tgt_path)
+        img.resize((new_w, new_h), LANCZOS).save(tgt_path)
 
     def to_info(self) -> Dict[str, Any]:
         return dict(img_size=self.img_size, keep_aspect_ratio=self.keep_aspect_ratio)
