@@ -145,8 +145,8 @@ class VanillaEncoder1D(IEncoder):
         elif pool == "fc":
             if img_size is None:
                 raise ValueError("`img_size` should be provided if `pool`=fc")
-            res = get_latent_resolution(self, img_size)
-            flattened_dim = latent_dim * res**2
+            latent_resolution = get_latent_resolution(self.encoder, img_size)
+            flattened_dim = latent_dim * latent_resolution**2
             self.pool = nn.Sequential(nn.Flatten(1), Linear(flattened_dim, latent_dim))
         else:
             raise ValueError(f"unrecognized `pool` value : '{pool}'")
