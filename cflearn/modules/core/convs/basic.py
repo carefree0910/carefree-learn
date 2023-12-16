@@ -9,7 +9,6 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
-from typing import Tuple
 from typing import Union
 from typing import Optional
 from torch.nn import Module
@@ -200,21 +199,6 @@ class DepthWiseConv2d(Module):
 
     def forward(self, net: Tensor) -> Tensor:
         return self.net(net)
-
-
-class AdaptiveAvgPool2d(Module):
-    def __init__(self, output_size: Union[int, Tuple[int, int]]):
-        super().__init__()
-        if isinstance(output_size, int):
-            output_size = output_size, output_size
-        self.h, self.w = output_size
-
-    def forward(self, net: Tensor) -> Tensor:
-        h, w = map(int, net.shape[2:])
-        sh, sw = map(math.floor, [h / self.h, w / self.w])  # type: ignore
-        kh = h - (self.h - 1) * sh  # type: ignore
-        kw = w - (self.w - 1) * sw  # type: ignore
-        return F.avg_pool2d(net, kernel_size=(kh, kw), stride=(sh, sw))
 
 
 class MaxUnpool2d_op(Function):
@@ -486,7 +470,7 @@ class SEBlock(Module):
         self.in_channels = in_channels
         if block_impl == "cflearn":
             conv_base = Conv2d
-            self.avg_pool = AdaptiveAvgPool2d(1)
+            self.avg_pool = nn.AdaptiveAvgPool2d(1)
         elif block_impl == "torch":
             conv_base = nn.Conv2d
             self.avg_pool = nn.AdaptiveAvgPool2d(1)
@@ -591,7 +575,6 @@ __all__ = [
     "GaussianBlur3",
     "Conv2d",
     "DepthWiseConv2d",
-    "AdaptiveAvgPool2d",
     "MaxUnpool2d",
     "Interpolate",
     "UpsampleConv2d",
