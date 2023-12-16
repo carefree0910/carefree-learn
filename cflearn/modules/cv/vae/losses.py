@@ -71,7 +71,10 @@ class VAELoss(ILoss):
         if self.training:
             kld_loss = self.kld_w * kld_loss
         loss = mse + kld_loss
-        return {"mse": mse, "kld": kld_loss, "kld_w": self.kld_w, LOSS_KEY: loss}
+        losses = {"mse": mse, "kld": kld_loss, LOSS_KEY: loss}
+        if self.training:
+            losses["kld_w"] = self.kld_w
+        return losses
 
 
 @register_loss("vq_vae")
