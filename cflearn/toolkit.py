@@ -796,8 +796,6 @@ class WeightsStrategy:
 
         if plt is None:
             raise ValueError("`matplotlib` is needed for `visualize`")
-        if show_or_save is None:
-            raise ValueError("`carefree-ml` is needed for `visualize`")
         n = 1000
         x = np.linspace(0, 1, n)
         y = self(n)
