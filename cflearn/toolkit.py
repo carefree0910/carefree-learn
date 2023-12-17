@@ -254,7 +254,7 @@ def check_available(dtype: str, tag: str) -> Optional[FileInfo]:
     return None if info is None else FileInfo(**info)
 
 
-def _get_file_size(path: Path) -> int:
+def get_file_size(path: Path) -> int:
     """
     Get the size of a file.
 
@@ -267,12 +267,17 @@ def _get_file_size(path: Path) -> int:
     -------
     int
         The size of the file in bytes.
+
+    Examples
+    --------
+    >>> get_file_size(Path("..."))
+
     """
 
     return path.stat().st_size
 
 
-def _get_file_info(path: Path) -> FileInfo:
+def get_file_info(path: Path) -> FileInfo:
     """
     Get the information of a file.
 
@@ -288,16 +293,16 @@ def _get_file_info(path: Path) -> FileInfo:
 
     Examples
     --------
-    >>> _get_file_info(Path("..."))
+    >>> get_file_info(Path("..."))
 
     """
 
     with path.open("rb") as f:
         sha = hashlib.sha256(f.read()).hexdigest()
-    return FileInfo(sha, _get_file_size(path))
+    return FileInfo(sha, get_file_size(path))
 
 
-def _check_sha(path: Path, tgt_sha: str) -> bool:
+def check_sha_with(path: Path, tgt_sha: str) -> bool:
     """
     Check if the SHA256 hash of a file matches a target hash.
 
@@ -315,11 +320,11 @@ def _check_sha(path: Path, tgt_sha: str) -> bool:
 
     Examples
     --------
-    >>> _check_sha(Path("..."), "...")
+    >>> check_sha_with(Path("..."), "...")
 
     """
 
-    return _get_file_info(path).sha == tgt_sha
+    return get_file_info(path).sha == tgt_sha
 
 
 class DownloadDtype(str, Enum):
@@ -493,10 +498,10 @@ def download(
         return zip_download_folder
     fmt = "cache file is detected but {}, it will be re-downloaded"
     if not is_zip and download_path.is_file():
-        if _get_file_size(download_path) != info.st_size:
+        if get_file_size(download_path) != info.st_size:
             print_warning(fmt.format("st_size is not correct"))
         else:
-            if not check_sha or _check_sha(download_path, info.sha):
+            if not check_sha or check_sha_with(download_path, info.sha):
                 return download_path
             print_warning(fmt.format("sha is not correct"))
     with DownloadProgressBar(unit="B", unit_scale=True, miniters=1, desc=tag) as t:

@@ -62,11 +62,11 @@ from ...modules import StableDiffusion
 from ...modules import DDIMMixin
 from ...modules import DPMSolver
 from ...modules import IKSampler
-from ...toolkit import _get_file_size
 from ...toolkit import slerp
 from ...toolkit import to_eval
 from ...toolkit import new_seed
 from ...toolkit import load_file
+from ...toolkit import get_file_size
 from ...toolkit import seed_everything
 from ...toolkit import download_checkpoint
 from ...toolkit import eval_context
@@ -120,7 +120,7 @@ def convert_external(
     if not converted_path.is_file():
         f_size = None
     else:
-        f_size = _get_file_size(converted_path)
+        f_size = get_file_size(converted_path)
     v_size = sizes.get(tag)
     if f_size is None or v_size != f_size:
         if f_size is not None:
@@ -141,7 +141,7 @@ def convert_external(
 
             d = cflearn.scripts.sd.convert(model_path, m, load=False)
         torch.save(d, converted_path)
-        sizes[tag] = _get_file_size(converted_path)
+        sizes[tag] = get_file_size(converted_path)
         with lock:
             with converted_sizes_path.open("w") as f:
                 json.dump(sizes, f)
