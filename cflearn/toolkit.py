@@ -775,8 +775,7 @@ class WeightsStrategy:
             The generated sample weights.
         """
 
-        x = np.linspace(-5.0, 5.0, num)
-        return 1.0 / (1.0 + np.exp(-x))
+        return 1.0 / (1.0 + np.exp(-np.linspace(-5.0, 5.0, num)))
 
     def visualize(self, export_path: str = "weights_strategy.png") -> None:
         """
