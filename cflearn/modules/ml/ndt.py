@@ -47,7 +47,7 @@ class NDT(nn.Module):
         dt: DecisionTreeClassifier,
     ):
         if DecisionTreeClassifier is None:
-            raise ValueError("`scikit-learn` is needed for `NDT`")
+            raise RuntimeError("`scikit-learn` is needed for `NDT`")
         super().__init__()
         tree_structure = export_structure(dt)
         # dt statistics

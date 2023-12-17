@@ -279,7 +279,7 @@ def klms_coef(order: int, t: np.ndarray, i: int, j: int) -> float:
         return prod
 
     if integrate is None:
-        raise ValueError("`scipy` is needed for `KLMSSampler`")
+        raise RuntimeError("`scipy` is needed for `KLMSSampler`")
     return integrate.quad(fn, t[i], t[i + 1], epsrel=1.0e-4)[0]
 
 

@@ -1114,13 +1114,13 @@ class DiffusionAPI(IAPI):
     ) -> Tensor:
         err_fmt = "`{}` is needed for `semantic2img`"
         if self.cond_model is None:
-            raise ValueError(err_fmt.format("cond_model"))
+            raise RuntimeError(err_fmt.format("cond_model"))
         in_channels = getattr(self.cond_model, "in_channels", None)
         if in_channels is None:
-            raise ValueError(err_fmt.format("cond_model.in_channels"))
+            raise RuntimeError(err_fmt.format("cond_model.in_channels"))
         factor = getattr(self.cond_model, "factor", None)
         if factor is None:
-            raise ValueError(err_fmt.format("cond_model.factor"))
+            raise RuntimeError(err_fmt.format("cond_model.factor"))
         res = read_image(
             semantic,
             max_wh,

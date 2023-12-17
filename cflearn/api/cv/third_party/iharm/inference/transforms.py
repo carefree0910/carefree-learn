@@ -52,7 +52,7 @@ class PadToDivisor(EvalTransform):
 
     def transform(self, image: ndarray, mask: ndarray) -> APack:
         if cv2 is None:
-            raise ValueError("`cv2` is needed for `PadToDivisor`")
+            raise RuntimeError("`cv2` is needed for `PadToDivisor`")
 
         self._pads = PadToDivisor.PadParams(
             *self._get_dim_padding(image.shape[0]),

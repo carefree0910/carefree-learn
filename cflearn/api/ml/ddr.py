@@ -61,7 +61,7 @@ class DDRVisualizer:
         figsize: Tuple[int, int] = (8, 6),
     ):
         if plt is None:
-            raise ValueError("`carefree-ml` is needed for `DDRVisualizer`")
+            raise RuntimeError("`carefree-ml` is needed for `DDRVisualizer`")
         self.m = ddr
         self.dpi = dpi
         self.figsize = figsize

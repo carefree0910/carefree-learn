@@ -22,11 +22,11 @@ except:
 class Body:
     def __init__(self, model_path, device="cpu"):
         if cv2 is None:
-            raise ValueError("`cv2` is needed for `Body`")
+            raise RuntimeError("`cv2` is needed for `Body`")
         if gaussian_filter is None:
-            raise ValueError("`scipy` is needed for `Body`")
+            raise RuntimeError("`scipy` is needed for `Body`")
         if plt is None:
-            raise ValueError("`matplotlib` is needed for `Body`")
+            raise RuntimeError("`matplotlib` is needed for `Body`")
         self.model = bodypose_model()
         model_dict = util.transfer(self.model, torch.load(model_path))
         self.model.load_state_dict(model_dict)

@@ -91,9 +91,9 @@ class ControlNetHED_Apache2(nn.Module):
 class HedAPI:
     def __init__(self, device: torch.device):
         if cv2 is None:
-            raise ValueError("`cv2` is needed for `HedAPI`")
+            raise RuntimeError("`cv2` is needed for `HedAPI`")
         if rearrange is None:
-            raise ValueError("`einops` is needed for `HedAPI`")
+            raise RuntimeError("`einops` is needed for `HedAPI`")
         self.model = ControlNetHED_Apache2()
         model_path = download_checkpoint("ControlNetHED")
         self.model.load_state_dict(torch.load(model_path, map_location="cpu"))

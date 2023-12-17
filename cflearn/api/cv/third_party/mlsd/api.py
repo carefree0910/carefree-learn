@@ -15,7 +15,7 @@ except:
 class MLSDDetector:
     def __init__(self, device: torch.device):
         if cv2 is None:
-            raise ValueError("`cv2` is needed for `MLSDdetector`")
+            raise RuntimeError("`cv2` is needed for `MLSDdetector`")
         model_path = download_checkpoint("mlsd_large_512_fp32")
         model = MobileV2_MLSD_Large()
         model.load_state_dict(torch.load(model_path), strict=True)

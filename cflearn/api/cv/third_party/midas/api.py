@@ -185,9 +185,9 @@ class MiDaSInference(nn.Module):
 class MiDaSAPI:
     def __init__(self, device: torch.device):
         if cv2 is None:
-            raise ValueError("`cv2` is needed for `MiDaSAPI`")
+            raise RuntimeError("`cv2` is needed for `MiDaSAPI`")
         if timm is None:
-            raise ValueError("`timm` is needed for `MiDaSAPI`")
+            raise RuntimeError("`timm` is needed for `MiDaSAPI`")
         self.model = MiDaSInference(model_type="dpt_hybrid").to(device)
         self.device = device
 

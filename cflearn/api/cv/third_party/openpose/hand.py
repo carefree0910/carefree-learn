@@ -21,11 +21,11 @@ except:
 class Hand(object):
     def __init__(self, model_path, device="cpu"):
         if cv2 is None:
-            raise ValueError("`cv2` is needed for `Body`")
+            raise RuntimeError("`cv2` is needed for `Body`")
         if gaussian_filter is None:
-            raise ValueError("`scipy` is needed for `Body`")
+            raise RuntimeError("`scipy` is needed for `Body`")
         if label is None:
-            raise ValueError("`scikit-image` is needed for `Hand`")
+            raise RuntimeError("`scikit-image` is needed for `Hand`")
         self.model = handpose_model()
         model_dict = util.transfer(self.model, torch.load(model_path))
         self.model.load_state_dict(model_dict)

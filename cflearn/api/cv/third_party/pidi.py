@@ -509,7 +509,7 @@ def pidinet():
 class PiDiAPI:
     def __init__(self, device: torch.device):
         if cv2 is None:
-            raise ValueError("`cv2` is needed for `PiDiAPI`")
+            raise RuntimeError("`cv2` is needed for `PiDiAPI`")
         model_path = os.path.join(OPT.external_dir, "annotators", "table5_pidinet.pth")
         if not os.path.isfile(model_path):
             raise ValueError(f"cannot find `table5_pidinet.pth` at {model_path}")

@@ -59,7 +59,7 @@ class DepthAnnotator(Annotator):
 class CannyAnnotator(Annotator):
     def __init__(self, device: torch.device) -> None:
         if cv2 is None:
-            raise ValueError("`cv2` is needed for `CannyAnnotator`")
+            raise RuntimeError("`cv2` is needed for `CannyAnnotator`")
 
     def to(self, device: torch.device, *, use_half: bool) -> "CannyAnnotator":
         return self

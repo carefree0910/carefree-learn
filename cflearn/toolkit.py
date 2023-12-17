@@ -631,7 +631,7 @@ def show_or_save(
     """
 
     if plt is None:
-        raise ValueError("`matplotlib` is needed for `show_or_save`")
+        raise RuntimeError("`matplotlib` is needed for `show_or_save`")
     if export_path is None:
         fig.show(**kwargs) if fig is not None else plt.show(**kwargs)
     else:
@@ -653,7 +653,7 @@ def show_or_return(return_canvas: bool) -> Union[None, np.ndarray]:
     """
 
     if plt is None:
-        raise ValueError("`matplotlib` is needed for `show_or_return`")
+        raise RuntimeError("`matplotlib` is needed for `show_or_return`")
     if not return_canvas:
         plt.show()
         return None
@@ -795,7 +795,7 @@ class WeightsStrategy:
         """
 
         if plt is None:
-            raise ValueError("`matplotlib` is needed for `visualize`")
+            raise RuntimeError("`matplotlib` is needed for `visualize`")
         n = 1000
         x = np.linspace(0, 1, n)
         y = self(n)

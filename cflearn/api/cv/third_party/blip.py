@@ -12,7 +12,7 @@ except:
 class BLIPAPI:
     def __init__(self, device: str = "cpu", *, use_half: bool = False) -> None:
         if load_model_and_preprocess is None:
-            raise ValueError("`salesforce-lavis` is needed for `BLIPAPI`")
+            raise RuntimeError("`salesforce-lavis` is needed for `BLIPAPI`")
         kw = dict(
             name="blip_caption",
             model_type="base_coco",

@@ -259,7 +259,7 @@ class LaMa(InpaintModel):
 
     def init_model(self, device: str, *, use_half: bool = False) -> None:
         if cv2 is None:
-            raise ValueError("`cv2` is needed for `LaMa`")
+            raise RuntimeError("`cv2` is needed for `LaMa`")
         model_path = download_checkpoint("lama")
         model = torch.jit.load(model_path, map_location="cpu")
         model = model.to(device)
