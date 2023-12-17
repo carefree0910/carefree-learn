@@ -1,6 +1,5 @@
 import io
 import os
-import sys
 import copy
 import json
 import math
@@ -328,7 +327,6 @@ def check_sha_with(path: Path, tgt_sha: str) -> bool:
 
 
 class DownloadDtype(str, Enum):
-    TOKENIZERS = "tokenizers"
     CHECKPOINTS = "checkpoints"
     REFERENCES = "references"
     DATASETS = "datasets"
@@ -336,7 +334,6 @@ class DownloadDtype(str, Enum):
 
 
 download_extensions = {
-    DownloadDtype.TOKENIZERS: ".pkl",
     DownloadDtype.CHECKPOINTS: ".pt",
     DownloadDtype.REFERENCES: ".pt",
     DownloadDtype.DATASETS: ".zip",
@@ -360,7 +357,7 @@ def get_download_root(dtype: DownloadDtype) -> Path:
 
     Examples
     --------
-    >>> get_download_root(DownloadDtype.TOKENIZERS)
+    >>> get_download_root(DownloadDtype.CHECKPOINTS)
 
     """
 
@@ -524,51 +521,6 @@ def download(
     return zip_download_folder
 
 
-def download_tokenizer(
-    tag: str,
-    download_root: Optional[TPath] = None,
-    *,
-    extension: Optional[str] = None,
-    check_sha: bool = False,
-    remove_zip: bool = True,
-) -> Path:
-    """
-    Download a tokenizer.
-
-    Parameters
-    ----------
-    tag : str
-        The tag of the tokenizer to download.
-    download_root : Optional[TPath]
-        The root directory for downloads. If None, the default root directory for tokenizers is used.
-    extension : Optional[str]
-        The extension of the tokenizer to download. If None, the default extension for tokenizers is used.
-    check_sha : bool
-        Whether to check the SHA256 hash of the downloaded tokenizer.
-    remove_zip : bool
-        Whether to remove the downloaded zip file after extraction.
-
-    Returns
-    -------
-    Path
-        The path of the downloaded tokenizer.
-
-    Examples
-    --------
-    >>> download_tokenizer("...")
-
-    """
-
-    return download(
-        DownloadDtype.TOKENIZERS,
-        tag,
-        download_root,
-        extension=extension,
-        check_sha=check_sha,
-        remove_zip=remove_zip,
-    )
-
-
 def download_checkpoint(
     tag: str,
     download_root: Optional[TPath] = None,
@@ -657,71 +609,6 @@ def download_json(
         check_sha=check_sha,
         remove_zip=remove_zip,
     )
-
-
-def get_compatible_name(
-    dtype: DownloadDtype,
-    name: str,
-    versions: List[Tuple[int, int]],
-    *,
-    bc: bool = False,
-) -> str:
-    """
-    Get a compatible name for a download.
-
-    Parameters
-    ----------
-    dtype : DownloadDtype
-        The type of download.
-    name : str
-        The original name of the download.
-    versions : List[Tuple[int, int]]
-        A list of compatible versions.
-    bc : bool
-        Whether to ensure backward compatibility.
-
-    Returns
-    -------
-    str
-        The compatible name for the download.
-
-    Examples
-    --------
-    >>> get_compatible_name(DownloadDtype.TOKENIZERS, "clip", [(3, 8), (3, 9)])
-    'clip_3.9'
-
-    """
-
-    version_info = sys.version_info
-    version = None
-    if bc:
-        tgt_versions = list(
-            filter(
-                lambda ver: version_info.major < ver[0] or version_info.minor < ver[1],
-                versions,
-            )
-        )
-        if tgt_versions is not None:
-            version = max(tgt_versions)
-    if not bc:
-        tgt_versions = list(
-            filter(
-                lambda ver: version_info.major > ver[0] or version_info.minor >= ver[1],
-                versions,
-            )
-        )
-        if tgt_versions is not None:
-            version = max(tgt_versions)
-    if version is not None:
-        compatible_name = f"{name}_{version[0]}.{version[1]}"
-        if check_available(dtype, compatible_name):
-            name = compatible_name
-        else:
-            print_warning(
-                f"compatible name '{compatible_name}' is not available "
-                f"on the server, will use the original name ({name}) instead"
-            )
-    return name
 
 
 def show_or_save(

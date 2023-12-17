@@ -1,30 +1,4 @@
 {
-  "tokenizers": {
-    "clip": {
-      "sha": "3acf502b90b408d17079d8e0be7c56d52eb93ae9d20308af10cb8388594b97dd'",
-      "st_size": 2097773
-    },
-    "clip_3.8": {
-      "sha": "3acf502b90b408d17079d8e0be7c56d52eb93ae9d20308af10cb8388594b97dd'",
-      "st_size": 2097773
-    },
-    "clip_3.9": {
-      "sha": "cb80050e795c3092bd6766478fc16511ec553ac08a01bf748f69d2d298292fec",
-      "st_size": 2097753
-    },
-    "clip.chinese": {
-      "sha": "4a5dc5e0123ed9c616f2ddb1592cb534ca462afe826de04bf4f7b258f8970187'",
-      "st_size": 385752
-    },
-    "clip.chinese_3.8": {
-      "sha": "4a5dc5e0123ed9c616f2ddb1592cb534ca462afe826de04bf4f7b258f8970187'",
-      "st_size": 385752
-    },
-    "clip.chinese_3.9": {
-      "sha": "cfdd767536eff6f151886e9d61e5ecf8f36c87089420f179f914848fc2fd9abb",
-      "st_size": 385751
-    }
-  },
   "checkpoints": {
     "lpips": {
       "sha": "af871281bc45f42cab4acb576b9ad407133f5432fd58bdf2c92fac230ae90f3c",
