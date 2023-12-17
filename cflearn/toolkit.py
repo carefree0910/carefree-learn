@@ -808,7 +808,6 @@ class WeightsStrategy:
 # dl
 
 
-pt2_sdp_attn = getattr(F, "scaled_dot_product_attention", None)
 warnings = set()
 xformers_failed = set()
 GenericM = TypeVar("GenericM", bound=nn.Module)
@@ -957,11 +956,7 @@ def sdp_attn(
     try_xformers = try_run_xformers_sdp_attn(q, k, v, training, mask, dropout)
     if try_xformers is not None:
         return try_xformers
-    size = q.shape[0]
-    if mask is not None and len(mask.shape) == 3:
-        b = mask.shape[0]
-        mask = mask.view(b, -1)
-        mask = mask[:, None, :].repeat(size // b, 1, 1)
+    pt2_sdp_attn = getattr(F, "scaled_dot_product_attention", None)
     if pt2_sdp_attn is not None:
         dropout = dropout if training else None
         dropout = 0.0 if dropout is None else dropout
