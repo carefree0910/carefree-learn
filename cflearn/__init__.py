@@ -24,7 +24,6 @@ from .api import multimodal
 
 from . import scripts
 
-from pkg_resources import get_distribution
+from importlib.metadata import version
 
-pkg = get_distribution("carefree-learn")
-__version__ = pkg.version
+__version__ = version("carefree-learn")

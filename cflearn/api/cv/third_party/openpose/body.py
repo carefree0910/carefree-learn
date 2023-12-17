@@ -10,7 +10,7 @@ try:
 except:
     cv2 = None
 try:
-    from scipy.ndimage.filters import gaussian_filter
+    from scipy.ndimage import gaussian_filter
 except:
     gaussian_filter = None
 try:
