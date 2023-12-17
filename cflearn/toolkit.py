@@ -362,6 +362,89 @@ def get_download_root(dtype: DownloadDtype) -> Path:
     return OPT.cache_dir / dtype.value
 
 
+class DownloadPathInfo(NamedTuple):
+    """
+    Represents the information of a download path.
+
+    Attributes
+    ----------
+    info : FileInfo
+        The FileInfo object containing information about the file.
+    download_root : Path
+        The root directory for downloads.
+    download_path : Path
+        The path of the download.
+
+    """
+
+    info: FileInfo
+    download_root: Path
+    download_path: Path
+
+
+def get_download_path_info(
+    dtype: DownloadDtype,
+    tag: str,
+    download_root: Optional[TPath] = None,
+    *,
+    extension: Optional[str] = None,
+) -> DownloadPathInfo:
+    """
+    Get the download path information for a specific download.
+
+    Parameters
+    ----------
+    dtype : DownloadDtype
+        The type of download.
+    tag : str
+        The tag of the download.
+    download_root : Optional[TPath], optional
+        The root directory for downloads (default is None).
+    extension : Optional[str], optional
+        The file extension for the download (default is None).
+
+    Returns
+    -------
+    DownloadPathInfo
+        The download path information.
+
+    Raises
+    ------
+    ValueError
+        If the download is not available or if the extension is not defined.
+
+    Examples
+    --------
+    >>> get_download_path_info(DownloadDtype.CHECKPOINTS, "ldm.sd")
+    DownloadPathInfo(
+        info=FileInfo(
+            sha="dbb178bf92a5e57be6d82b2627189790577f4b85675e93281828d9fc35a263a2",
+            st_size=2134032457,
+            download_url="https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd.pt",
+        ),
+        download_root=Path("~/.cache/carefree-learn/checkpoints"),
+        download_path=Path("~/.cache/carefree-learn/checkpoints/ldm.sd.pt"),
+    )
+
+    """
+
+    info = check_available(dtype, tag)
+    if info is None:
+        raise ValueError(f"'{tag}' is currently not available at '{dtype}'")
+    if download_root is None:
+        download_root = get_download_root(dtype)
+    if isinstance(download_root, str):
+        download_root = Path(download_root)
+    download_root.mkdir(exist_ok=True, parents=True)
+    if extension is None:
+        extension = download_extensions.get(dtype)
+    if extension is None:
+        raise ValueError(f"extension is not defined for '{dtype}'")
+    file = f"{tag}{extension}"
+    download_path = download_root / file
+    return DownloadPathInfo(info, download_root, download_path)
+
+
 def download(
     dtype: DownloadDtype,
     tag: str,
@@ -401,20 +484,9 @@ def download(
 
     """
 
-    info = check_available(dtype, tag)
-    if info is None:
-        raise ValueError(f"'{tag}' is currently not available at '{dtype}'")
-    if download_root is None:
-        download_root = get_download_root(dtype)
-    if isinstance(download_root, str):
-        download_root = Path(download_root)
-    download_root.mkdir(exist_ok=True, parents=True)
-    if extension is None:
-        extension = download_extensions.get(dtype)
-    if extension is None:
-        raise ValueError(f"extension is not defined for '{dtype}'")
-    file = f"{tag}{extension}"
-    download_path = download_root / file
+    info, download_root, download_path = get_download_path_info(
+        dtype, tag, download_root, extension=extension
+    )
     is_zip = extension == ".zip"
     zip_download_folder = download_root / tag
     if is_zip and zip_download_folder.is_dir():
@@ -432,7 +504,7 @@ def download(
             url = info.download_url
         else:
             prefix = f"https://github.com/carefree0910/carefeee-learn-assets/releases/download/{dtype}/"
-            url = f"{prefix}{file}"
+            url = f"{prefix}{download_path.name}"
         urllib.request.urlretrieve(
             url,
             filename=download_path,
