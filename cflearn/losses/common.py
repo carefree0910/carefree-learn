@@ -5,6 +5,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
+from typing import Union
 from typing import TypeVar
 from typing import Callable
 from typing import Optional
@@ -35,7 +36,7 @@ def register_loss(name: str, **kwargs: Any) -> Callable[[TLoss], TLoss]:
 def build_loss(
     name: str,
     *,
-    config: Any = None,
+    config: Optional[Union[str, Dict[str, Any]]] = None,
     **kwargs: Any,
 ) -> ILoss:
     return losses.build(name, config=config, **kwargs)
