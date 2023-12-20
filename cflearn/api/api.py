@@ -319,8 +319,6 @@ def run_multiple(
             return True
         return False
 
-    if num_jobs <= 1:
-        raise ValueError("`num_jobs` should greater than 1")
     # remove workspace if exists
     if os.path.isdir(workspace) and not is_fix:
         print_warning(f"'{workspace}' already exists, it will be erased")
