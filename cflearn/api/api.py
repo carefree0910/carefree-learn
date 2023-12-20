@@ -296,10 +296,9 @@ _set_environ_workspace("{workspace}")
 
 def run_multiple(
     path: str,
-    module_name: str,
-    cuda_list: Optional[List[Union[int, str]]],
     *,
-    model: str = "common",
+    tag: str,
+    cuda_list: Optional[List[Union[int, str]]],
     num_jobs: int = 2,
     num_multiple: int = 5,
     workplace: str = "_multiple",
@@ -309,7 +308,7 @@ def run_multiple(
     temp_folder: Optional[str] = None,
 ) -> None:
     def is_buggy(i_: int) -> bool:
-        i_workplace = os.path.join(workplace, m_tag, str(i_))
+        i_workplace = os.path.join(workplace, tag, str(i_))
         i_latest_workplace = get_latest_workspace(i_workplace)
         if i_latest_workplace is None:
             return True
@@ -320,7 +319,6 @@ def run_multiple(
             return True
         return False
 
-    m_tag = f"{module_name}_{model}"
     if num_jobs <= 1:
         raise ValueError("`num_jobs` should greater than 1")
     # remove workplace if exists
@@ -359,9 +357,9 @@ OPT.meta_settings = info.meta
         if not is_fix:
             workplace_key = None
         else:
-            workplace_key = module_name, str(i)
+            workplace_key = tag, str(i)
         experiment.add_task(
-            module=module_name,
+            module=tag,
             root_workspace=workplace,
             workspace_key=workplace_key,
             run_command=f"{sys.executable} {tmp_path}",

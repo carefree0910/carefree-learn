@@ -6,7 +6,6 @@ import torch.nn.functional as F
 
 from torch import Tensor
 from typing import Any
-from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
@@ -18,14 +17,10 @@ from .fcnn import FCNN
 from ..common import register_module
 from ...schema import losses_type
 from ...schema import ILoss
-from ...schema import ITrainer
 from ...schema import TrainerState
-from ...schema import MLEncoderSettings
-from ...schema import MLGlobalEncoderSettings
 from ...losses import register_loss
 from ...toolkit import get_gradient
 from ...constants import LOSS_KEY
-from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ..implicit.siren import make_grid

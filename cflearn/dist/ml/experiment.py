@@ -164,7 +164,6 @@ class Experiment(PureFromInfoMixin, ISerializable):
         new_task = Task.init(
             config,
             run_command,
-            model=module,
             workspace=workspace,
             data_folder=None if data_folder is None else os.path.abspath(data_folder),
             **shallow_copy_dict(task_meta_kwargs or {}),
