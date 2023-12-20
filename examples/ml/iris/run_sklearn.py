@@ -32,5 +32,5 @@ if __name__ == "__main__":
     sk_model = base()
     # train & save
     sk_model.fit(x, y.ravel())
-    with open(os.path.join(info.workplace, "sk_model.pkl"), "wb") as f:
+    with open(os.path.join(info.workspace, "sk_model.pkl"), "wb") as f:
         pickle.dump(sk_model, f)

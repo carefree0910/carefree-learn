@@ -301,18 +301,18 @@ def run_multiple(
     cuda_list: Optional[List[Union[int, str]]],
     num_jobs: int = 2,
     num_multiple: int = 5,
-    workplace: str = "_multiple",
+    workspace: str = "_multiple",
     resource_config: Optional[Dict[str, Any]] = None,
     is_fix: bool = False,
     task_meta_fn: Optional[Callable[[int], Any]] = None,
     temp_folder: Optional[str] = None,
 ) -> None:
     def is_buggy(i_: int) -> bool:
-        i_workplace = os.path.join(workplace, tag, str(i_))
-        i_latest_workplace = get_latest_workspace(i_workplace)
-        if i_latest_workplace is None:
+        i_workspace = os.path.join(workspace, tag, str(i_))
+        i_latest_workspace = get_latest_workspace(i_workspace)
+        if i_latest_workspace is None:
             return True
-        checkpoint_folder = os.path.join(i_latest_workplace, CHECKPOINTS_FOLDER)
+        checkpoint_folder = os.path.join(i_latest_workspace, CHECKPOINTS_FOLDER)
         if not os.path.isfile(os.path.join(checkpoint_folder, SCORES_FILE)):
             return True
         if not get_sorted_checkpoints(checkpoint_folder):
@@ -321,10 +321,10 @@ def run_multiple(
 
     if num_jobs <= 1:
         raise ValueError("`num_jobs` should greater than 1")
-    # remove workplace if exists
-    if os.path.isdir(workplace) and not is_fix:
-        print_warning(f"'{workplace}' already exists, it will be erased")
-        shutil.rmtree(workplace)
+    # remove workspace if exists
+    if os.path.isdir(workspace) and not is_fix:
+        print_warning(f"'{workspace}' already exists, it will be erased")
+        shutil.rmtree(workspace)
     tmp_path = _rewrite(
         path,
         """
@@ -335,7 +335,7 @@ from cflearn.dist.ml.runs._utils import get_info
 
 info = get_info(requires_data=False)
 os.environ["CUDA_VISIBLE_DEVICES"] = str(info.meta["cuda"])
-_set_environ_workspace(info.meta["workplace"])
+_set_environ_workspace(info.meta["workspace"])
 OPT.meta_settings = info.meta
 """,
         temp_folder,
@@ -355,13 +355,13 @@ OPT.meta_settings = info.meta
         else:
             i_meta_kw = task_meta_fn(i)
         if not is_fix:
-            workplace_key = None
+            workspace_key = None
         else:
-            workplace_key = tag, str(i)
+            workspace_key = tag, str(i)
         experiment.add_task(
             module=tag,
-            root_workspace=workplace,
-            workspace_key=workplace_key,
+            root_workspace=workspace,
+            workspace_key=workspace_key,
             run_command=f"{sys.executable} {tmp_path}",
             task_meta_kwargs=i_meta_kw,
         )
@@ -389,7 +389,7 @@ def pack(
 
 
 def pack_onnx(
-    workplace: str,
+    workspace: str,
     export_file: str = "model.onnx",
     dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
     *,
@@ -402,7 +402,7 @@ def pack_onnx(
     **kwargs: Any,
 ) -> DLInferencePipeline:
     return DLPipelineSerializer.pack_onnx(
-        workplace,
+        workspace,
         export_file,
         dynamic_axes,
         input_sample=input_sample,
@@ -415,8 +415,8 @@ def pack_onnx(
     )
 
 
-def pack_scripted(workplace: str, export_file: str = "model.pt") -> DLInferencePipeline:
-    return DLPipelineSerializer.pack_scripted(workplace, export_file)
+def pack_scripted(workspace: str, export_file: str = "model.pt") -> DLInferencePipeline:
+    return DLPipelineSerializer.pack_scripted(workspace, export_file)
 
 
 def fuse_inference(

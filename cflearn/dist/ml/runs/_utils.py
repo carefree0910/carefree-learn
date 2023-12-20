@@ -12,7 +12,7 @@ from cflearn.dist.ml.task import Task
 
 
 class Info(NamedTuple):
-    workplace: str
+    workspace: str
     meta: Dict[str, Any]
     config: Optional[DLConfig]
     data: Optional[MLData]

@@ -19,8 +19,8 @@ processor_config.set_blocks(
 )
 images = cflearn.mnist_data(data_config, processor_config)
 
-workplace = "_logs"
-vqvae_log_folder = get_latest_workspace(workplace)
+workspace = "_logs"
+vqvae_log_folder = get_latest_workspace(workspace)
 config = cflearn.DLConfig(
     model="ar",
     module_name="pixel_cnn",
@@ -34,7 +34,7 @@ if is_ci:
     config.callback_names = []
 inference = cflearn.cv.VQVAEInference(
     config,
-    workspace=workplace,
+    workspace=workspace,
     vqvae_log_folder=vqvae_log_folder,
     num_classes=10,
     device=None if is_ci else 0,

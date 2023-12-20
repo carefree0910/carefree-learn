@@ -428,10 +428,10 @@ class DLPipelineSerializer:
         cls.save(pipeline, export_folder, compress=compress)
 
     @classmethod
-    def pack_and_load_inference(cls, workplace: str) -> DLInferencePipeline:
+    def pack_and_load_inference(cls, workspace: str) -> DLInferencePipeline:
         with TemporaryDirectory() as tmp_folder:
             cls.pack(
-                workplace,
+                workspace,
                 export_folder=tmp_folder,
                 pack_type=PackType.INFERENCE,
                 compress=False,
@@ -441,7 +441,7 @@ class DLPipelineSerializer:
     @classmethod
     def pack_onnx(
         cls,
-        workplace: str,
+        workspace: str,
         export_file: str = "model.onnx",
         dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
@@ -456,7 +456,7 @@ class DLPipelineSerializer:
         if input_sample is None and loader_sample is None:
             msg = "either `input_sample` or `loader_sample` should be provided"
             raise ValueError(msg)
-        m = cls.pack_and_load_inference(workplace)
+        m = cls.pack_and_load_inference(workspace)
         model = m.build_model.model
         if input_sample is None:
             input_sample = get_input_sample(loader_sample, get_device(model))  # type: ignore
@@ -475,10 +475,10 @@ class DLPipelineSerializer:
     @classmethod
     def pack_scripted(
         cls,
-        workplace: str,
+        workspace: str,
         export_file: str = "model.pt",
     ) -> DLInferencePipeline:
-        m = cls.pack_and_load_inference(workplace)
+        m = cls.pack_and_load_inference(workspace)
         model = torch.jit.script(m.build_model.model)
         torch.jit.save(model, export_file)
         return m
