@@ -22,7 +22,7 @@ if __name__ == "__main__":
     assert isinstance(x, np.ndarray)
     assert isinstance(y, np.ndarray)
     # model
-    model = meta["model"]
+    model = meta["module"]
     if model == "decision_tree":
         base = DecisionTreeClassifier
     elif model == "random_forest":
