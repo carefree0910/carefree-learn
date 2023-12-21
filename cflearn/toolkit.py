@@ -2013,6 +2013,50 @@ class toggle_optimizer:
                 p.requires_grad = requires_grad
 
 
+class toggle_module:
+    """
+    A context manager for temporarily enabling or disabling the gradients of a module.
+
+    Parameters
+    ----------
+    m : nn.Module
+        The module to toggle the gradients of.
+    requires_grad : bool
+        Whether to enable gradient computation.
+    enabled : bool, optional
+        Whether to enable this context manager. Default is True.
+
+    Examples
+    --------
+    >>> m = nn.Linear(10, 2)
+    >>> with toggle_module(m, requires_grad=False):
+    ...     print(m.weight.requires_grad)  # False
+    >>> print(m.weight.requires_grad)  # True
+
+    """
+
+    def __init__(self, m: nn.Module, *, requires_grad: bool, enabled: bool = True):
+        self.m = m
+        self.enabled = enabled
+        self.requires_grad = requires_grad
+        self.backup: Dict[str, bool] = {}
+
+    def __enter__(self) -> None:
+        if not self.enabled:
+            return
+        self.backup = {k: p.requires_grad for k, p in self.m.named_parameters()}
+        for p in self.m.parameters():
+            p.requires_grad = self.requires_grad
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if not self.enabled:
+            return
+        for k, p in self.m.named_parameters():
+            requires_grad = self.backup.get(k)
+            if requires_grad is not None:
+                p.requires_grad = requires_grad
+
+
 class mode_context:
     """
     A context manager for temporarily setting the mode of a module and
