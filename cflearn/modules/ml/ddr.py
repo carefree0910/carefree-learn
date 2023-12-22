@@ -61,8 +61,8 @@ def _make_ddr_grid(num_samples: int, device: torch.device) -> Tensor:
     return make_grid(num_samples, 1, device)
 
 
-def _check_dual(state: TrainerState, training: bool, period: Optional[int]) -> bool:
-    return state is None or not training or period is None or state.step % period == 0
+def _check_dual(s: Optional[TrainerState], t: bool, period: Optional[int]) -> bool:
+    return s is None or not t or period is None or s.step % period == 0
 
 
 @register_module("ddr")
