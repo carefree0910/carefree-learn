@@ -385,10 +385,15 @@ class DDRLoss(ILoss):
         # cdf
         if all_exists(cdf, pdf, logit, y_anchor):
             indicative = (labels <= y_anchor).to(torch.float32)
-            cdf_loss = -indicative * logit + F.softplus(logit)
-            cdf_loss = cdf_loss.mean((1, 2), keepdim=True)
+            cdf_mle = -indicative * logit + F.softplus(logit)
+            cdf_mle = cdf_mle.mean((1, 2), keepdim=True)
+            cdf_crps = (cdf - indicative) ** 2 * (labels - y_anchor).abs()
+            cdf_crps = cdf_crps.mean((1, 2), keepdim=True)
+            cdf_loss = cdf_mle + cdf_crps
             pdf_loss = F.relu(-pdf, inplace=True).mean((1, 2), keepdim=True)  # type: ignore
             losses["cdf"] = cdf_loss
+            losses["cdf_mle"] = cdf_mle
+            losses["cdf_crps"] = cdf_crps
             losses["pdf"] = pdf_loss
             weighted_losses.append(self.lb_ddr * cdf_loss)
             weighted_losses.append(self.lb_monotonous * pdf_loss)
