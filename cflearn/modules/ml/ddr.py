@@ -20,6 +20,7 @@ from ...schema import ILoss
 from ...schema import TrainerState
 from ...losses import register_loss
 from ...toolkit import get_gradient
+from ...toolkit import toggle_module
 from ...constants import LOSS_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
@@ -81,6 +82,7 @@ class DDR(nn.Module):
         predict_cdf: bool = True,
         dual_period: Optional[int] = 2,
         use_dual_quantiles: bool = False,
+        use_detached_dual_quantiles: bool = True,
         correction_period: Optional[int] = 2,
         use_mean_correction: bool = False,
         num_mean_samples: int = 64,
@@ -125,6 +127,7 @@ class DDR(nn.Module):
 
         self.dual_period = dual_period
         self.use_dual_quantiles = use_dual_quantiles
+        self.use_detached_dual_quantiles = use_detached_dual_quantiles
 
         if use_mean_correction and not predict_quantiles:
             print_warning(
@@ -275,9 +278,16 @@ class DDR(nn.Module):
             dual_y = results["quantiles"].detach()
             results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, cdf_mods)[-1]
             if self.use_dual_quantiles:
+                detach = self.use_detached_dual_quantiles
                 dual_tau = results["cdf"] * 2.0 - 1.0
-                dual_quantiles_args = dual_tau, q_mods, median
-                _, results["dual_quantiles"] = self._get_quantiles(*dual_quantiles_args)
+                if not detach:
+                    dual_q_mods = q_mods
+                else:
+                    median = median.detach()
+                    dual_q_mods = [mod.detach() for mod in q_mods]
+                dual_q_args = dual_tau, dual_q_mods, median
+                with toggle_module(self.q_siren, requires_grad=False, enabled=detach):
+                    _, results["dual_quantiles"] = self._get_quantiles(*dual_q_args)
         return results
 
     # internal
