@@ -275,7 +275,8 @@ class DDR(nn.Module):
             dual_y = results["quantiles"].detach()
             results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, cdf_mods)[-1]
             if self.use_dual_quantiles:
-                dual_quantiles_args = results["cdf"], q_mods, median
+                dual_tau = results["cdf"] * 2.0 - 1.0
+                dual_quantiles_args = dual_tau, q_mods, median
                 _, results["dual_quantiles"] = self._get_quantiles(*dual_quantiles_args)
         return results
 
