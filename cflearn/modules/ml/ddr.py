@@ -61,6 +61,10 @@ def _make_ddr_grid(num_samples: int, device: torch.device) -> Tensor:
     return make_grid(num_samples, 1, device)
 
 
+def _check_dual(state: TrainerState, training: bool, period: Optional[int]) -> bool:
+    return state is None or not training or period is None or state.step % period == 0
+
+
 @register_module("ddr")
 class DDR(nn.Module):
     def __init__(
@@ -268,12 +272,7 @@ class DDR(nn.Module):
         if (
             get_quantiles
             and get_cdf
-            and (
-                state is None
-                or not self.training
-                or self.dual_period is None
-                or state.step % self.dual_period == 0
-            )
+            and _check_dual(state, self.training, self.dual_period)
         ):
             dual_y = results["quantiles"].detach()
             results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, cdf_mods)[-1]
