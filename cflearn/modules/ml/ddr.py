@@ -87,6 +87,7 @@ class DDR(nn.Module):
         dual_period: Optional[int] = 2,
         use_dual_quantiles: bool = False,
         use_detached_dual_quantiles: bool = True,
+        dual_quantiles_period: Optional[int] = 8,
         correction_period: Optional[int] = 2,
         use_mean_correction: bool = False,
         num_mean_samples: int = 64,
@@ -132,6 +133,7 @@ class DDR(nn.Module):
         self.dual_period = dual_period
         self.use_dual_quantiles = use_dual_quantiles
         self.use_detached_dual_quantiles = use_detached_dual_quantiles
+        self.dual_quantiles_period = dual_quantiles_period
 
         if use_mean_correction and not predict_quantiles:
             print_warning(
@@ -276,7 +278,9 @@ class DDR(nn.Module):
         ):
             dual_y = results["quantiles"].detach()
             results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, cdf_mods)[-1]
-            if self.use_dual_quantiles:
+            if self.use_dual_quantiles and _check_dual(
+                state, self.training, self.dual_quantiles_period
+            ):
                 detach = self.use_detached_dual_quantiles
                 dual_tau = results["cdf"] * 2.0 - 1.0
                 if not detach:
