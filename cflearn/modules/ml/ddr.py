@@ -260,7 +260,7 @@ class DDR(nn.Module):
                     y_raw_ratio = 0.5 * (y_raw_ratio + 1.0)
                     ya_tensor = (y_raw_ratio * y_span + y_min).repeat(num_samples, 1, 1)
             ya_tensor.requires_grad_(True)
-            _, logit, cdf = self._get_cdf(ya_tensor, median, y_span, cdf_mods)
+            logit, cdf = self._get_cdf(ya_tensor, median, y_span, cdf_mods)
             pdf = get_gradient(cdf, ya_tensor, True, True)  # type: ignore
             results.update(
                 {
@@ -310,12 +310,11 @@ class DDR(nn.Module):
         median: Tensor,
         y_span: float,
         mods: List[Tensor],
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor]:
         y_residual = y_anchor - median.detach().unsqueeze(1)
-        y_ratio = y_residual / y_span
-        logit = self.cdf_siren(mods, init=y_ratio)  # type: ignore
+        logit = self.cdf_siren(mods, init=y_residual / y_span)  # type: ignore
         cdf = torch.sigmoid(logit)
-        return y_ratio, logit, cdf
+        return logit, cdf
 
 
 @register_loss("ddr")
