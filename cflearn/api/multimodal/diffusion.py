@@ -1368,6 +1368,7 @@ class DiffusionAPI(IAPI):
         use_amp: bool = False,
         use_half: bool = False,
         clip_skip: int = 0,
+        **kwargs: Any,
     ) -> T:
         m = cls(
             ldm_sd(),
@@ -1375,6 +1376,7 @@ class DiffusionAPI(IAPI):
             use_amp=use_amp,
             use_half=use_half,
             clip_skip=clip_skip,
+            **kwargs,
         )
         if version is not None:
             m.prepare_sd([version])
@@ -1389,6 +1391,7 @@ class DiffusionAPI(IAPI):
         use_amp: bool = False,
         use_half: bool = False,
         clip_skip: int = 0,
+        **kwargs: Any,
     ) -> T:
         return cls(
             ldm_sd_inpainting(),
@@ -1396,6 +1399,7 @@ class DiffusionAPI(IAPI):
             use_amp=use_amp,
             use_half=use_half,
             clip_skip=clip_skip,
+            **kwargs,
         )
 
     # internal
