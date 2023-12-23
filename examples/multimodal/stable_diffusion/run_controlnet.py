@@ -8,6 +8,7 @@ from PIL import Image
 from cflearn.api.multimodal import ControlNetHints
 
 
+hint_type = ControlNetHints.CANNY
 file_folder = os.path.dirname(__file__)
 api = cflearn.multimodal.ControlledDiffusionAPI.from_sd(device="cuda:0", use_half=True)
 # prepare ControlNet annotators
@@ -20,9 +21,9 @@ api.txt2img("A lovely little cat.", "out.png", seed=234)
 api.enable_control()
 # switch to `canny` hint type and get canny hint
 cat_path = f"{file_folder}/assets/cat.png"
-api.switch_control(ControlNetHints.CANNY)
+api.switch_control(hint_type)
 hint = api.get_hint_of(
-    ControlNetHints.CANNY,
+    hint_type,
     np.array(Image.open(cat_path)),
     low_threshold=100,
     high_threshold=200,
@@ -36,7 +37,7 @@ hint_tensor = hint_tensor.to(api.device)
 api.txt2img(
     "A lovely little cat.",
     "controlled_txt2img.png",
-    hint=[(ControlNetHints.CANNY, hint_tensor)],
+    hint=[(hint_type, hint_tensor)],
     hint_start=[0.0],
     hint_end=[1.0],
     seed=234,
@@ -45,7 +46,7 @@ api.img2img(
     cat_path,
     "controlled_img2img.png",
     cond=["A lovely little cat."],
-    hint=[(ControlNetHints.CANNY, hint_tensor)],
+    hint=[(hint_type, hint_tensor)],
     hint_start=[0.0],
     hint_end=[1.0],
     seed=234,
