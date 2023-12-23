@@ -45,45 +45,30 @@
       "st_size": 2134079660,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_inpainting.pt"
     },
-    "ldm.sd_v1.5.control.diff.canny": {
-      "sha": "81d3d95d9f24797172e200066a7b82f73f9e8aa0449ea49ff866f6eabdef81ae",
-      "st_size": 722672083,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.diff.canny.pt"
+    "ldm.sd_v1.5.control.v11p.canny": {
+      "sha": "f642eb26c513d3a0cde4185fe86faae5bdd6560dc7f4968ff0ea92ed9167162d",
+      "st_size": 722673594,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.v11p.canny.pt"
     },
-    "ldm.sd_v1.5.control.diff.depth": {
-      "sha": "d9a431e258efb59e88cb69f1f1d1d3720955e012d9f6a6ff1d4a8ad7bce36a0b",
-      "st_size": 722672083,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.diff.depth.pt"
+    "ldm.sd_v1.5.control.v11f1p.depth": {
+      "sha": "482f05c2612b4d8400dd3860938327f4b7dc438d1ceb7d615c1870b8a971e222",
+      "st_size": 722674282,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.v11f1p.depth.pt"
     },
-    "ldm.sd_v1.5.control.diff.hed": {
-      "sha": "e911cd14ca3362fa4283d023207f7082b25f4a007a298bd1720f752a5b4d5bc4",
-      "st_size": 722671399,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.diff.hed.pt"
+    "ldm.sd_v1.5.control.v11p.mlsd": {
+      "sha": "601450f57741e0ef0403ff30231480514615324ba40051bae2c138be774e1633",
+      "st_size": 722673250,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.v11p.mlsd.pt"
     },
-    "ldm.sd_v1.5.control.diff.mlsd": {
-      "sha": "59d99afba97f1fd2586adfc46a098ec00bdcbd89750ed6483409ea765fe6cf4a",
-      "st_size": 722671741,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.diff.mlsd.pt"
+    "ldm.sd_v1.5.control.v11p.pose": {
+      "sha": "aede3f18e576a9a0e3b99965ae46ec02781494ebba3440b90c92ce16cb21b1d3",
+      "st_size": 722674626,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.v11p.pose.pt"
     },
-    "ldm.sd_v1.5.control.diff.normal": {
-      "sha": "afd0db54f7d0edbc5e58c61361e39a838502d7d70c1b882eeaa217e38ed5f6d7",
-      "st_size": 722672425,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.diff.normal.pt"
-    },
-    "ldm.sd_v1.5.control.diff.pose": {
-      "sha": "fcfc9be79b68cb67a776336e34a36ee385102d8c02880ed5dc83453f97eeeee3",
-      "st_size": 722671741,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.diff.pose.pt"
-    },
-    "ldm.sd_v1.5.control.diff.scribble": {
-      "sha": "bda6cba31b16018cfc54a891ff893231b5c5f6e7baf6228568466cb797e34649",
-      "st_size": 722673109,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.diff.scribble.pt"
-    },
-    "ldm.sd_v1.5.control.diff.seg": {
-      "sha": "5637025467f1055887b1f295477f85f3dcae44c6c3ddd699633cf1a7d840abd5",
-      "st_size": 722671399,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.diff.seg.pt"
+    "ldm.sd_v1.5.control.v11p.softedge": {
+      "sha": "7e39ec1447fa94b99efbf3faf8836915cfd2658a6dde13f98ccfb0e07ff7e35d",
+      "st_size": 722674626,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.v11p.softedge.pt"
     },
     "ldm.sd_v2": {
       "sha": "56e1e3e585094e3e41d5f21ba073cd7f947af9b1dd62e258f19f930ce267be6a",

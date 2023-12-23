@@ -1635,10 +1635,10 @@ class DiffusionAPI(IAPI):
 
 
 class ControlNetHints(str, Enum):
-    DEPTH = "depth"
     CANNY = "canny"
-    POSE = "pose"
+    DEPTH = "depth"
     MLSD = "mlsd"
+    POSE = "pose"
     SOFTEDGE = "softedge"
 
 
@@ -1649,11 +1649,18 @@ class ControlledDiffusionAPI(DiffusionAPI):
     controlnet_latest_usage: Dict[ControlNetHints, float]
 
     control_mappings = {
-        ControlNetHints.DEPTH: "ldm.sd_v1.5.control.diff.depth",
-        ControlNetHints.CANNY: "ldm.sd_v1.5.control.diff.canny",
-        ControlNetHints.POSE: "ldm.sd_v1.5.control.diff.pose",
-        ControlNetHints.MLSD: "ldm.sd_v1.5.control.diff.mlsd",
+        ControlNetHints.CANNY: "ldm.sd_v1.5.control.v11p.canny",
+        ControlNetHints.DEPTH: "ldm.sd_v1.5.control.v11f1p.depth",
+        ControlNetHints.MLSD: "ldm.sd_v1.5.control.v11p.mlsd",
+        ControlNetHints.POSE: "ldm.sd_v1.5.control.v11p.pose",
+        ControlNetHints.SOFTEDGE: "ldm.sd_v1.5.control.v11p.softedge",
     }
+    preset_control_hints: List[ControlNetHints] = [
+        ControlNetHints.CANNY,
+        ControlNetHints.DEPTH,
+        ControlNetHints.MLSD,
+        ControlNetHints.POSE,
+    ]
 
     def __init__(
         self,
@@ -1667,7 +1674,6 @@ class ControlledDiffusionAPI(DiffusionAPI):
         num_pool: Optional[Union[str, int]] = "all",
         lazy: bool = False,
     ):
-        default_cnet = sorted(self.control_mappings)[0]
         self.lazy = lazy
         if num_pool is None:
             self.num_pool = None
@@ -1676,7 +1682,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 num_pool = len(ControlNetHints)
             self.num_pool = num_pool if isinstance(num_pool, int) else None
         self.hint_channels = hint_channels
-        m.make_control_net({default_cnet: hint_channels}, lazy)
+        m.make_control_net({sorted(self.control_mappings)[0]: hint_channels}, lazy)
         assert isinstance(m.control_model, nn.ModuleDict)
         self.control_model = m.control_model
         to_eval(m.control_model)
@@ -1706,10 +1712,6 @@ class ControlledDiffusionAPI(DiffusionAPI):
         if not no_annotator and not self.lazy:
             for annotator in self.annotators.values():
                 self._annotator_to(annotator)
-
-    @property
-    def preset_control_hints(self) -> List[ControlNetHints]:
-        return list(self.control_mappings)
 
     @property
     def available_control_hints(self) -> List[ControlNetHints]:
@@ -1805,8 +1807,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         loaded_list = [self.loaded[hint] for hint in sorted_target]
         if all(loaded_list):
             return
-        iterator = zip(sorted_target, loaded_list)
-        for hint, loaded in iterator:
+        for hint, loaded in zip(sorted_target, loaded_list):
             if loaded:
                 continue
             d = self.controlnet_weights.get(hint)
