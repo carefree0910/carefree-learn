@@ -95,7 +95,7 @@ class HedAPI:
         if rearrange is None:
             raise RuntimeError("`einops` is needed for `HedAPI`")
         self.model = ControlNetHED_Apache2()
-        model_path = download_checkpoint("ControlNetHED")
+        model_path = download_checkpoint("ControlNetHED", extension=".pth")
         self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
         self.device = device
 
