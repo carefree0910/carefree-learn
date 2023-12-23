@@ -175,21 +175,14 @@ def ldm_inpainting(pretrained: bool = True) -> Module:
     return ldm_vq(
         pretrained=pretrained,
         latent_in_channels=7,
-        download_name="ldm_inpainting",
-        model_config=dict(
-            ema_decay=None,
-            start_channels=256,
-            num_heads=8,
-            num_head_channels=None,
-            resample_with_resblock=True,
-            condition_type=CONCAT_TYPE,
-            first_stage_config=dict(
-                pretrained=False,
-                model_config=dict(
-                    attention_type="none",
-                ),
-            ),
-        ),
+        tag="ldm_inpainting",
+        ema_decay=None,
+        start_channels=256,
+        num_heads=8,
+        num_head_channels=None,
+        resample_with_resblock=True,
+        condition_type=CONCAT_TYPE,
+        first_stage_config=dict(pretrained=False, attention_type="none"),
     )
 
 
@@ -198,23 +191,15 @@ def ldm_semantic(pretrained: bool = True) -> Module:
         pretrained=pretrained,
         latent_size=128,
         latent_in_channels=6,
-        download_name="ldm_semantic",
-        model_config=dict(
-            ema_decay=None,
-            start_channels=128,
-            num_heads=8,
-            num_head_channels=None,
-            attention_downsample_rates=[8, 16, 32],
-            channel_multipliers=[1, 4, 8],
-            condition_type=CONCAT_TYPE,
-            condition_model="rescaler",
-            condition_config=dict(
-                num_stages=2,
-                in_channels=182,
-                out_channels=3,
-            ),
-            first_stage_config=dict(
-                pretrained=False,
-            ),
-        ),
+        tag="ldm_semantic",
+        ema_decay=None,
+        start_channels=128,
+        num_heads=8,
+        num_head_channels=None,
+        attention_downsample_rates=[8, 16, 32],
+        channel_multipliers=[1, 4, 8],
+        condition_type=CONCAT_TYPE,
+        condition_model="rescaler",
+        condition_config=dict(num_stages=2, in_channels=182, out_channels=3),
+        first_stage_config=dict(pretrained=False),
     )

@@ -1,6 +1,8 @@
 {
-  "__bases__": ["diffusion/ldm.sd"],
-  "model_config": {
+  "__bases__": [
+    "diffusion/ldm.sd"
+  ],
+  "module_config": {
     "context_dim": 1024,
     "num_head_channels": 64,
     "use_linear_in_transformer": true,
