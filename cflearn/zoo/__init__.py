@@ -8,6 +8,7 @@ from torch.nn import Module
 from .utils import *
 from .common import *
 from ..modules import generators
+from ..modules.multimodal.diffusion.utils import CONCAT_TYPE
 
 
 # translator
@@ -152,4 +153,68 @@ def ldm_sd_inpainting(pretrained: bool = True) -> Module:
         4,
         pretrained=pretrained,
         tag="ldm.sd_inpainting",
+    )
+
+
+def ldm_vq(
+    latent_size: int = 64,
+    latent_in_channels: int = 3,
+    latent_out_channels: int = 3,
+    **kwargs: Any,
+) -> Module:
+    return _ldm(
+        "diffusion/ldm.vq",
+        latent_size,
+        latent_in_channels,
+        latent_out_channels,
+        **kwargs,
+    )
+
+
+def ldm_inpainting(pretrained: bool = True) -> Module:
+    return ldm_vq(
+        pretrained=pretrained,
+        latent_in_channels=7,
+        download_name="ldm_inpainting",
+        model_config=dict(
+            ema_decay=None,
+            start_channels=256,
+            num_heads=8,
+            num_head_channels=None,
+            resample_with_resblock=True,
+            condition_type=CONCAT_TYPE,
+            first_stage_config=dict(
+                pretrained=False,
+                model_config=dict(
+                    attention_type="none",
+                ),
+            ),
+        ),
+    )
+
+
+def ldm_semantic(pretrained: bool = True) -> Module:
+    return ldm_vq(
+        pretrained=pretrained,
+        latent_size=128,
+        latent_in_channels=6,
+        download_name="ldm_semantic",
+        model_config=dict(
+            ema_decay=None,
+            start_channels=128,
+            num_heads=8,
+            num_head_channels=None,
+            attention_downsample_rates=[8, 16, 32],
+            channel_multipliers=[1, 4, 8],
+            condition_type=CONCAT_TYPE,
+            condition_model="rescaler",
+            condition_config=dict(
+                num_stages=2,
+                in_channels=182,
+                out_channels=3,
+            ),
+            first_stage_config=dict(
+                pretrained=False,
+            ),
+        ),
     )

@@ -49,6 +49,8 @@ from ..cv.annotator import annotators
 from ..cv.annotator import Annotator
 from ...zoo import ldm_sd
 from ...zoo import get_sd_tag
+from ...zoo import ldm_semantic
+from ...zoo import ldm_inpainting
 from ...zoo import ldm_sd_inpainting
 from ...data import ArrayData
 from ...data import TensorBatcher
@@ -1401,6 +1403,26 @@ class DiffusionAPI(IAPI):
             clip_skip=clip_skip,
             **kwargs,
         )
+
+    @classmethod
+    def from_inpainting(
+        cls: Type[T],
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+    ) -> T:
+        return cls(ldm_inpainting(), device, use_amp=use_amp, use_half=use_half)
+
+    @classmethod
+    def from_semantic(
+        cls: Type[T],
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+    ) -> T:
+        return cls(ldm_semantic(), device, use_amp=use_amp, use_half=use_half)
 
     # internal
 
