@@ -53,7 +53,6 @@ setup(
             "sacremoses",
             "sentencepiece",
             "mlflow==2.6.0",
-            "pydantic<2.0.0",
             "plotly",
         ],
     },
