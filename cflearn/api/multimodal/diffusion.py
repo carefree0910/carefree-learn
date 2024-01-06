@@ -44,7 +44,7 @@ from cftool.types import arr_type
 from cftool.types import tensor_dict_type
 
 from ..common import IAPI
-from ..common import WeightsPool
+from ..common import Weights
 from ..cv.annotator import annotators
 from ..cv.annotator import Annotator
 from ...zoo import ldm_sd
@@ -431,7 +431,7 @@ class DiffusionAPI(IAPI):
         clip_skip: int = 0,
     ):
         self.clip_skip = clip_skip
-        self.sd_weights = WeightsPool()
+        self.sd_weights = Weights()
         self.current_sd_version: Optional[str] = None
         # extracted the condition model so we can pre-calculate the conditions
         self.cond_model = m.condition_model

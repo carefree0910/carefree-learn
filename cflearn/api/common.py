@@ -3,8 +3,7 @@ import torch
 from pathlib import Path
 from torch.nn import Module
 from cftool.types import tensor_dict_type
-from cftool.data_structures import ILoadableItem
-from cftool.data_structures import ILoadablePool
+from cftool.data_structures import Pool
 from torch.cuda.amp.autocast_mode import autocast
 
 from ..schema import device_type
@@ -68,31 +67,12 @@ class IAPI:
         empty_cuda_cache(self.device)
 
 
-class Weights(ILoadableItem[tensor_dict_type]):
-    def __init__(
-        self,
-        path: Path,
-        *,
-        init: bool = False,
-        force_keep: bool = False,
-    ):
-        super().__init__(lambda: torch.load(path), init=init, force_keep=force_keep)
-
-
-class WeightsPool(ILoadablePool[tensor_dict_type]):
-    def register(
-        self,
-        key: str,
-        path: Path,
-        *,
-        force_keep: bool = False,
-    ) -> None:  # type: ignore
-        init_fn = lambda init: Weights(path, init=init, force_keep=force_keep)
-        super().register(key, init_fn)
+class Weights(Pool[tensor_dict_type]):
+    def register(self, key: str, path: Path) -> None:  # type: ignore
+        super().register(key, lambda: torch.load(path))
 
 
 __all__ = [
     "IAPI",
     "Weights",
-    "WeightsPool",
 ]
