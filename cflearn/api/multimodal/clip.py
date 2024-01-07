@@ -34,10 +34,17 @@ class CLIPExtractor(IAPI):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        force_not_lazy: bool = False,
         tokenizer: Optional[str] = None,
         pad_to_max: bool = True,
     ):
-        super().__init__(m, device, use_amp=use_amp, use_half=use_half)
+        super().__init__(
+            m,
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            force_not_lazy=force_not_lazy,
+        )
         self.img_size = m.img_size
         self.transform = m.get_transform()
         if tokenizer is None:

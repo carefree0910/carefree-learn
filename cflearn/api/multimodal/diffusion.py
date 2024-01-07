@@ -428,6 +428,7 @@ class DiffusionAPI(IAPI):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        force_not_lazy: bool = False,
         clip_skip: int = 0,
     ):
         self.clip_skip = clip_skip
@@ -441,7 +442,13 @@ class DiffusionAPI(IAPI):
         # inference mode flag, should be switched to `False` when `compile`d
         self._use_inference_mode = True
         # inherit
-        super().__init__(m, device, use_amp=use_amp, use_half=use_half)
+        super().__init__(
+            m,
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            force_not_lazy=force_not_lazy,
+        )
 
     # core sampling method
 
@@ -1369,6 +1376,7 @@ class DiffusionAPI(IAPI):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        force_not_lazy: bool = False,
         clip_skip: int = 0,
         **kwargs: Any,
     ) -> T:
@@ -1377,6 +1385,7 @@ class DiffusionAPI(IAPI):
             device,
             use_amp=use_amp,
             use_half=use_half,
+            force_not_lazy=force_not_lazy,
             clip_skip=clip_skip,
             **kwargs,
         )
@@ -1392,6 +1401,7 @@ class DiffusionAPI(IAPI):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        force_not_lazy: bool = False,
         clip_skip: int = 0,
         **kwargs: Any,
     ) -> T:
@@ -1400,6 +1410,7 @@ class DiffusionAPI(IAPI):
             device,
             use_amp=use_amp,
             use_half=use_half,
+            force_not_lazy=force_not_lazy,
             clip_skip=clip_skip,
             **kwargs,
         )
@@ -1411,8 +1422,15 @@ class DiffusionAPI(IAPI):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        force_not_lazy: bool = False,
     ) -> T:
-        return cls(ldm_inpainting(), device, use_amp=use_amp, use_half=use_half)
+        return cls(
+            ldm_inpainting(),
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            force_not_lazy=force_not_lazy,
+        )
 
     @classmethod
     def from_semantic(
@@ -1421,8 +1439,15 @@ class DiffusionAPI(IAPI):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        force_not_lazy: bool = False,
     ) -> T:
-        return cls(ldm_semantic(), device, use_amp=use_amp, use_half=use_half)
+        return cls(
+            ldm_semantic(),
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            force_not_lazy=force_not_lazy,
+        )
 
     # internal
 
@@ -1669,20 +1694,21 @@ class ControlledDiffusionAPI(DiffusionAPI):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        force_not_lazy: bool = False,
         clip_skip: int = 0,
         hint_channels: int = 3,
         num_pool: Optional[Union[str, int]] = "all",
-        lazy: bool = False,
+        lazy_ctrl: bool = False,
     ):
-        self.lazy = lazy
         if num_pool is None:
             self.num_pool = None
         else:
             if num_pool == "all":
                 num_pool = len(ControlNetHints)
             self.num_pool = num_pool if isinstance(num_pool, int) else None
+        self.lazy_ctrl = lazy_ctrl
         self.hint_channels = hint_channels
-        m.make_control_net({sorted(self.control_mappings)[0]: hint_channels}, lazy)
+        m.make_control_net({sorted(self.control_mappings)[0]: hint_channels}, lazy_ctrl)
         assert isinstance(m.control_model, nn.ModuleDict)
         self.control_model = m.control_model
         to_eval(m.control_model)
@@ -1698,6 +1724,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             use_amp=use_amp,
             use_half=use_half,
             clip_skip=clip_skip,
+            force_not_lazy=force_not_lazy,
         )
 
     def to(
@@ -1709,7 +1736,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         no_annotator: bool = False,
     ) -> None:
         super().to(device, use_amp=use_amp, use_half=use_half)
-        if not no_annotator and not self.lazy:
+        if not no_annotator and not self.lazy_ctrl:
             for annotator in self.annotators.values():
                 self._annotator_to(annotator)
 
@@ -1735,7 +1762,9 @@ class ControlledDiffusionAPI(DiffusionAPI):
         for hint, tag in hints2tags.items():
             if hint not in self.control_model:
                 any_new = True
-                self.m.make_control_net(self.hint_channels, self.lazy, target_key=hint)
+                self.m.make_control_net(
+                    self.hint_channels, self.lazy_ctrl, target_key=hint
+                )
             if hint not in self.controlnet_weights:
                 try:
                     d = torch.load(download_checkpoint(tag))
@@ -1825,7 +1854,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             if annotator_class is None:
                 print_warning(f"annotator '{hint}' is not implemented")
                 return
-            if self.lazy:
+            if self.lazy_ctrl:
                 annotator = annotator_class("cpu")
             else:
                 annotator = annotator_class(self.device)
@@ -1848,7 +1877,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         annotator = self.annotators.get(hint)
         if annotator is None:
             return uint8_rgb
-        if self.lazy:
+        if self.lazy_ctrl:
             self._annotator_to(annotator)
         kwargs["uint8_rgb"] = uint8_rgb
         out = safe_execute(annotator.annotate, kwargs)
@@ -1858,7 +1887,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             out = np.repeat(out, 3, axis=2)
         if binarize_threshold is not None:
             out = np.where(out > binarize_threshold, 255, 0).astype(np.uint8)
-        if self.lazy:
+        if self.lazy_ctrl:
             self._annotator_to(annotator, "cpu")
         return out
 

@@ -13,6 +13,8 @@ from ..toolkit import is_cpu
 from ..toolkit import to_eval
 from ..toolkit import empty_cuda_cache
 from ..toolkit import get_torch_device
+from ..parameters import use_cpu_api
+from ..parameters import lazy_load_api
 
 
 class IAPI(IPoolItem):
@@ -28,9 +30,11 @@ class IAPI(IPoolItem):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        force_not_lazy: bool = False,
     ):
         self.m = to_eval(m)
         self.to(device, use_amp=use_amp, use_half=use_half)
+        self.force_not_lazy = force_not_lazy
 
     @property
     def to_half(self) -> bool:
@@ -40,12 +44,23 @@ class IAPI(IPoolItem):
     def amp_context(self) -> autocast:
         return autocast(enabled=self.use_amp)
 
-    def setup(self, device: device_type, use_amp: bool, use_half: bool) -> None:
+    def setup(self, device: device_type, use_amp: bool, use_half: bool) -> bool:
+        """Returns whether anything has changed."""
+
         if use_amp and use_half:
             raise ValueError("`use_amp` & `use_half` should not be True simultaneously")
-        self.device = get_torch_device(device)
+        new_device = get_torch_device(device)
+        if (
+            all(hasattr(self, k) for k in ["device", "use_amp", "use_half"])
+            and self.device == new_device
+            and self.use_amp == use_amp
+            and self.use_half == use_half
+        ):
+            return False
+        self.device = new_device
         self.use_amp = use_amp
         self.use_half = use_half
+        return True
 
     def to(
         self,
@@ -54,7 +69,8 @@ class IAPI(IPoolItem):
         use_amp: bool = False,
         use_half: bool = False,
     ) -> None:
-        self.setup(device, use_amp, use_half)
+        if not self.setup(device, use_amp, use_half):
+            return
         device_is_cpu = is_cpu(device)
         if device_is_cpu:
             self.m.to(device)
@@ -70,12 +86,25 @@ class IAPI(IPoolItem):
 
     # pool managements
 
-    def load(self, *, device: device_type = None, **kwargs: Any) -> None:
-        if device is not None and torch.cuda.is_available():
+    @property
+    def lazy(self) -> bool:
+        return lazy_load_api() and not self.force_not_lazy
+
+    @property
+    def need_change_device(self) -> bool:
+        return self.lazy and not use_cpu_api() and torch.cuda.is_available()
+
+    def load(self, *, no_change: bool = False, **kwargs: Any) -> None:
+        if not no_change and self.need_change_device:
+            kwargs.setdefault("device", "cuda:0")
             kwargs.setdefault("use_half", True)
-            self.to(device, **kwargs)
+            self.to(**kwargs)
 
     def unload(self) -> None:
+        if self.need_change_device:
+            self.collect()
+
+    def collect(self) -> None:
         device = self.device
         if not is_cpu(device):
             self.to("cpu")

@@ -58,8 +58,15 @@ class TranslatorAPI(IAPI):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        force_not_lazy: bool = False,
     ) -> "TranslatorAPI":
-        return cls(esr(), device, use_amp=use_amp, use_half=use_half)
+        return cls(
+            esr(),
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            force_not_lazy=force_not_lazy,
+        )
 
     @classmethod
     def from_esr_anime(
@@ -68,8 +75,15 @@ class TranslatorAPI(IAPI):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        force_not_lazy: bool = False,
     ) -> "TranslatorAPI":
-        return cls(esr_anime(), device, use_amp=use_amp, use_half=use_half)
+        return cls(
+            esr_anime(),
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            force_not_lazy=force_not_lazy,
+        )
 
 
 __all__ = [
