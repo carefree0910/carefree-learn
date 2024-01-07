@@ -1,6 +1,7 @@
 import torch
 
 from typing import Any
+from typing import Protocol
 from pathlib import Path
 from torch.nn import Module
 from cftool.types import tensor_dict_type
@@ -116,7 +117,49 @@ class Weights(Pool[tensor_dict_type]):
         super().register(key, lambda: torch.load(path))
 
 
+class APIInitializer(Protocol):
+    def __call__(
+        self,
+        *,
+        device: device_type,
+        use_half: bool,
+        force_not_lazy: bool = False,
+    ) -> IAPI:
+        pass
+
+
+class APIPool(Pool[IAPI]):
+    def __init__(self, limit: int = -1, *, allow_duplicate: bool = True):
+        super().__init__(limit, allow_duplicate=allow_duplicate)
+
+    def register(
+        self,
+        key: str,
+        initializer: APIInitializer,
+        *,
+        force_not_lazy: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        if (
+            use_cpu_api()
+            or not torch.cuda.is_available()
+            or (lazy_load_api() and not force_not_lazy)
+        ):
+            device = "cpu"
+            use_half = False
+        else:
+            device = "cuda:0"
+            use_half = True
+        init_fn = lambda: initializer(
+            device=device,
+            use_half=use_half,
+            force_not_lazy=force_not_lazy,
+        )
+        super().register(key, init_fn, **kwargs)
+
+
 __all__ = [
     "IAPI",
     "Weights",
+    "APIPool",
 ]
