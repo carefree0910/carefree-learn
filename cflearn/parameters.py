@@ -1,6 +1,6 @@
-from pathlib import Path
 from typing import Any
 from typing import Dict
+from pathlib import Path
 from cftool.misc import OPTBase
 
 
@@ -35,6 +35,27 @@ class OPTClass(OPTBase):
 OPT = OPTClass()
 
 
+# meta settings
+
+
+def meta_settings() -> Dict[str, Any]:
+    return OPT.meta_settings
+
+
+## api settings
+
+
+def use_cpu_api() -> bool:
+    return meta_settings().get("use_cpu_api", False)
+
+
+def lazy_load_api() -> bool:
+    return meta_settings().get("lazy_load_api", False)
+
+
 __all__ = [
     "OPT",
+    "meta_settings",
+    "use_cpu_api",
+    "lazy_load_api",
 ]
