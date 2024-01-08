@@ -9,6 +9,8 @@ from torch import Tensor
 from cftool.cv import to_rgb
 from torchvision.transforms.functional import normalize
 
+from ...common import IAPI
+from ....schema import device_type
 from ....toolkit import download_checkpoint
 
 
@@ -464,28 +466,35 @@ class ISNetDIS(nn.Module):
         ], [hx1d, hx2d, hx3d, hx4d, hx5d, hx6]
 
 
-class ISNetAPI:
-    def __init__(self, device: str = "cpu", *, use_half: bool = False) -> None:
-        self.model = ISNetDIS()
-        self.device = device
+class ISNetAPI(IAPI):
+    def __init__(
+        self,
+        device: device_type = None,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+        force_not_lazy: bool = False
+    ):
+        super().__init__(
+            ISNetDIS(),
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            force_not_lazy=force_not_lazy,
+        )
         model_path = download_checkpoint("isnet")
-        self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
-        self.model.to(device)
-        self.model.eval()
-
-    def to(self, device: str, *, use_half: bool = False) -> None:
-        self.device = device
-        self.model.to(device)
+        self.m.load_state_dict(torch.load(model_path, map_location=self.device))
 
     @torch.no_grad()
     def segment(self, image: Image.Image) -> np.ndarray:
         rgb = np.array(to_rgb(image))
         shape = rgb.shape[:2]
-        net = torch.tensor(rgb, dtype=torch.float32, device=self.device)
+        dtype = torch.float16 if self.use_half else torch.float32
+        net = torch.tensor(rgb, dtype=dtype, device=self.device)
         net = net.permute(2, 0, 1)[None]
         net = F.interpolate(net, (1024, 1024), mode="bilinear")
         net = normalize(net / 255.0, [0.5, 0.5, 0.5], [1.0, 1.0, 1.0])
-        net = self.model(net)
+        net = self.m(net)
         net = F.interpolate(net[0][0], shape, mode="bilinear")
         net_min, net_max = net.min(), net.max()
         net = (net - net_min) / (net_max - net_min)
