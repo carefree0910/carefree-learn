@@ -1,6 +1,7 @@
 import torch
 
 from typing import Any
+from typing import Dict
 from typing import Optional
 from typing import Protocol
 from pathlib import Path
@@ -135,7 +136,7 @@ class APIInitializer(Protocol):
 class APIPool(Pool[IAPI]):
     def __init__(self, limit: int = -1, *, allow_duplicate: bool = True):
         super().__init__(limit, allow_duplicate=allow_duplicate)
-        self.custom_use_halfs = {}
+        self.custom_use_halfs: Dict[str, bool] = {}
 
     def register(
         self,
