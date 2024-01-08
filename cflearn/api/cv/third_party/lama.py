@@ -5,7 +5,6 @@ import numpy as np
 from abc import abstractmethod
 from enum import Enum
 from numpy import ndarray
-from typing import Any
 from typing import List
 from typing import Tuple
 from typing import Union
@@ -15,6 +14,8 @@ from PIL.Image import Image
 from cftool.cv import to_uint8
 from cftool.cv import read_image
 
+from ...common import IAPI
+from ....schema import device_type
 from ....toolkit import download_checkpoint
 
 try:
@@ -109,18 +110,10 @@ class Config(NamedTuple):
     hd_strategy_crop_margin: int = 196
 
 
-class InpaintModel:
+class InpaintAPI(IAPI):
     min_size: Optional[int] = None
     pad_mod: int = 8
     pad_to_square: bool = False
-
-    def __init__(self, device: str = "cpu", *, use_half: bool = False):
-        self.device = device
-        self.init_model(device, use_half=use_half)
-
-    @abstractmethod
-    def init_model(self, device: str, *, use_half: bool = False) -> None:
-        pass
 
     @abstractmethod
     def forward(
@@ -254,44 +247,39 @@ class InpaintModel:
         return self._pad_and_run(crop_img, crop_mask, config), [l, t, r, b]
 
 
-class LaMa(InpaintModel):
+class LaMaAPI(InpaintAPI):
     pad_mod = 8
 
-    def init_model(self, device: str, *, use_half: bool = False) -> None:
+    def __init__(
+        self,
+        device: device_type = None,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+        force_not_lazy: bool = False,
+    ):
         if cv2 is None:
             raise RuntimeError("`cv2` is needed for `LaMa`")
         model_path = download_checkpoint("lama")
-        model = torch.jit.load(model_path, map_location="cpu")
-        model = model.to(device)
-        model.eval()
-        self.model = model
-        self.model_path = model_path
-
-    def to(self, device: str, *, use_half: bool = False) -> None:
-        self.device = device
-        self.model.to(device)
+        super().__init__(
+            torch.jit.load(model_path, map_location="cpu"),
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            force_not_lazy=force_not_lazy,
+        )
 
     def forward(self, image: ndarray, mask: ndarray, config: Config) -> ndarray:
         image_tensor, mask_tensor = map(to_tensor, [image, mask])
-        image_tensor = image_tensor.to(self.device)
-        mask_tensor = mask_tensor.to(self.device)
-        net = self.model(image_tensor, mask_tensor)
+        image_tensor = image_tensor.to(self.device, self.dtype)
+        mask_tensor = mask_tensor.to(self.device, self.dtype)
+        net = self.m(image_tensor, mask_tensor)
         net = net[0].permute(1, 2, 0).cpu().numpy()
         return net
 
-
-class LaMaAPI:
-    def __init__(self, device: torch.device) -> None:
-        self.lama = LaMa(device)
-
     def inpaint(self, image: Union[str, Image], mask: Union[str, Image]) -> np.ndarray:
         cfg = Config()
-        image_arr = read_image(
-            image,
-            None,
-            anchor=None,
-            to_torch_fmt=False,
-        ).image
+        image_arr = read_image(image, None, anchor=None, to_torch_fmt=False).image
         mask_arr = read_image(
             mask,
             None,
@@ -300,7 +288,7 @@ class LaMaAPI:
             to_torch_fmt=False,
         ).image
         mask_arr[mask_arr > 0.0] = 1.0
-        return self.lama(image_arr, mask_arr, cfg)
+        return self(image_arr, mask_arr, cfg)
 
 
 __all__ = [
