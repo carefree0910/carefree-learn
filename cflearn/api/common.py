@@ -14,8 +14,7 @@ from ..toolkit import is_cpu
 from ..toolkit import to_eval
 from ..toolkit import empty_cuda_cache
 from ..toolkit import get_torch_device
-from ..parameters import use_cpu_api
-from ..parameters import lazy_load_api
+from ..parameters import OPT
 
 
 class IAPI(IPoolItem):
@@ -89,11 +88,11 @@ class IAPI(IPoolItem):
 
     @property
     def lazy(self) -> bool:
-        return lazy_load_api() and not self.force_not_lazy
+        return OPT.lazy_load_api and not self.force_not_lazy
 
     @property
     def need_change_device(self) -> bool:
-        return self.lazy and not use_cpu_api() and torch.cuda.is_available()
+        return self.lazy and not OPT.use_cpu_api and torch.cuda.is_available()
 
     def load(self, *, no_change: bool = False, **kwargs: Any) -> None:
         if not no_change and self.need_change_device:
@@ -141,9 +140,9 @@ class APIPool(Pool[IAPI]):
         **kwargs: Any,
     ) -> None:
         if (
-            use_cpu_api()
+            OPT.use_cpu_api
             or not torch.cuda.is_available()
-            or (lazy_load_api() and not force_not_lazy)
+            or (OPT.lazy_load_api and not force_not_lazy)
         ):
             device = "cpu"
             use_half = False

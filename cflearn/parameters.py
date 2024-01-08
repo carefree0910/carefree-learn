@@ -7,7 +7,11 @@ from cftool.misc import OPTBase
 class OPTClass(OPTBase):
     cache_dir: Path
     external_dir: Path
+    # this is used for `run_multiple` (cflearn/api.py -> run_multiple)
     meta_settings: Dict[str, Any]
+    # api settings
+    use_cpu_api: bool
+    lazy_load_api: bool
 
     @property
     def env_key(self) -> str:
@@ -20,6 +24,8 @@ class OPTClass(OPTBase):
             cache_dir=user_dir / ".cache" / "carefree-learn",
             external_dir=user_dir / ".cache" / "carefree-learn" / "external",
             meta_settings={},
+            use_cpu_api=False,
+            lazy_load_api=False,
         )
 
     @property
@@ -35,27 +41,6 @@ class OPTClass(OPTBase):
 OPT = OPTClass()
 
 
-# meta settings
-
-
-def meta_settings() -> Dict[str, Any]:
-    return OPT.meta_settings
-
-
-## api settings
-
-
-def use_cpu_api() -> bool:
-    return meta_settings().get("use_cpu_api", False)
-
-
-def lazy_load_api() -> bool:
-    return meta_settings().get("lazy_load_api", False)
-
-
 __all__ = [
     "OPT",
-    "meta_settings",
-    "use_cpu_api",
-    "lazy_load_api",
 ]
