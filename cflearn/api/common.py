@@ -37,6 +37,10 @@ class IAPI(IPoolItem):
         self.force_not_lazy = force_not_lazy
 
     @property
+    def dtype(self) -> torch.dtype:
+        return torch.float16 if self.use_half else torch.float32
+
+    @property
     def to_half(self) -> bool:
         return self.use_amp or self.use_half
 

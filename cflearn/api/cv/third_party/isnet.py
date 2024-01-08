@@ -489,8 +489,7 @@ class ISNetAPI(IAPI):
     def segment(self, image: Image.Image) -> np.ndarray:
         rgb = np.array(to_rgb(image))
         shape = rgb.shape[:2]
-        dtype = torch.float16 if self.use_half else torch.float32
-        net = torch.tensor(rgb, dtype=dtype, device=self.device)
+        net = torch.tensor(rgb, dtype=self.dtype, device=self.device)
         net = net.permute(2, 0, 1)[None]
         net = F.interpolate(net, (1024, 1024), mode="bilinear")
         net = normalize(net / 255.0, [0.5, 0.5, 0.5], [1.0, 1.0, 1.0])
