@@ -277,6 +277,7 @@ class LaMaAPI(InpaintAPI):
         net = net[0].permute(1, 2, 0).cpu().numpy()
         return net
 
+    # return normalized image array
     def inpaint(self, image: Union[str, Image], mask: Union[str, Image]) -> np.ndarray:
         cfg = Config()
         image_arr = read_image(image, None, anchor=None, to_torch_fmt=False).image

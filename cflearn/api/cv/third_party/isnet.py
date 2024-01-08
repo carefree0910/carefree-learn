@@ -485,6 +485,7 @@ class ISNetAPI(IAPI):
         model_path = download_checkpoint("isnet")
         self.m.load_state_dict(torch.load(model_path, map_location=self.device))
 
+    # return normalized image array
     @torch.no_grad()
     def segment(self, image: Image.Image) -> np.ndarray:
         rgb = np.array(to_rgb(image))
