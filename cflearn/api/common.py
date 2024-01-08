@@ -87,12 +87,12 @@ class IAPI(IPoolItem):
     # pool managements
 
     @property
-    def lazy(self) -> bool:
+    def lazy_load(self) -> bool:
         return OPT.lazy_load_api and not self.force_not_lazy
 
     @property
     def need_change_device(self) -> bool:
-        return self.lazy and not OPT.use_cpu_api and torch.cuda.is_available()
+        return self.lazy_load and not OPT.use_cpu_api and torch.cuda.is_available()
 
     def load(self, *, no_change: bool = False, **kwargs: Any) -> None:
         if not no_change and self.need_change_device:
