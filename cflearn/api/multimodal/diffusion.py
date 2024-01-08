@@ -432,7 +432,7 @@ class DiffusionAPI(IAPI):
         clip_skip: int = 0,
     ):
         self.clip_skip = clip_skip
-        self.sd_weights = Weights()
+        self.sd_weights = Weights(OPT.sd_weights_pool_limit)
         self.current_sd_version: Optional[str] = None
         # extracted the condition model so we can pre-calculate the conditions
         self.cond_model = m.condition_model
