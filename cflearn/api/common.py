@@ -1,12 +1,14 @@
 import torch
 
 from typing import Any
+from typing import Optional
 from typing import Protocol
 from pathlib import Path
 from torch.nn import Module
 from cftool.types import tensor_dict_type
 from cftool.data_structures import Pool
 from cftool.data_structures import IPoolItem
+from cftool.data_structures import PoolItemContext
 from torch.cuda.amp.autocast_mode import autocast
 
 from ..schema import device_type
@@ -101,7 +103,6 @@ class IAPI(IPoolItem):
     def load(self, *, no_change: bool = False, **kwargs: Any) -> None:
         if not no_change and self.need_change_device:
             kwargs.setdefault("device", "cuda:0")
-            kwargs.setdefault("use_half", True)
             self.to(**kwargs)
 
     def unload(self) -> None:
@@ -134,31 +135,41 @@ class APIInitializer(Protocol):
 class APIPool(Pool[IAPI]):
     def __init__(self, limit: int = -1, *, allow_duplicate: bool = True):
         super().__init__(limit, allow_duplicate=allow_duplicate)
+        self.custom_use_halfs = {}
 
     def register(
         self,
         key: str,
         initializer: APIInitializer,
         *,
+        use_half: Optional[bool] = None,
         force_not_lazy: bool = False,
         **kwargs: Any,
     ) -> None:
+        if use_half is not None:
+            self.custom_use_halfs[key] = use_half
         if (
             OPT.use_cpu_api
             or not torch.cuda.is_available()
             or (OPT.lazy_load_api and not force_not_lazy)
         ):
             device = "cpu"
-            use_half = False
+            if use_half is None:
+                use_half = False
         else:
             device = "cuda:0"
-            use_half = True
+            if use_half is None:
+                use_half = True
         init_fn = lambda: initializer(
             device=device,
             use_half=use_half,
             force_not_lazy=force_not_lazy,
         )
         super().register(key, init_fn, **kwargs)
+
+    def use(self, key: str, **kwargs: Any) -> PoolItemContext:
+        kwargs.setdefault("use_half", self.custom_use_halfs.get(key, True))
+        return super().use(key, **kwargs)
 
 
 __all__ = [
