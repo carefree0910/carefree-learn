@@ -16,15 +16,12 @@ class Predictor:
     def __init__(
         self,
         net: nn.Module,
-        device: torch.device,
         *,
         with_flip: bool = False,
         mean: Tuple[float, float, float] = (0.485, 0.456, 0.406),
         std: Tuple[float, float, float] = (0.229, 0.224, 0.225),
     ):
-        self.device = device
-        self.net = net.to(self.device)
-        self.net.eval()
+        self.net = net
 
         if hasattr(net, "depth"):
             size_divisor = 2 ** (net.depth + 1)
@@ -43,16 +40,18 @@ class Predictor:
         if with_flip:
             self.transforms.append(AddFlippedTensor())
 
-    def to(self, device: torch.device) -> None:
-        self.device = device
-        self.net.to(device)
-
     # return uint8 image array
     @torch.no_grad()
-    def predict(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    def predict(
+        self,
+        image: np.ndarray,
+        mask: np.ndarray,
+        dtype: torch.dtype,
+        device: torch.device,
+    ) -> np.ndarray:
         for transform in self.transforms:
             image, mask = transform.transform(image, mask)
-        image, mask = image.to(self.device), mask.to(self.device)
+        image, mask = image.to(device, dtype), mask.to(device, dtype)
         predicted_image = self.net(image, mask)["images"].cpu()
         for transform in reversed(self.transforms):
             predicted_image = transform.inv_transform(predicted_image)
