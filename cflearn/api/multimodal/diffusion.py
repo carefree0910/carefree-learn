@@ -1698,7 +1698,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         clip_skip: int = 0,
         hint_channels: int = 3,
         num_pool: Optional[Union[str, int]] = "all",
-        lazy_ctrl: bool = False,
+        lazy: bool = False,
     ):
         if num_pool is None:
             self.num_pool = None
@@ -1706,9 +1706,9 @@ class ControlledDiffusionAPI(DiffusionAPI):
             if num_pool == "all":
                 num_pool = len(ControlNetHints)
             self.num_pool = num_pool if isinstance(num_pool, int) else None
-        self.lazy_ctrl = lazy_ctrl
+        self.lazy = lazy
         self.hint_channels = hint_channels
-        m.make_control_net({sorted(self.control_mappings)[0]: hint_channels}, lazy_ctrl)
+        m.make_control_net({sorted(self.control_mappings)[0]: hint_channels}, lazy)
         assert isinstance(m.control_model, nn.ModuleDict)
         self.control_model = m.control_model
         to_eval(m.control_model)
@@ -1736,7 +1736,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         no_annotator: bool = False,
     ) -> None:
         super().to(device, use_amp=use_amp, use_half=use_half)
-        if not no_annotator and not self.lazy_ctrl:
+        if not no_annotator and not self.lazy:
             for annotator in self.annotators.values():
                 self._annotator_to(annotator)
 
@@ -1762,9 +1762,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         for hint, tag in hints2tags.items():
             if hint not in self.control_model:
                 any_new = True
-                self.m.make_control_net(
-                    self.hint_channels, self.lazy_ctrl, target_key=hint
-                )
+                self.m.make_control_net(self.hint_channels, self.lazy, target_key=hint)
             if hint not in self.controlnet_weights:
                 try:
                     d = torch.load(download_checkpoint(tag))
@@ -1854,7 +1852,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             if annotator_class is None:
                 print_warning(f"annotator '{hint}' is not implemented")
                 return
-            if self.lazy_ctrl:
+            if self.lazy:
                 annotator = annotator_class("cpu")
             else:
                 annotator = annotator_class(self.device)
@@ -1877,7 +1875,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         annotator = self.annotators.get(hint)
         if annotator is None:
             return uint8_rgb
-        if self.lazy_ctrl:
+        if self.lazy:
             self._annotator_to(annotator)
         kwargs["uint8_rgb"] = uint8_rgb
         out = safe_execute(annotator.annotate, kwargs)
@@ -1887,7 +1885,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             out = np.repeat(out, 3, axis=2)
         if binarize_threshold is not None:
             out = np.where(out > binarize_threshold, 255, 0).astype(np.uint8)
-        if self.lazy_ctrl:
+        if self.lazy:
             self._annotator_to(annotator, "cpu")
         return out
 
