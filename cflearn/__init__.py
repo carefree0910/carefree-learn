@@ -18,9 +18,10 @@ from .dist import *
 from .zoo import *
 
 from .api import *
-from .api import cv
-from .api import ml
 from .api import api
+from .api import ml
+from .api import cv
+from .api import nlp
 from .api import multimodal
 
 from . import scripts
