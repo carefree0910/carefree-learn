@@ -1,7 +1,11 @@
 import torch
 
 from typing import List
+from typing import Optional
 from typing import NamedTuple
+
+from ...common import IAPI
+from ....schema import device_type
 
 try:
     from transformers import GPT2Tokenizer
@@ -10,7 +14,7 @@ except:
     GPT2Tokenizer = GPT2LMHeadModel = None
 
 
-class PromptEnhanceConfig(NamedTuple):
+class PromptConfig(NamedTuple):
     temperature: float = 0.9
     top_k: int = 8
     max_length: int = 76
@@ -19,23 +23,32 @@ class PromptEnhanceConfig(NamedTuple):
     comma_mode: bool = False
 
 
-class PromptEnhanceAPI:
-    def __init__(self, device: str = "cpu", *, use_half: bool = False) -> None:
+class PromptEnhanceAPI(IAPI):
+    def __init__(
+        self,
+        device: device_type = None,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+        force_not_lazy: bool = False
+    ):
         if GPT2Tokenizer is None or GPT2LMHeadModel is None:
             raise ValueError("`trainsformers` is required for `PromptEnhanceAPI`")
         self.tokenizer = GPT2Tokenizer.from_pretrained("distilgpt2")
         self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
         version = "FredZhang7/distilgpt2-stable-diffusion-v2"
-        model = GPT2LMHeadModel.from_pretrained(version)
-        self.model = model.half().to(device)
-        self.device = device
-
-    def to(self, device: str, *, use_half: bool = False) -> None:
-        self.device = device
-        self.model.to(device)
+        super().__init__(
+            GPT2LMHeadModel.from_pretrained(version),
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            force_not_lazy=force_not_lazy,
+        )
 
     @torch.no_grad()
-    def enhance(self, prompt: str, config: PromptEnhanceConfig) -> List[str]:
+    def enhance(self, prompt: str, config: Optional[PromptConfig] = None) -> List[str]:
+        if config is None:
+            config = PromptConfig()
         input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids
         input_ids = input_ids.to(self.device)
         kw = dict(
@@ -49,11 +62,11 @@ class PromptEnhanceAPI:
         )
         if not config.comma_mode:
             kw.update(dict(penalty_alpha=0.6, no_repeat_ngram_size=1))
-        outputs = self.model.generate(input_ids, **kw)
+        outputs = self.m.generate(input_ids, **kw)
         return [self.tokenizer.decode(out, skip_special_tokens=True) for out in outputs]
 
 
 __all__ = [
-    "PromptEnhanceConfig",
+    "PromptConfig",
     "PromptEnhanceAPI",
 ]
