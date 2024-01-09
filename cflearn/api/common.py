@@ -1,5 +1,6 @@
 import torch
 
+from cftool import console
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -147,6 +148,14 @@ class APIPool(Pool[IAPI]):
         force_not_lazy: bool = False,
         **kwargs: Any,
     ) -> None:
+        def init_fn() -> IAPI:
+            console.log(f"initializing API '{key}'")
+            return initializer(
+                device=device,
+                use_half=use_half,  # type: ignore
+                force_not_lazy=force_not_lazy,
+            )
+
         if use_half is not None:
             self.custom_use_halfs[key] = use_half
         if (
@@ -161,11 +170,6 @@ class APIPool(Pool[IAPI]):
             device = "cuda:0"
             if use_half is None:
                 use_half = True
-        init_fn = lambda: initializer(
-            device=device,
-            use_half=use_half,
-            force_not_lazy=force_not_lazy,
-        )
         super().register(key, init_fn, **kwargs)
 
     def use(self, key: str, **kwargs: Any) -> PoolItemContext:
