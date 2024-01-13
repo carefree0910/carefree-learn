@@ -10,7 +10,7 @@ from ..core import MixedStackedEncoder
 from ..common import register_module
 
 
-class MixedStackedModel(nn.Module):
+class MixedStackedModule(nn.Module):
     def __init__(
         self,
         input_dim: int,
@@ -60,7 +60,7 @@ class MixedStackedModel(nn.Module):
 
 
 @register_module("ml_fnet")
-class FNet(MixedStackedModel):
+class FNet(MixedStackedModule):
     def __init__(
         self,
         input_dim: int,
@@ -88,7 +88,7 @@ class FNet(MixedStackedModel):
 
 
 @register_module("ml_mixer")
-class Mixer(MixedStackedModel):
+class Mixer(MixedStackedModule):
     def __init__(
         self,
         input_dim: int,
@@ -116,7 +116,7 @@ class Mixer(MixedStackedModel):
 
 
 @register_module("ml_transformer")
-class Transformer(MixedStackedModel):
+class Transformer(MixedStackedModule):
     def __init__(
         self,
         input_dim: int,
@@ -151,7 +151,7 @@ class Transformer(MixedStackedModel):
 
 
 @register_module("ml_pool_former")
-class PoolFormer(MixedStackedModel):
+class PoolFormer(MixedStackedModule):
     def __init__(
         self,
         input_dim: int,
@@ -179,7 +179,7 @@ class PoolFormer(MixedStackedModel):
 
 
 __all__ = [
-    "MixedStackedModel",
+    "MixedStackedModule",
     "FNet",
     "Mixer",
     "Transformer",
