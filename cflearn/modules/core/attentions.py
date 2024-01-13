@@ -241,7 +241,7 @@ class Attention(Module, IAttention, IHijackMixin):
                 raise ValueError("currently `hook` does not support `reduction`")
             q, k, v = self.hook.after_forward(qkv_inp, (q, k, v))
         q, k, v = map(self.activation, [q, k, v])
-        # B, N*, D -> B * N_head, N*, D_head
+        # B, N*, D -> B, N_head, N*, D_head
         q, k, v = map(self._to_heads, [q, k, v], [deterministic] * 3)
         if mask is not None:
             # B, Nq, Nk -> B, N_head, Nq, Nk
