@@ -221,11 +221,7 @@ class Attention(Module, IAttention, IHijackMixin):
             # B, Nq, Din -> B, Nq, D
             q = F.linear(q, self.q_w, self.q_bias)
             # B, Nk, Dk -> B, Nk, D
-            if self.reduction is not None:
-                if hw is None:
-                    msg = "`hw` should be provided when `reduction` is applied"
-                    raise ValueError(msg)
-                k = self._reduce(k, hw)
+            k = self._reduce(k, hw)
             k, v = F.linear(k, self.kv_w, self.kv_bias).chunk(2, dim=-1)
         else:
             if self.qkv_bias is not None:
