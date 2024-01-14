@@ -38,8 +38,6 @@ class SetMLDefaultsBlock(SetDefaultsBlock):
         return self.data.processor.try_get_block(RecognizerBlock)
 
     def _infer_encoder_settings(self, config: MLConfig) -> None:
-        if config.encoder_settings is not None:
-            return
         if not config.infer_encoder_settings:
             return
         if self.data is None:
@@ -55,8 +53,10 @@ class SetMLDefaultsBlock(SetDefaultsBlock):
                 "but `RecognizerBlock` is not provided, it will take no effect"
             )
             return
-        encoder_settings = {}
+        encoder_settings = shallow_copy_dict(config.encoder_settings or {})
         for original_idx in b_recognizer.index_mapping:
+            if original_idx in encoder_settings:
+                continue
             if b_recognizer.feature_types[original_idx] == ColumnTypes.CATEGORICAL:
                 dim = b_recognizer.num_unique_features[original_idx]
                 encoder_settings[original_idx] = MLEncoderSettings(dim)
