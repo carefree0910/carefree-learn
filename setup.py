@@ -7,6 +7,15 @@ DESCRIPTION = "Deep Learning with PyTorch made easy"
 with open("README.md", encoding="utf-8") as f:
     LONG_DESCRIPTION = f.read()
 
+onnx_requires = [
+    "onnx",
+    "onnxruntime",
+    "onnx-simplifier>=0.4.1",
+]
+ml_requires = [
+    "captum",
+    "mlflow",
+]
 cv_requires = [
     "ftfy",
     "lmdb",
@@ -18,16 +27,15 @@ cv_requires = [
     "scipy>=1.8.0",
     "opencv-python-headless",
 ]
-cv_full_requires = cv_requires + [
-    "timm",
-    "salesforce-lavis",
-    "xformers>=0.0.19",
-]
-onnx_requires = [
-    "onnx",
-    "onnxruntime",
-    "onnx-simplifier>=0.4.1",
-]
+cv_full_requires = (
+    cv_requires
+    + onnx_requires
+    + [
+        "timm",
+        "salesforce-lavis",
+        "xformers>=0.0.19",
+    ]
+)
 
 setup(
     name="carefree-learn",
@@ -41,10 +49,12 @@ setup(
     ],
     extras_require={
         "onnx": onnx_requires,
+        "ml": ml_requires,
+        "ml_full": ml_requires + onnx_requires,
         "cv": cv_requires,
         "cv_full": cv_full_requires,
-        "full": cv_full_requires
-        + onnx_requires
+        "full": ml_requires
+        + cv_full_requires
         + [
             "open_clip_torch",
             "faiss-cpu",
@@ -52,7 +62,6 @@ setup(
             "ortools>=9.3.0",
             "sacremoses",
             "sentencepiece",
-            "mlflow==2.6.0",
             "plotly",
         ],
     },
