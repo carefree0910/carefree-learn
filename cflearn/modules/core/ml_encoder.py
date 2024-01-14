@@ -31,7 +31,7 @@ class OneHot(Lambda):
     def __init__(self, dim: int):
         self.dim = dim
         one_hot_fn = lambda column: F.one_hot(column, dim)
-        super().__init__(one_hot_fn, f"one_hot_{dim}")
+        super().__init__(one_hot_fn, str(dim))
 
     def forward(self, net: Tensor) -> Tensor:
         return super().forward(net).to(torch.float32)
