@@ -198,7 +198,7 @@ class Encoder(nn.Module):
             if self.all_one_hot:
                 one_hot_indices = indices
             else:
-                one_hot_indices = indices[..., self.one_hot_columns]
+                one_hot_indices = x_batch[..., self.one_hot_columns].to(torch.long)
             one_hot = self._one_hot(one_hot_indices)
         # embedding
         if not self.use_embedding:
@@ -207,7 +207,7 @@ class Encoder(nn.Module):
             if self.all_embedding:
                 embedding_indices = indices
             else:
-                embedding_indices = indices[..., self.embedding_columns]
+                embedding_indices = x_batch[..., self.embedding_columns].to(torch.long)
             embedding = self._embedding(embedding_indices)
         # return
         return EncodingResult(indices, one_hot, embedding)
