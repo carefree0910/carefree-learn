@@ -38,6 +38,18 @@ class TestExample(unittest.TestCase):
             0,
         )
 
+    def test_titanic_interpret(self) -> None:
+        try:
+            import captum
+            import matplotlib
+        except:
+            return
+        folder = os.path.join(examples_folder, "titanic")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'test_titanic_interpret.py')}"),
+            0,
+        )
+
     def test_operations(self) -> None:
         folder = os.path.join(examples_folder, "operations")
         self.assertEqual(
