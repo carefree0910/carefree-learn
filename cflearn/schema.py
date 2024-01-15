@@ -1074,6 +1074,9 @@ class IDLModel(WithRegister["IDLModel"], metaclass=ABCMeta):
 
     __repr__ = __str__
 
+    def __call__(self, *args: Any, **kwargs: Any) -> forward_results_type:
+        return self.forward(*args, **kwargs)
+
     # abstract
 
     m: nn.Module
