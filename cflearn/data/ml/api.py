@@ -25,11 +25,13 @@ from ..blocks import PreProcessorBlock
 from ..blocks import MLPreProcessConfig
 from ..utils import ArrayLoader
 from ..utils import IArrayDataset
+from ..blocks.ml.file import get_x_column_name
 from ...schema import data_type
 from ...schema import sample_weights_type
 from ...schema import IData
 from ...schema import IDataBlock
 from ...schema import DataConfig
+from ...schema import ColumnTypes
 from ...schema import DataProcessor
 from ...schema import DataProcessorConfig
 from ...constants import INPUT_KEY
@@ -231,6 +233,24 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
         if not self.processor.is_ready:
             raise ValueError("`processor` is not ready yet")
         return self.processor.get_block(GatherBlock).num_labels
+
+    @property
+    def feature_header(self) -> List[str]:
+        if not self.processor.is_ready:
+            raise ValueError("`processor` is not ready yet")
+        file_parser = self.processor.try_get_block(FileParserBlock)
+        if file_parser is None:
+            x = self.train_dataset.x
+            return list(map(get_x_column_name, range(x.shape[-1])))
+        feature_header = file_parser.feature_header
+        recognizer = self.processor.try_get_block(RecognizerBlock)
+        if recognizer is None:
+            return feature_header
+        return [
+            h
+            for i, h in enumerate(feature_header)
+            if recognizer.feature_types[str(i)] != ColumnTypes.REDUNDANT
+        ]
 
     def build_loader(
         self,
