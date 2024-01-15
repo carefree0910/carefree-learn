@@ -83,8 +83,8 @@ class PoseAnnotator(Annotator):
         self.m.to(device, use_half=use_half)
         return self
 
-    def annotate(self, uint8_rgb: np.ndarray) -> np.ndarray:  # type: ignore
-        return self.m(uint8_rgb)[0]
+    def annotate(self, uint8_rgb: np.ndarray, hand: bool = False) -> np.ndarray:  # type: ignore
+        return self.m(uint8_rgb, hand)[0]
 
 
 @Annotator.register("mlsd")
