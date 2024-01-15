@@ -363,7 +363,7 @@ class DataBundle(DataClassBase):
 
 class IDataBlock(PureFromInfoMixin, IBlock, ISerializable, metaclass=ABCMeta):
     """
-    `IDataBlock` is a block that can transform data, it's initialization/serialization
+    `IDataBlock` is a block that can transform data, its initialization/serialization
     is designed as follows:
 
     1. The `__init__` method:
@@ -543,8 +543,6 @@ class DataProcessor(IPipeline):
         self.before_build_in_init()
         self.build(*(IDataBlock.get(name)() for name in self.config.block_names))  # type: ignore
         return self
-
-    # optional callbacks
 
     @property
     def config_base(self) -> Type[DataProcessorConfig]:
