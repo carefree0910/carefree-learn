@@ -260,9 +260,15 @@ class LaMaAPI(InpaintAPI):
     ):
         if cv2 is None:
             raise RuntimeError("`cv2` is needed for `LaMa`")
+        if use_half:
+            use_half = False
+            print(
+                "`use_half` is not well supported for `LaMa`, "
+                "will use `use_half=False` instead"
+            )
         model_path = download_checkpoint("lama")
         super().__init__(
-            torch.jit.load(model_path, map_location="cpu"),
+            torch.jit.load(model_path, map_location="cpu").float(),
             device,
             use_amp=use_amp,
             use_half=use_half,
@@ -271,8 +277,8 @@ class LaMaAPI(InpaintAPI):
 
     def forward(self, image: ndarray, mask: ndarray, config: Config) -> ndarray:
         image_tensor, mask_tensor = map(to_tensor, [image, mask])
-        image_tensor = image_tensor.to(self.device, self.dtype)
-        mask_tensor = mask_tensor.to(self.device, self.dtype)
+        image_tensor = image_tensor.to(self.device, torch.float32)
+        mask_tensor = mask_tensor.to(self.device, torch.float32)
         net = self.m(image_tensor, mask_tensor)
         net = net[0].permute(1, 2, 0).cpu().numpy()
         return net
